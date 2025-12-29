@@ -1,0 +1,31 @@
+﻿@page "/browse"
+@page "/browse/{*Path}"
+
+<h3>@(CurrentPath == "" ? "Root" : CurrentPath)</h3>
+
+@if (Node == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <ul>
+        @foreach (var child in Node.Children.Values
+       .OrderByDescending(x => x.IsDirectory)
+       .ThenBy(x => x.Name))
+        {
+            <li>
+                @if (child.IsDirectory)
+                {
+                    <a href="@DirLink(child.Name)">📁 @child.Name</a>
+                }
+                else
+                {
+                    <a href="@FileLink(child.Name)" target="_blank">
+                        📄 @child.Name
+                    </a>
+                }
+            </li>
+        }
+    </ul>
+}

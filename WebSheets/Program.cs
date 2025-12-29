@@ -1,10 +1,14 @@
 using WebSheets.Components;
+using WebSheets.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<ManifestService>();
+
 
 var app = builder.Build();
 
