@@ -1,7 +1,9 @@
 ﻿@page "/browse"
 @page "/browse/{*Path}"
 
-<h3>@(CurrentPath == "" ? "Root" : CurrentPath)</h3>
+<PageTitle>Browse</PageTitle>
+
+<h3>@(CurrentPath == "" ? "Browse" : CurrentPath)</h3>
 
 @if (Node == null)
 {
