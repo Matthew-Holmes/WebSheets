@@ -33,6 +33,12 @@ else
                     <a href="@FileLink(child.Name)" target="_blank">
                         📄 @child.CleanName
                     </a>
+
+                    @* If the file is a PDF, add a source link *@
+                    @if (child.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <span> &nbsp; &nbsp; &nbsp; &nbsp; -  <a href="@SourceCodeLink(child.Name)" target="_blank">source</a></span>
+                    }
                 }
             </li>
         }
