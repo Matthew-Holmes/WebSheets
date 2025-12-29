@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35806.99 d17.13
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebSheets", "WebSheets\WebSheets.csproj", "{8BC13D3B-3D36-4451-B5F9-92080016C88B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8BC13D3B-3D36-4451-B5F9-92080016C88B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8BC13D3B-3D36-4451-B5F9-92080016C88B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8BC13D3B-3D36-4451-B5F9-92080016C88B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8BC13D3B-3D36-4451-B5F9-92080016C88B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {FF155A0F-5955-40C4-8874-11977E6D2555}
+	EndGlobalSection
+EndGlobal
