@@ -55,4 +55,15 @@ public partial class Browse : ComponentBase
 
         return Manifest.CloudFrontBaseUrl + fullPath;
     }
+
+    private string ParentDirLink()
+    {
+        if (string.IsNullOrEmpty(CurrentPath))
+            return "/browse";
+
+        var lastSlash = CurrentPath.LastIndexOf('/');
+        return lastSlash == -1
+            ? "/browse"
+            : $"/browse/{CurrentPath[..lastSlash]}";
+    }
 }

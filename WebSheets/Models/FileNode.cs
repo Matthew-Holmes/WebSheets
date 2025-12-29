@@ -27,5 +27,9 @@
 
         public bool IsDirectory { get; set; }
         public Dictionary<string, FileNode> Children { get; set; } = new();
+
+        public FileNode? Parent { get; init; }
+
+
     }
 }

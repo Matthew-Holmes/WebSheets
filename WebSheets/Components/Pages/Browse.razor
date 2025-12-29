@@ -11,6 +11,13 @@
 }
 else
 {
+    @if (Node.Parent != null)
+    {
+        <p>
+            <a href="@ParentDirLink()">⬅️ Back</a>
+        </p>
+    }
+
     <ul>
         @foreach (var child in Node.Children.Values
        .OrderByDescending(x => x.IsDirectory)

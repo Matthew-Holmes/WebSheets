@@ -138,7 +138,8 @@ namespace WebSheets.Services
             var root = new FileNode
             {
                 Name = "",
-                IsDirectory = true
+                IsDirectory = true,
+                Parent = null,
             };
 
             foreach (var line in manifest.Split('\n', StringSplitOptions.RemoveEmptyEntries))
@@ -158,7 +159,8 @@ namespace WebSheets.Services
                         node = new FileNode
                         {
                             Name = part,
-                            IsDirectory = isDir
+                            IsDirectory = isDir,
+                            Parent = current,
                         };
                         current.Children[part] = node;
                     }
