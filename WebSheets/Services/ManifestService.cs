@@ -47,6 +47,8 @@ namespace WebSheets.Services
 
             foreach (var line in manifest.Split('\n', StringSplitOptions.RemoveEmptyEntries))
             {
+                if (line == "manifest.txt") { continue; }
+                
                 var parts = line.Trim().Split('/');
                 var current = root;
 
