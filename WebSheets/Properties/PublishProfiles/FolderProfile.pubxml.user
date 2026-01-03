@@ -3,7 +3,7 @@
 <Project>
   <PropertyGroup>
     <_PublishTargetUrl>C:\Users\Matt\source\repos\WebSheets\WebSheets\bin\Release\net8.0\publish\</_PublishTargetUrl>
-    <History>True|2025-12-30T13:16:09.3682017Z||;</History>
+    <History>True|2025-12-31T16:59:37.4150857Z||;True|2025-12-30T17:29:23.3790151+00:00||;False|2025-12-30T17:28:12.5326937+00:00||;True|2025-12-30T17:14:02.1742805+00:00||;True|2025-12-30T17:02:12.3092446+00:00||;True|2025-12-30T16:52:48.8694164+00:00||;True|2025-12-30T13:16:09.3682017+00:00||;</History>
     <LastFailureDetails />
   </PropertyGroup>
 </Project>
