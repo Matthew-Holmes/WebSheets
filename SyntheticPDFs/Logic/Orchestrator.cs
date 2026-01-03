@@ -8,6 +8,13 @@
         private bool _isQueued;
 
 
+        private readonly ILogger<Orchestrator> _logger;
+
+        public Orchestrator(ILogger<Orchestrator> logger)
+        {
+            _logger = logger;
+        }
+
         public PingResult Ping()
         {
             _lock.Wait();
@@ -64,11 +71,7 @@
             });
         }
 
-        private async Task DoWorkAsync()
-        {
-            // Simulate real work
-            await Task.Delay(TimeSpan.FromSeconds(10));
-        }
+
 
         private async Task OnTaskCompletedAsync()
         {
