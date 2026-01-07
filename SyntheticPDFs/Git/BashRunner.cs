@@ -22,12 +22,16 @@ namespace SyntheticPDFs.Git
             var stdout = new StringBuilder();
             var stderr = new StringBuilder();
 
+            var isWindows = OperatingSystem.IsWindows();
+
             using var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName = "/bin/bash",
-                    Arguments = $"-c \"{command}\"",
+                    FileName = isWindows ? "wsl.exe" : "/bin/bash",
+                    Arguments = isWindows
+                        ? $"-e bash -c \"{command}\""
+                        : $"-c \"{command}\"",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     RedirectStandardInput = false,
