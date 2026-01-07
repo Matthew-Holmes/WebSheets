@@ -1,5 +1,6 @@
 using SyntheticPDFs.Logic;
 using Microsoft.Extensions.Logging;
+using SyntheticPDFs.Git;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +10,7 @@ builder.Logging.AddConsole();
 builder.Logging.SetMinimumLevel(LogLevel.Information);
 
 builder.Services.AddSingleton<Orchestrator>();
+builder.Services.AddSingleton<GitRepoManager>();
 
 var app = builder.Build();
 

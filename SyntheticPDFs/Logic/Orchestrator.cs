@@ -1,18 +1,24 @@
-﻿namespace SyntheticPDFs.Logic
+﻿using SyntheticPDFs.Git;
+
+namespace SyntheticPDFs.Logic
 {
     public partial class Orchestrator
     {
         private readonly SemaphoreSlim _lock = new(1, 1);
 
         private bool _isRunning;
-        private bool _isQueued;
+        private bool _isQueued; 
+
+        private GitRepoManager RepoManager { get; set; }
 
 
         private readonly ILogger<Orchestrator> _logger;
 
-        public Orchestrator(ILogger<Orchestrator> logger)
+        public Orchestrator(ILogger<Orchestrator> logger, GitRepoManager repoManager)
         {
             _logger = logger;
+
+            RepoManager = repoManager;
         }
 
         public PingResult Ping()
