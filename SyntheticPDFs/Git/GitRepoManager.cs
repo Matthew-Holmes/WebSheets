@@ -64,6 +64,31 @@ namespace SyntheticPDFs.Git
                 throw new DirectoryNotFoundException(_sourceDir);
             }
 
+            // 4. Configure git user.name (repo-local)
+            var configName = BashRunner.RunAsync(
+                "git config user.name \"Server\"",
+                workingDirectory: _repoDir
+            ).Result;
+
+            if (!configName.Success)
+            {
+                LogFailure("Failed to set git user.name", configName);
+                throw new InvalidOperationException("git config user.name failed");
+            }
+
+            // 5. Configure git user.email (repo-local)
+            var configEmail = BashRunner.RunAsync(
+                "git config user.email '<>'",
+                workingDirectory: _repoDir
+            ).Result;
+
+            if (!configEmail.Success)
+            {
+                LogFailure("Failed to set git user.email", configEmail);
+                throw new InvalidOperationException("git config user.email failed");
+            }
+
+
             _logger.LogInformation(
                 "Git repository ready. Source directory: {SourceDir}",
                 _sourceDir
