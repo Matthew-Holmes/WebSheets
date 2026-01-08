@@ -9,10 +9,15 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.SetMinimumLevel(LogLevel.Information);
 
+
+
 builder.Services.AddSingleton<Orchestrator>();
 builder.Services.AddSingleton<GitRepoManager>();
 
+
 var app = builder.Build();
+
+var orchestrator = app.Services.GetRequiredService<Orchestrator>(); // force startup
 
 app.MapGet("/ping", (
     Orchestrator orchestrator,
