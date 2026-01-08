@@ -31,8 +31,26 @@ namespace SyntheticPDFs.Git
             _repoDir = _sourceDir.Split("/").First();
 
             PrepareRepository();
+
+            RepoModel model = GetModelOfRepo();
         }
 
+        private void VerifyInGitRepo()
+        {
+            var verifyRepo = BashRunner.RunAsync(
+                "git rev-parse --is-inside-work-tree",
+                workingDirectory: _repoDir
+            ).Result;
+
+            if (!verifyRepo.Success)
+            {
+                LogFailure("Not inside a git repository", verifyRepo);
+                throw new InvalidOperationException("Not inside a git repository");
+            }
+        }
+
+        private static readonly Regex GitFullHashRegex =
+            new Regex("^[0-9a-f]{40}$", RegexOptions.Compiled);
 
 
         private void LogFailure(string message, BashRunner.BashResult result)

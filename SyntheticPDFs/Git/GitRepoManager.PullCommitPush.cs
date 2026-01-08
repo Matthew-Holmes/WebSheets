@@ -20,17 +20,12 @@ namespace SyntheticPDFs.Git
                 // 3. Write TeX source to file
                 File.WriteAllText(texSource.FileNameFullPath, texSource.TexSource);
 
-                // 4. Verify repo is a git repo
-                var verifyRepo = BashRunner.RunAsync(
-                    "git rev-parse --is-inside-work-tree",
-                    workingDirectory: _repoDir
-                ).Result;
 
-                if (!verifyRepo.Success)
-                {
-                    LogFailure("Not inside a git repository", verifyRepo);
-                    throw new InvalidOperationException("Not inside a git repository");
-                }
+
+                // 4. Verify repo is a git repo
+                VerifyInGitRepo();
+
+
 
                 // because we need to run this in the git dir, remove the working directory
                 // components from the file path
@@ -171,6 +166,7 @@ namespace SyntheticPDFs.Git
             }
         }
 
+        
         public String PullLatestAndGetHash()
         {
             // 1. Ensure we are in a git repo
@@ -220,10 +216,6 @@ namespace SyntheticPDFs.Git
 
             return commitHash;
         }
-
-
-        private static readonly Regex GitFullHashRegex =
-            new Regex("^[0-9a-f]{40}$", RegexOptions.Compiled);
 
 
         private void ValidateGitHash(string hash)
