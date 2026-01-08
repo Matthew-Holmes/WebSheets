@@ -69,6 +69,7 @@ namespace SyntheticPDFs.Logic
                 try
                 {
                     await DoWorkAsync();
+                    _logger.LogInformation("work complete");
                 }
                 finally
                 {
@@ -97,6 +98,7 @@ namespace SyntheticPDFs.Logic
             finally
             {
                 _lock.Release();
+                _logger.LogInformation("work lock released");
             }
         }
 
