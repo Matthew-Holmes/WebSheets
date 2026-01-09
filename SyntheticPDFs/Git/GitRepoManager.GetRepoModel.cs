@@ -35,10 +35,10 @@ namespace SyntheticPDFs.Git
                 throw new Exception("failed to get repo details");
             }
 
-            return Parse(File.ReadAllText(_repoDir + "/" + TransferFile));
+            return Parse(File.ReadAllText(_repoDir + "/" + TransferFile), hash);
         }
 
-        public static RepoModel Parse(string input)
+        public static RepoModel Parse(string input, string hash)
         {
             var fileAges = new Dictionary<string, int>(StringComparer.Ordinal);
             var pendingFiles = new List<string>();
@@ -85,7 +85,8 @@ namespace SyntheticPDFs.Git
 
             return new RepoModel
             {
-                Contents = contents
+                Contents = contents,
+                LastCommitHash = hash
             };
         }
     }

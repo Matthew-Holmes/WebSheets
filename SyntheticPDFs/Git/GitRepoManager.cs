@@ -9,10 +9,8 @@ namespace SyntheticPDFs.Git
     public partial class GitRepoManager
     {
         String _repoUrl;
-        String _sourceDir;
         String _repoDir;
 
-        public String SourceDir => _sourceDir;
 
         public String RepoDir => _repoDir;
 
@@ -22,13 +20,13 @@ namespace SyntheticPDFs.Git
         public GitRepoManager(
             ILogger<GitRepoManager> logger,
             String repoUrl = "https://github.com/Matthew-Holmes/Matthews_Mathematics",
-            String sourceDir = "Matthews_Mathematics/latex")
+            String repoDir = "Matthews_Mathematics")
         {
             _logger = logger;
 
-            _repoUrl = repoUrl; _sourceDir = sourceDir;
+            _repoUrl = repoUrl;
 
-            _repoDir = _sourceDir.Split("/").First();
+            _repoDir = repoDir;
 
             PrepareRepository();
 

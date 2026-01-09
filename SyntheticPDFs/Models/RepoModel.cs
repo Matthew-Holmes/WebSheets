@@ -12,5 +12,7 @@ namespace SyntheticPDFs.Models
     public record class RepoModel
     {
         public required ReadOnlyCollection<TrackedFile> Contents { get; init; }
+
+        public required String LastCommitHash { get; init; }
     }
 }

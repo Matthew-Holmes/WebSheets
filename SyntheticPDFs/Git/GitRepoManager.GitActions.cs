@@ -5,7 +5,8 @@ namespace SyntheticPDFs.Git
 {
     public partial class GitRepoManager
     {
-        public async Task<bool> CommitAndPushTexSource(TexSourceModel texSource)
+
+        public async Task<bool> RemoveFiles(List<String> filenames, String hash)
         {
             string latestHash = null!;
             try
@@ -14,39 +15,73 @@ namespace SyntheticPDFs.Git
                 latestHash = PullLatestAndGetHash();
                 _logger.LogInformation($"Repo is at commit: {latestHash}");
 
-                // 2. Ensure directory exists
-                Directory.CreateDirectory(texSource.DirNoFileName);
-
-                // 3. Write TeX source to file
-                File.WriteAllText(texSource.FileNameFullPath, texSource.TexSource);
-
-                // 4. Verify repo is a git repo
-                VerifyInGitRepo();
-
-                // because we need to run this in the git dir, remove the working directory
-                // components from the file path
-
-                List<String> repoPath = RepoDir.Split("/").ToList();
-                List<String> filePath = texSource.FileNameFullPath.Split("/").ToList();
-
-                while (repoPath.Count != 0)
+                if (latestHash != hash)
                 {
-                    if (repoPath[0] != filePath[0])
-                    {
-                        throw new ArgumentException("tex source must be in the repository");
-                    }
-
-                    repoPath.RemoveAt(0);
-                    filePath.RemoveAt(0);
+                    _logger.LogWarning("unexpected hash, backing off!");
+                    return false;
                 }
 
-                // Recombine the remaining filePath to get the relative path inside the repo
-                string relativePath = string.Join("/", filePath);
+                foreach (String filename in filenames)
+                {
+                    var remove = BashRunner.RunAsync(
+                        $"git rm {filename}",
+                        workingDirectory: RepoDir
+                    ).Result;
+
+                    if (!remove.Success)
+                    {
+                        LogFailure("git rm failed", remove);
+                        throw new InvalidOperationException("git rm failed");
+                    }
+                }
+
+                String commitMessage = $"removed stale files: {String.Join(" ", filenames)}";
+
+                bool good = await CommitAndPush(commitMessage);
+
+                if (!good)
+                {
+                    _logger.LogWarning("failed to commit and push stale file deletion");
+                }
+                return good;
+            }
+            catch (Exception ex)
+            {
+                Reset(ex, latestHash);
+                return false;
+            }
+        }
+
+        public async Task<bool> CommitAndPushTexSource(TexSourceModel texSource, String hash)
+        {
+            // TODO - make this not need the Matthew
+
+            string latestHash = null!;
+            try
+            {
+                // 1. Pull the latest changes and get the hash
+                latestHash = PullLatestAndGetHash();
+                _logger.LogInformation($"Repo is at commit: {latestHash}");
+
+                if (latestHash != hash)
+                {
+                    _logger.LogWarning("unexpected hash, backing off!");
+                    return false;
+                }
+
+                // 2. Ensure directory exists
+                Directory.CreateDirectory(RepoDir + "/" + texSource.DirNoFileName);
+
+                // 3. Write TeX source to file
+                File.WriteAllText(RepoDir + "/" + texSource.FileNameFullPath, texSource.TexSource);
+
+                // 4. Verify repo is a git repo (overkill?)
+                //VerifyInGitRepo();
 
                 // 5. git add file
                 var add = BashRunner.RunAsync(
-                    $"git add \"{relativePath}\"",
-                    workingDirectory: _repoDir
+                    $"git add \"{texSource.FileNameFullPath}\"",
+                    workingDirectory: RepoDir
                 ).Result;
 
                 if (!add.Success)
@@ -70,27 +105,32 @@ namespace SyntheticPDFs.Git
             }
             catch (Exception ex)
             {
-                _logger.LogCritical(ex, "Failure during commit/push. Attempting hard reset...");
-
-                if (!string.IsNullOrEmpty(latestHash))
-                {
-                    var reset = BashRunner.RunAsync(
-                        $"git reset --hard {latestHash}",
-                        workingDirectory: _repoDir
-                    ).Result;
-
-                    if (reset.Success)
-                    {
-                        _logger.LogInformation("Repository reset back to commit: {Hash}", latestHash);
-                    }
-                    else
-                    {
-                        LogFailure($"Failed to reset repo back to {latestHash}", reset);
-                    }
-                }
-
+                Reset(ex, latestHash);
                 return false;
             }
+        }
+
+        public void Reset(Exception ex, String? latestHash)
+        {
+            _logger.LogCritical(ex, "Failure during git action Attempting hard reset...");
+
+            if (!string.IsNullOrEmpty(latestHash))
+            {
+                var reset = BashRunner.RunAsync(
+                    $"git reset --hard {latestHash}",
+                    workingDirectory: RepoDir
+                ).Result;
+
+                if (reset.Success)
+                {
+                    _logger.LogInformation("Repository reset back to commit: {Hash}", latestHash);
+                }
+                else
+                {
+                    LogFailure($"Failed to reset repo back to {latestHash}", reset);
+                }
+            }
+
         }
 
         public async Task<bool> CommitAndPush(String commitMessage)
@@ -99,7 +139,7 @@ namespace SyntheticPDFs.Git
             
             var commit = BashRunner.RunAsync(
                 $"git commit -m \"{commitMessage}\"",
-                workingDirectory: _repoDir
+                workingDirectory: RepoDir
             ).Result;
 
             // No changes to commit is OK
@@ -124,7 +164,7 @@ namespace SyntheticPDFs.Git
                 $"eval $(ssh-agent -s) && ssh-add {keyLoc} && " +
                 "git remote set-url origin git@github.com:Matthew-Holmes/Matthews_Mathematics.git && " +
                 "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null' git push",
-                workingDirectory: _repoDir,
+                workingDirectory: RepoDir,
                 cancellationToken: cts.Token
             );
 
@@ -180,7 +220,7 @@ namespace SyntheticPDFs.Git
             // 1. Ensure we are in a git repo
             var verifyRepo = BashRunner.RunAsync(
                 "git rev-parse --is-inside-work-tree",
-                workingDirectory: _repoDir
+                workingDirectory: RepoDir
             ).Result;
 
             if (!verifyRepo.Success)
@@ -192,7 +232,7 @@ namespace SyntheticPDFs.Git
             // 2. Pull latest changes
             var pull = BashRunner.RunAsync(
                 "git pull",
-                workingDirectory: _repoDir
+                workingDirectory: RepoDir
             ).Result;
 
             if (!pull.Success)
@@ -204,7 +244,7 @@ namespace SyntheticPDFs.Git
             // 3. Get current HEAD hash
             var hash = BashRunner.RunAsync(
                 "git rev-parse HEAD",
-                workingDirectory: _repoDir
+                workingDirectory: RepoDir
             ).Result;
 
             if (!hash.Success)
