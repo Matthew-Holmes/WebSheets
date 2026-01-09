@@ -20,12 +20,8 @@ namespace SyntheticPDFs.Git
                 // 3. Write TeX source to file
                 File.WriteAllText(texSource.FileNameFullPath, texSource.TexSource);
 
-
-
                 // 4. Verify repo is a git repo
                 VerifyInGitRepo();
-
-
 
                 // because we need to run this in the git dir, remove the working directory
                 // components from the file path
@@ -59,80 +55,11 @@ namespace SyntheticPDFs.Git
                     throw new InvalidOperationException("git add failed");
                 }
 
-                // 6. git commit
                 var commitMessage = $"Update {texSource.FileNameNoPathNoExt}.tex";
-                var commit = BashRunner.RunAsync(
-                    $"git commit -m \"{commitMessage}\"",
-                    workingDirectory: _repoDir
-                ).Result;
 
-                // No changes to commit is OK
-                if (!commit.Success)
-                {
-                    if (commit.StdErr.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase))
-                    {
-                        _logger.LogInformation("No changes to commit for {File}", texSource.FileNameFullPath);
-                        return true;
-                    }
+                bool successfulCommit = await CommitAndPush(commitMessage);
 
-                    LogFailure("git commit failed", commit);
-                    throw new InvalidOperationException("git commit failed");
-                }
-
-                int? timeoutMs = 50000; // 50 sec timeout
-                CancellationTokenSource cts = new CancellationTokenSource();
-
-                String keyLoc = OperatingSystem.IsWindows() ? "/home/matt/root/.ssh/id_ed25519" : "/root/.ssh/id_ed25519";
-
-                var pushTask = BashRunner.RunAsync(
-                    $"eval $(ssh-agent -s) && ssh-add {keyLoc} && " +
-                    "git remote set-url origin git@github.com:Matthew-Holmes/Matthews_Mathematics.git && " +
-                    "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null' git push",
-                    workingDirectory: _repoDir,
-                    cancellationToken: cts.Token
-                );
-
-
-                if (timeoutMs.HasValue)
-                {
-                    var completedTask = await Task.WhenAny(pushTask, Task.Delay(timeoutMs.Value));
-
-                    if (completedTask != pushTask)
-                    {
-                        // Timeout reached
-                        var partialResult = pushTask.IsCompletedSuccessfully ? pushTask.Result : null;
-
-                        if (partialResult != null)
-                        {
-                            _logger.LogWarning("Git push timed out. Partial output:");
-                            _logger.LogWarning("\t stdout:\n" + partialResult.StdOut);
-                            _logger.LogWarning("\t stderr:\n" + partialResult.StdErr);
-                        }
-                        else
-                        {
-                            _logger.LogWarning("Git push timed out. No output available yet.");
-                        }
-
-                        _logger.LogInformation("cancelling task");
-                        cts.Cancel();
-
-                        throw new TimeoutException("Git push timed out after " + timeoutMs.Value + "ms");
-                    }
-                }
-
-                // Await the result if it completed on time
-                var pushResult = await pushTask;
-
-                // Optionally log output
-                _logger.LogInformation("Git push completed:");
-                _logger.LogInformation("stdout:\n" + pushResult.StdOut);
-                _logger.LogInformation("stderr:\n" + pushResult.StdErr);
-
-                if (!pushResult.Success)
-                {
-                    LogFailure("git push failed", pushResult);
-                    throw new InvalidOperationException("git push failed");
-                }
+                if (!successfulCommit) { return false; }
 
                 _logger.LogInformation(
                     "Committed and pushed TeX source: {File}",
@@ -166,7 +93,88 @@ namespace SyntheticPDFs.Git
             }
         }
 
-        
+        public async Task<bool> CommitAndPush(String commitMessage)
+        {
+            // 6. git commit
+            
+            var commit = BashRunner.RunAsync(
+                $"git commit -m \"{commitMessage}\"",
+                workingDirectory: _repoDir
+            ).Result;
+
+            // No changes to commit is OK
+            if (!commit.Success)
+            {
+                if (commit.StdErr.Contains("nothing to commit", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogInformation($"nothing to commit, attempted: \"{commitMessage}\"");
+                    return true;
+                }
+
+                LogFailure("git commit failed", commit);
+                throw new InvalidOperationException("git commit failed");
+            }
+
+            int? timeoutMs = 50000; // 50 sec timeout
+            CancellationTokenSource cts = new CancellationTokenSource();
+
+            String keyLoc = OperatingSystem.IsWindows() ? "/home/matt/root/.ssh/id_ed25519" : "/root/.ssh/id_ed25519";
+
+            var pushTask = BashRunner.RunAsync(
+                $"eval $(ssh-agent -s) && ssh-add {keyLoc} && " +
+                "git remote set-url origin git@github.com:Matthew-Holmes/Matthews_Mathematics.git && " +
+                "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null' git push",
+                workingDirectory: _repoDir,
+                cancellationToken: cts.Token
+            );
+
+
+            if (timeoutMs.HasValue)
+            {
+                var completedTask = await Task.WhenAny(pushTask, Task.Delay(timeoutMs.Value));
+
+                if (completedTask != pushTask)
+                {
+                    // Timeout reached
+                    var partialResult = pushTask.IsCompletedSuccessfully ? pushTask.Result : null;
+
+                    if (partialResult != null)
+                    {
+                        _logger.LogWarning("Git push timed out. Partial output:");
+                        _logger.LogWarning("\t stdout:\n" + partialResult.StdOut);
+                        _logger.LogWarning("\t stderr:\n" + partialResult.StdErr);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Git push timed out. No output available yet.");
+                    }
+
+                    _logger.LogInformation("cancelling task");
+                    cts.Cancel();
+
+                    throw new TimeoutException("Git push timed out after " + timeoutMs.Value + "ms");
+                }
+            }
+
+            // Await the result if it completed on time
+            var pushResult = await pushTask;
+
+            // Optionally log output
+            _logger.LogInformation("Git push completed:");
+            _logger.LogInformation("stdout:\n" + pushResult.StdOut);
+            _logger.LogInformation("stderr:\n" + pushResult.StdErr);
+
+            if (!pushResult.Success)
+            {
+                LogFailure("git push failed", pushResult);
+                throw new InvalidOperationException("git push failed");
+            }
+
+
+            return true;
+        }
+
+
         public String PullLatestAndGetHash()
         {
             // 1. Ensure we are in a git repo
