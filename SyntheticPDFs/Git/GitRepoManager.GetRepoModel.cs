@@ -9,7 +9,7 @@ namespace SyntheticPDFs.Git
         private string TransferFile => "transferFile_usri9ae584bn952vrplmlwd0hu1p2r.txt";
         // hacky but will I ever make a worksheet with this name...?
 
-        public RepoModel GetModelOfRepo()
+        public RepoModel GetLatestModelOfRepo()
         {
             String hash = PullLatestAndGetHash();
 
@@ -19,7 +19,8 @@ namespace SyntheticPDFs.Git
 
             File.WriteAllText(_repoDir + "/" + TransferFile, String.Empty); // clear out the file if it has stuff in
 
-            string repoDetailsCommand = $"git log --all --oneline --name-only --format=\"%H\" > {TransferFile}";
+            String repoDetailsCommand = $"git log --all --oneline --name-only --format=\"%H\" > {TransferFile}"; 
+            // TODO - does this definitely avoid pagination issues???
 
             // just grabbing all the history and parsing in C# is faster than the slow git methods
             // assume most files have O(1) git commits, then this is O(N) where N is the repo size

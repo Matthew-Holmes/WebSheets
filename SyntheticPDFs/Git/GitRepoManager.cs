@@ -32,8 +32,10 @@ namespace SyntheticPDFs.Git
 
             PrepareRepository();
 
-            RepoModel model = GetModelOfRepo();
+            //RepoModel model = GetLatestModelOfRepo();
         }
+
+        #region utilities used throughout
 
         private void VerifyInGitRepo()
         {
@@ -59,5 +61,7 @@ namespace SyntheticPDFs.Git
             _logger.LogCritical("\t stdout: {StdOut}", result.StdOut);
             _logger.LogCritical("\t stderr: {StdErr}", result.StdErr);
         }
+
+        #endregion
     }
 }
