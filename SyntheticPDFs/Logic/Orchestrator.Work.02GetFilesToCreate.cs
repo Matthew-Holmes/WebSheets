@@ -61,7 +61,7 @@ namespace SyntheticPDFs.Logic
             return ret;
         }
 
-        // core creation logic
+        // core creation logics
         private List<SourceMetadata> GetNextLanguageSpecificFilesToCreate(StalenessInfo si, RootName root, ISO639_3Code lang, StalenessInfo englishState, int maxCount)
         {
             if (maxCount <= 0) { return new List<SourceMetadata>(); }

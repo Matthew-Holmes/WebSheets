@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc.Razor;
-using SyntheticPDFs.Models;
-using static System.Net.Mime.MediaTypeNames;
+﻿using Microsoft.AspNetCore.Authorization.Infrastructure;
+using System.Reflection.Metadata.Ecma335;
+using System.Text;
 
 namespace SyntheticPDFs.Logic
 {
@@ -32,6 +32,40 @@ namespace SyntheticPDFs.Logic
 
         private static String WorkedSolutionsIndicator = "workedSolutions";
         private static String SolutionsIndicator = "solutions";
+
+        internal static String GetFilenameFromMetadata(SourceMetadata sm)
+        {
+            StringBuilder sb = new StringBuilder(sm.RootName);
+
+            switch (sm.Type) 
+            {
+                case SourceType.Root:
+                    break;
+                case SourceType.WorkedSolutions:
+                    { 
+                        sb.Append('_' + WorkedSolutionsIndicator); 
+                        break;
+                    }
+                case SourceType.Solutions:
+                    {
+                        sb.Append('_' + SolutionsIndicator);
+                        break;
+                    }
+                default:
+                    throw new NotImplementedException();
+            }
+
+            if (sm.Language != ISO639_3Code.eng)
+            {
+                sb.Append('_');
+                sb.Append(Enum.GetName(typeof(ISO639_3Code), sm.Language));
+            }
+
+            sb.Append(".tex");
+
+            return sb.ToString();
+
+        }
 
         internal static SourceMetadata ParseMetadataFromFilename(String filenameNoExt)
         {

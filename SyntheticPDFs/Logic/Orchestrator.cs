@@ -1,4 +1,5 @@
 ﻿using SyntheticPDFs.Git;
+using SyntheticPDFs.Services;
 
 namespace SyntheticPDFs.Logic
 {
@@ -10,15 +11,17 @@ namespace SyntheticPDFs.Logic
         private bool _isQueued; 
 
         private GitRepoManager RepoManager { get; set; }
+        private LLMService LLMService { get; set; }
 
 
         private readonly ILogger<Orchestrator> _logger;
 
-        public Orchestrator(ILogger<Orchestrator> logger, GitRepoManager repoManager)
+        public Orchestrator(ILogger<Orchestrator> logger, GitRepoManager repoManager, LLMService lLMService)
         {
             _logger = logger;
 
             RepoManager = repoManager;
+            LLMService = lLMService;
         }
 
         public PingResult Ping()
