@@ -1,4 +1,5 @@
 ﻿using SyntheticPDFs.Models;
+using static SyntheticPDFs.Logic.Orchestrator;
 
 namespace SyntheticPDFs.Logic
 {
@@ -7,11 +8,15 @@ namespace SyntheticPDFs.Logic
 
     using RootName = String;
 
+    using VariantInfo = HashSet<TrackedFileWitMetadata>;
 
+    using StratefiedVariantInfo = Dictionary<ISO639_3Code, HashSet<TrackedFileWitMetadata>>;
 
+    using StalenessInformation = Dictionary<ISO639_3Code, StalenessInfo>;
 
     public partial class Orchestrator
     {
+
 
         internal record SourceMetadata
         {
@@ -22,12 +27,18 @@ namespace SyntheticPDFs.Logic
         }
 
 
-        private record TrackedFileWitMetadata
+        internal record TrackedFileWitMetadata
         {
             public required TrackedFile TrackedFile { get; init; }
 
             public required SourceMetadata SourceMetadata { get; init; }
         }
+
+        private int MaxFileToGenerateBase { get; init; } = 30;
+
+        // dynamically change this if having to back off too much
+        // i.e. the repo is seeing high traffic and we need to sqeeze our commits in
+        private int MaxFilesToGenerate { get; set; } = 30;
 
         private async Task DoWorkAsync()
         {
@@ -44,24 +55,53 @@ namespace SyntheticPDFs.Logic
 
             String texExtNoDot = "tex";
 
-            Dictionary<RootName, HashSet<TrackedFileWitMetadata>> variantInfo = GetVariantInfo(repoModel, texExtNoDot);
+            Dictionary<RootName, StalenessInformation> stalenessInformation = GetStalenessInformation(repoModel, texExtNoDot);
+          
+            List<TrackedFileWitMetadata> staleFiles = stalenessInformation.Values
+                .SelectMany(
+                    sfp => sfp.Values.Select(si => si.StaleFiles))
+                .SelectMany(x => x)
+                .ToList();
 
+            if (staleFiles.Count > 0)
+            {
+                bool removed = await RepoManager.RemoveFiles(
+                    staleFiles.Select(f => f.TrackedFile.FullPath).ToList(),
+                    repoModel.LastCommitHash);
+
+                if (!removed)
+                {
+                    _logger.LogWarning("failed to remove stale files, backing off, will retry later");
+                    BackoffAndRegisterRetry();
+                    return;
+                }
+
+                // this just did a commit, to keep synchronisation snappy, lets end it here
+                // register a Ping to queue another run:
+                Ping();
+
+                // then exit - will pull the latest repo and build a model in the queued work
+                return;
+
+            }
+
+
+            // get batch of files to create - since some will depend on these, not all the required files
+            // will be in this batch
+
+            List<SourceMetadata> batchToCreate = GetCreationBatch(stalenessInformation, MaxFilesToGenerate);
+
+            // create them - will require loading in the required tex source files
+            // asycn await all this step
+
+            List<TexSourceModel> syntheticSource = new();
+
+            foreach (SourceMetadata sm in batchToCreate)
+            {
+                syntheticSource.Add(await GenerateSyntheticSource(sm));
+            }
             
-            // get stale files and remove them
-
-            List<TrackedFileWitMetadata> staleFiles = variantInfo.Values
-                .Select(tfwms => GetStaleFiles(tfwms))
-                .SelectMany(x => x).ToList();
-
-
-
-
-
-            // get the files to create, in creation batches, since some depend on each other!
-
-
-
-
+            
             // decide what to generate (get this in separate file for business logic clarity)
             // create synthetic Tex source
             // pull git again - check nothing has changed
@@ -91,10 +131,31 @@ namespace SyntheticPDFs.Logic
 
             // Simulate real work
             await Task.Delay(TimeSpan.FromSeconds(10));
+
+            RollbackBackoffStrategy();
         }
 
 
+        private StratefiedVariantInfo StratifyByLanguage(VariantInfo variants)
+        {
+            return variants
+                        .GroupBy(item => item.SourceMetadata.Language)
+                        .ToDictionary(
+                            g => g.Key,
+                            g => g.ToHashSet()
+                        );
+        }
 
+        private void RollbackBackoffStrategy()
+        {
+            // if we complete a full pass, then can be bit more generous with out rollback strategy
+            throw new NotImplementedException();
+        }
+
+        private void BackoffAndRegisterRetry()
+        {
+            throw new NotImplementedException();
+        }
 
         private Dictionary<RootName, HashSet<TrackedFileWitMetadata>> GetVariantInfo(RepoModel repoModel, String extSubset = "tex")
         {

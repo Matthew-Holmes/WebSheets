@@ -12,7 +12,7 @@
         }
 
 
-        private record StalenessInfo
+        internal record StalenessInfo
         {
             internal required bool StaleWorkedSolutions { get; init; }
             internal required bool StaleSolutions { get; init; }
@@ -23,10 +23,12 @@
 
             internal required List<TrackedFileWitMetadata> StaleFiles { get; init; }
 
+            internal required CausalFileProcession fileProcession { get; init; }
+
         }
 
 
-        private class CausalFileProcession
+        internal class CausalFileProcession
         {
 
             internal TrackedFileWitMetadata? Root { get; set; }
@@ -138,7 +140,8 @@
                     NoSolutions = noSolutions,
                     StaleWorkedSolutions = staleWorkedSolutions,
                     StaleSolutions = staleSolutions,
-                    StaleFiles = stale.ToList()
+                    StaleFiles = stale.ToList(),
+                    fileProcession = this,
                 };
 
             }
