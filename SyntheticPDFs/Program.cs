@@ -1,6 +1,7 @@
 using SyntheticPDFs.Logic;
 using Microsoft.Extensions.Logging;
 using SyntheticPDFs.Git;
+using SyntheticPDFs.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,9 +11,32 @@ builder.Logging.AddConsole();
 builder.Logging.SetMinimumLevel(LogLevel.Information);
 
 
+// load up the API keys
+builder.Services
+    .AddOptions<LLMOptions>()
+    .Bind(builder.Configuration.GetSection("LLM"))
+    .PostConfigure(options =>
+    {
+        if (string.IsNullOrWhiteSpace(options.DeepSeekAPIKeyFile))
+            throw new InvalidOperationException("LLM:DeepSeekAPIKeyFile is not configured");
+
+        if (!File.Exists(options.DeepSeekAPIKeyFile))
+            throw new FileNotFoundException(
+                $"DeepSeek API key file not found: {options.DeepSeekAPIKeyFile}");
+
+        options.DeepSeekAPIKey = File.ReadAllText(options.DeepSeekAPIKeyFile).Trim();
+
+        if (string.IsNullOrWhiteSpace(options.DeepSeekAPIKey))
+            throw new InvalidOperationException("Deepseek API key file is empty");
+    })
+    .Validate(o => !string.IsNullOrWhiteSpace(o.DeepSeekAPIKey), "DeepSeek ApiKey not loaded")
+    .ValidateOnStart();
+
+
 
 builder.Services.AddSingleton<Orchestrator>();
 builder.Services.AddSingleton<GitRepoManager>();
+builder.Services.AddSingleton<LLMService>();
 
 
 var app = builder.Build();
