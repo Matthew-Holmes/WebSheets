@@ -1,13 +1,16 @@
-﻿namespace SyntheticPDFs.Git
+﻿using SyntheticPDFs.Models;
+
+namespace SyntheticPDFs.Git
 {
     public partial class GitRepoManager
     {
+
         private void PrepareRepository()
         {
             // 1. Remove existing repo directory if it exists
             // if this gives a permission error - kill WSL
             var cleanup = BashRunner.RunAsync(
-                $"if [ -d \"{_repoDir}\" ]; then rm -rf \"{_repoDir}\"; fi").Result;
+                $"if [ -d \"{RepoDir}\" ]; then rm -rf \"{RepoDir}\"; fi").Result;
 
             if (!cleanup.Success)
             {
@@ -26,24 +29,21 @@
                 throw new InvalidOperationException("Git clone failed");
             }
 
-            // 3. Verify source directory exists
+            // 3. Verify repo directory exists
             var verifyDir = BashRunner.RunAsync(
-                $"test -d \"{_sourceDir}\""
+                $"test -d \"{RepoDir}\""
             ).Result;
 
             if (!verifyDir.Success)
             {
-                _logger.LogCritical(
-                    "Expected source directory does not exist after clone: {SourceDir}",
-                    _sourceDir
-                );
-                throw new DirectoryNotFoundException(_sourceDir);
+                _logger.LogCritical($"Expected repo directory does not exist after clone: {RepoDir}");
+                throw new DirectoryNotFoundException(_repoDir);
             }
 
             // 4. Configure git user.name (repo-local)
             var configName = BashRunner.RunAsync(
                 "git config user.name \"Server\"",
-                workingDirectory: _repoDir
+                workingDirectory: RepoDir
             ).Result;
 
             if (!configName.Success)
@@ -55,7 +55,7 @@
             // 5. Configure git user.email (repo-local)
             var configEmail = BashRunner.RunAsync(
                 "git config user.email '<>'",
-                workingDirectory: _repoDir
+                workingDirectory: RepoDir
             ).Result;
 
 
@@ -66,11 +66,7 @@
             }
 
 
-
-            _logger.LogInformation(
-                "Git repository ready. Source directory: {SourceDir}",
-                _sourceDir
-            );
+            _logger.LogInformation($"Git repository ready at {RepoDir}");
         }
 
     }

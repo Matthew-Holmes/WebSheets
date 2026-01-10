@@ -5,7 +5,6 @@ namespace SyntheticPDFs.Git
 {
     public partial class GitRepoManager
     {
-
         public async Task<bool> RemoveFiles(List<String> filenames, String hash)
         {
             string latestHash = null!;
