@@ -51,10 +51,8 @@ namespace SyntheticPDFs.Git
             }
         }
 
-        public async Task<bool> CommitAndPushTexSource(TexSourceModel texSource, String hash)
+        public async Task<bool> CommitAndPushTexSource(List<TexSourceModel> texSources, String hash)
         {
-            // TODO - make this not need the Matthew
-
             string latestHash = null!;
             try
             {
@@ -68,36 +66,40 @@ namespace SyntheticPDFs.Git
                     return false;
                 }
 
-                // 2. Ensure directory exists
-                Directory.CreateDirectory(RepoDir + "/" + texSource.DirNoFileName);
-
-                // 3. Write TeX source to file
-                File.WriteAllText(RepoDir + "/" + texSource.FileNameFullPath, texSource.TexSource);
-
-                // 4. Verify repo is a git repo (overkill?)
-                //VerifyInGitRepo();
-
-                // 5. git add file
-                var add = BashRunner.RunAsync(
-                    $"git add \"{texSource.FileNameFullPath}\"",
-                    workingDirectory: RepoDir
-                ).Result;
-
-                if (!add.Success)
+                foreach (TexSourceModel texSource in texSources)
                 {
-                    LogFailure("git add failed", add);
-                    throw new InvalidOperationException("git add failed");
+
+                    // 2. Ensure directory exists
+                    Directory.CreateDirectory(RepoDir + "/" + texSource.DirNoFileName);
+
+                    // 3. Write TeX source to file
+                    File.WriteAllText(RepoDir + "/" + texSource.FileNameFullPath, texSource.TexSource);
+
+
+                    // 4. git add file
+                    var add = BashRunner.RunAsync(
+                        $"git add \"{texSource.FileNameFullPath}\"",
+                        workingDirectory: RepoDir
+                    ).Result;
+
+
+                    if (!add.Success)
+                    {
+                        LogFailure("git add failed", add);
+                        throw new InvalidOperationException("git add failed");
+                    }
                 }
 
-                var commitMessage = $"Update {texSource.FileNameNoPathNoExt}.tex";
+                String added = String.Join(" ", texSources.Select(ts => $"{ts.FileNameNoPathNoExt}.tex"));
+
+                var commitMessage = $"Update/Add {added}";
 
                 bool successfulCommit = await CommitAndPush(commitMessage);
 
                 if (!successfulCommit) { return false; }
 
                 _logger.LogInformation(
-                    "Committed and pushed TeX source: {File}",
-                    texSource.FileNameFullPath
+                    $"Committed and pushed TeX source: {added}"
                 );
 
                 return true;
@@ -107,6 +109,12 @@ namespace SyntheticPDFs.Git
                 Reset(ex, latestHash);
                 return false;
             }
+        }
+
+
+        public async Task<bool> CommitAndPushTexSource(TexSourceModel texSource, String hash)
+        {
+            return await CommitAndPushTexSource(new List<TexSourceModel> { texSource }, hash);
         }
 
         public void Reset(Exception ex, String? latestHash)
