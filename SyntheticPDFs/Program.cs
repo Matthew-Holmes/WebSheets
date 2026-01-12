@@ -20,6 +20,14 @@ builder.Services
         if (string.IsNullOrWhiteSpace(options.DeepSeekAPIKeyFile))
             throw new InvalidOperationException("LLM:DeepSeekAPIKeyFile is not configured");
 
+        String apiKeyPath = options.DeepSeekAPIKey;
+
+        if (OperatingSystem.IsWindows())
+        {
+            apiKeyPath = Path.GetFullPath(
+                options.DeepSeekAPIKeyFile.Replace('/', Path.DirectorySeparatorChar));
+        }
+
         if (!File.Exists(options.DeepSeekAPIKeyFile))
             throw new FileNotFoundException(
                 $"DeepSeek API key file not found: {options.DeepSeekAPIKeyFile}");
@@ -72,5 +80,8 @@ app.MapGet("/ping", (
         _ => Results.Ok(result)
     };
 });
+
+// TODO - ping a sheet and a language to kick off source generation for that!
+// Since we won't do that automatically (or a not least for every language!)
 
 app.Run();

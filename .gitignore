@@ -58,3 +58,4 @@ CodeCoverage/
 TestResult.xml
 nunit-*.xml
 /SyntheticPDFs/Matthews_Mathematics/
+/SyntheticPDFs/run/secrets/DeepSeekAPIKey.txt
