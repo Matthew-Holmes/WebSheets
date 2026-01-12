@@ -34,7 +34,7 @@ namespace SyntheticPDFs.Logic
             public required SourceMetadata SourceMetadata { get; init; }
         }
 
-        private int MaxFileToGenerateBase { get; init; } = 30;
+        private int MaxFilesToGenerateBase { get; init; } = 30;
 
         // dynamically change this if having to back off too much
         // i.e. the repo is seeing high traffic and we need to sqeeze our commits in
@@ -91,8 +91,11 @@ namespace SyntheticPDFs.Logic
 
             List<SourceMetadata> batchToCreate = GetCreationBatch(stalenessInformation, MaxFilesToGenerate);
 
-            // create them - will require loading in the required tex source files
-            // asycn await all this step
+            if (batchToCreate.Count == 0)
+            {
+                _logger.LogInformation("nothing to do, leaving work early!");
+                return;
+            }
 
 
             // create synthetic Tex source
@@ -103,13 +106,17 @@ namespace SyntheticPDFs.Logic
             {
                 syntheticSource.Add(await GenerateSyntheticSource(sm));
             }
-            
 
-            // pull and get latest hash - if different, backoff and retry later (TODO - Cache the prompt results so if we have to redo the same thing its free!)
+
+            bool pushed = await RepoManager.CommitAndPushTexSource(syntheticSource, repoModel.LastCommitHash);
             
-            // commit and push if can
-            // backoff if push failure
-            await Task.Delay(TimeSpan.FromSeconds(10));
+            if (!pushed)
+            {
+                _logger.LogWarning("failed to push synthetic source, backing off, consider adding caching!");
+                BackoffAndRegisterRetry();
+            }
+
+            _logger.LogInformation("succesfully added synthetic source");
 
             RollbackBackoffStrategy();
         }
@@ -127,13 +134,20 @@ namespace SyntheticPDFs.Logic
 
         private void RollbackBackoffStrategy()
         {
-            // if we complete a full pass, then can be bit more generous with out rollback strategy
-            throw new NotImplementedException();
+            MaxFilesToGenerate = Math.Min(MaxFilesToGenerate * 2, MaxFilesToGenerateBase);
+
+            _logger.LogInformation($"Max files to generate set to {MaxFilesToGenerate}");
         }
 
         private void BackoffAndRegisterRetry()
         {
-            throw new NotImplementedException();
+            MaxFilesToGenerate /= 2;
+
+            if (MaxFilesToGenerate < 1) { MaxFilesToGenerate = 1; }
+
+            _logger.LogInformation($"Max files to generate set to {MaxFilesToGenerate}, trying work again");
+
+            Ping();
         }
 
         private Dictionary<RootName, HashSet<TrackedFileWitMetadata>> GetVariantInfo(RepoModel repoModel, String extSubset = "tex")
