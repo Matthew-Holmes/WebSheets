@@ -8,17 +8,24 @@ namespace SyntheticPDFs.Logic
         // As I see errors I can update these methods, or even find a library that will e.g. identify valid tex
         private static bool IsValidTex(string response)
         {
-            // return false if doesn't start with correct preamble
-            throw new NotImplementedException();
-            return true;
+            bool OkFirstChar = response.First() == ' ' || response.First() == '\\' || response.First() == '%';
+
+            // check begins match ends
+
+            return OkFirstChar;
         }
 
         private static String TryFixupTex(String badTex)
         {
-            throw new NotImplementedException();
-            
-            // removed ```latex, if is at the start!
-            return badTex;
+            // occasionally is wrapped in ```latex from the LLM, so strip the first and last and see if that helps!
+
+            var lines = badTex.Split("\n");
+
+            int nLines = lines.Count();
+
+            // add trailing ends to the file
+
+            return String.Join('\n', lines.Skip(1).Take(nLines - 2));
         }
 
         private static async Task<String?> TryGetValidTex(LLMService LLM, String prompt, int retry = 3)
@@ -27,13 +34,13 @@ namespace SyntheticPDFs.Logic
             {
                 String response = await LLM.GetResponse(prompt);
 
-                if (IsValidTex(prompt)) { return response; }
+                if (IsValidTex(response)) { return response; }
 
                 LLM.Log(LogLevel.Warning, "Failed to generate good source");
 
                 response = TryFixupTex(response);
 
-                if (IsValidTex(prompt)) { return response; }
+                if (IsValidTex(response)) { return response; }
 
                 LLM.Log(LogLevel.Warning, "Failed to fixup bad tex source");
 
