@@ -90,7 +90,7 @@ namespace SyntheticPDFs.Git
                     }
                 }
 
-                String added = String.Join(" ", texSources.Select(ts => $"{ts.FileNameNoPathNoExt}.tex"));
+                String added = String.Join(" ", texSources.Select(ts => $"{ts.FileNameFullPath}.tex"));
 
                 var commitMessage = $"Update/Add {added}";
 

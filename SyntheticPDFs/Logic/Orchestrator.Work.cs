@@ -102,9 +102,11 @@ namespace SyntheticPDFs.Logic
 
             List<TexSourceModel> syntheticSource = new();
 
+            // TODO - make this an await all
             foreach (SourceMetadata sm in batchToCreate)
             {
                 syntheticSource.Add(await GenerateSyntheticSource(sm));
+                break; // just for testing! TODO - remove
             }
 
 

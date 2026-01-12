@@ -50,12 +50,14 @@ namespace SyntheticPDFs.Logic
                     throw new NotImplementedException("need to implement L2 file creation logic");
                 }
 
-                List<SourceMetadata> toAdd = GetNextLanguageSpecificFilesToCreate(kvp.Value, root, kvp.Key, sfp[ISO639_3Code.eng], maxCount - ret.Count);
-
                 if (ret.Count >= maxCount)
                 {
                     return ret;
                 }
+
+                List<SourceMetadata> toAdd = GetNextLanguageSpecificFilesToCreate(kvp.Value, root, kvp.Key, sfp[ISO639_3Code.eng], maxCount - ret.Count);
+
+                ret.AddRange(toAdd);
             }
 
             return ret;

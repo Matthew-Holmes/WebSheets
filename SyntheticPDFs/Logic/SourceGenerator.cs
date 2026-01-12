@@ -8,11 +8,16 @@ namespace SyntheticPDFs.Logic
         // As I see errors I can update these methods, or even find a library that will e.g. identify valid tex
         private static bool IsValidTex(string response)
         {
+            // return false if doesn't start with correct preamble
+            throw new NotImplementedException();
             return true;
         }
 
         private static String TryFixupTex(String badTex)
         {
+            throw new NotImplementedException();
+            
+            // removed ```latex, if is at the start!
             return badTex;
         }
 

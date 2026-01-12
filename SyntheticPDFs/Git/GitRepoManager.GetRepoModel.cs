@@ -6,8 +6,9 @@ namespace SyntheticPDFs.Git
 {
     public partial class GitRepoManager
     {
-        private string TransferFile => "transferFile_usri9ae584bn952vrplmlwd0hu1p2r.txt";
-        // hacky but will I ever make a worksheet with this name...?
+        private string TransferFileLog => "transferFile_usri9ae584bn952vrplmlwd0hu1p2r.txt";
+        private string TransferFileLive => "transferFile_6oqjjurw3dbealw0ef08bw7nrfzpvx.txt";
+
 
         public RepoModel GetLatestModelOfRepo()
         {
@@ -17,17 +18,18 @@ namespace SyntheticPDFs.Git
 
             VerifyInGitRepo();
 
-            File.WriteAllText(_repoDir + "/" + TransferFile, String.Empty); // clear out the file if it has stuff in
+            File.WriteAllText(RepoDir + "/" + TransferFileLog,  String.Empty); // clear out the file if it has stuff in
+            File.WriteAllText(RepoDir + "/" + TransferFileLive, String.Empty); // ""
 
-            String repoDetailsCommand = $"git log --all --oneline --name-only --format=\"%H\" > {TransferFile}"; 
-            // TODO - does this definitely avoid pagination issues???
+            String repoDetailsCommand = $"git log --all --oneline --name-only --format=\"%H\" > {TransferFileLog}"; 
+
+            var GetRepoDetails = BashRunner.RunAsync(repoDetailsCommand, RepoDir).Result;
 
             // just grabbing all the history and parsing in C# is faster than the slow git methods
             // assume most files have O(1) git commits, then this is O(N) where N is the repo size
             // could cache for speed, then just look at the commits not seen.... but thats not needed now
             // use transfer file to avoid buffer issues with Stdout
 
-            var GetRepoDetails = BashRunner.RunAsync(repoDetailsCommand, _repoDir).Result;
 
             if (!GetRepoDetails.Success)
             {
@@ -35,11 +37,35 @@ namespace SyntheticPDFs.Git
                 throw new Exception("failed to get repo details");
             }
 
-            return Parse(File.ReadAllText(_repoDir + "/" + TransferFile), hash);
+            // get the files currently in play - deleted stuff may cause problems
+
+            String liveFilesCommand = $"find ./ > {TransferFileLive}";
+
+            var getLiveFilesDetails = BashRunner.RunAsync(liveFilesCommand, RepoDir).Result;
+
+            if (!getLiveFilesDetails.Success)
+            {
+                LogFailure("failed to get details of files in play", getLiveFilesDetails);
+                throw new Exception("failed to get file details");
+            }
+
+
+            return Parse(
+                File.ReadAllText(_repoDir + "/" + TransferFileLog),
+                File.ReadAllText(_repoDir + "/" + TransferFileLive),
+                hash);
         }
 
-        public static RepoModel Parse(string input, string hash)
+        public RepoModel Parse(String input, String liveFilesWithDotSlashPrefixes, String hash)
         {
+            HashSet<String> live = liveFilesWithDotSlashPrefixes
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.Trim())
+                .Select(l => l[2..] /* drop the ./ */)
+                .Where(l => l.StartsWith(SourceDir + '/'))
+                .ToHashSet();
+            
+            
             var fileAges = new Dictionary<string, int>(StringComparer.Ordinal);
             var pendingFiles = new List<string>();
 
@@ -68,10 +94,20 @@ namespace SyntheticPDFs.Git
                 }
                 else
                 {
-                    // File path
-                    pendingFiles.Add(line);
+                    if (!live.Contains(line))
+                    {
+                        // this isn't a live file - skip it
+                        continue;
+                    }
+                    else
+                    {
+                        // File path
+                        pendingFiles.Add(line);
+                    }
                 }
             }
+
+            // file ages only contains live files so this will be OK
 
             var contents = fileAges
                 .Select(kvp => new TrackedFile
