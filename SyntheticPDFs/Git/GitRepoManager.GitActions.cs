@@ -38,7 +38,7 @@ namespace SyntheticPDFs.Git
 
                 String commitMessage = $"removed stale files: {String.Join(" ", filenames)}";
 
-                bool good = await CommitAndPush(commitMessage);
+                bool good = await CommitAndPush(commitMessage, "");
 
                 if (!good)
                 {
@@ -93,15 +93,13 @@ namespace SyntheticPDFs.Git
                     }
                 }
 
-                // TODO - longer commit message bodies!!!
-
-                throw new NotImplementedException();
-
                 String added = String.Join(" ", texSources.Select(ts => $"{ts.FileNameFullPath.Split('/').Last()}"));
+
+                String description = String.Join(" ", texSources.Select(ts => $"{ts.FileNameFullPath}"));
 
                 var commitMessage = $"Update/Add {added}";
 
-                bool successfulCommit = await CommitAndPush(commitMessage);
+                bool successfulCommit = await CommitAndPush(commitMessage, description);
 
                 if (!successfulCommit) { return false; }
 
@@ -148,15 +146,12 @@ namespace SyntheticPDFs.Git
 
         }
 
-        public async Task<bool> CommitAndPush(String commitMessage)
+        public async Task<bool> CommitAndPush(String commitMessage, String? description = null)
         {
-            // 6. git commit
-            
-            throw new NotImplementedException();
 
-            // snap the message to 70 messages
-
-            String bash = $"git commit -m \"{commitMessage}\"";
+            String bash = description is not null ?
+                $"git commit -m \"{commitMessage}\" -m \"{description}\""
+            :   $"git commit -m \"{commitMessage}\"";
 
 
             var commit = BashRunner.RunAsync(
