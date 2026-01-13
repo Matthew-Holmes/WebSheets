@@ -13,6 +13,7 @@ namespace Agents.DeepSeek
             _apiKey = apiKey;
             this._httpClient = new HttpClient();
             this._httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+            this._httpClient.Timeout = TimeSpan.FromSeconds(600); // these can take a while!
 
             DiscreteParameters.Add(new Parameter<int>("PromptDepth", 10, int.MaxValue, 0, 100, 0));
             DiscreteParameters.Add(new Parameter<int>("ContextTokens", 1000, int.MaxValue, 0, 16000, 0));

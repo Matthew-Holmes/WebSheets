@@ -1,4 +1,5 @@
-﻿using SyntheticPDFs.Models;
+﻿using Agents;
+using SyntheticPDFs.Models;
 using System.Text.RegularExpressions;
 
 namespace SyntheticPDFs.Git
@@ -24,6 +25,7 @@ namespace SyntheticPDFs.Git
                 {
                     var remove = BashRunner.RunAsync(
                         $"git rm {filename}",
+                        _logger,
                         workingDirectory: RepoDir
                     ).Result;
 
@@ -79,6 +81,7 @@ namespace SyntheticPDFs.Git
                     // 4. git add file
                     var add = BashRunner.RunAsync(
                         $"git add \"{texSource.FileNameFullPath}\"",
+                        _logger,
                         workingDirectory: RepoDir
                     ).Result;
 
@@ -90,7 +93,11 @@ namespace SyntheticPDFs.Git
                     }
                 }
 
-                String added = String.Join(" ", texSources.Select(ts => $"{ts.FileNameFullPath}.tex"));
+                // TODO - longer commit message bodies!!!
+
+                throw new NotImplementedException();
+
+                String added = String.Join(" ", texSources.Select(ts => $"{ts.FileNameFullPath.Split('/').Last()}"));
 
                 var commitMessage = $"Update/Add {added}";
 
@@ -125,6 +132,7 @@ namespace SyntheticPDFs.Git
             {
                 var reset = BashRunner.RunAsync(
                     $"git reset --hard {latestHash}",
+                    _logger,
                     workingDirectory: RepoDir
                 ).Result;
 
@@ -144,8 +152,16 @@ namespace SyntheticPDFs.Git
         {
             // 6. git commit
             
+            throw new NotImplementedException();
+
+            // snap the message to 70 messages
+
+            String bash = $"git commit -m \"{commitMessage}\"";
+
+
             var commit = BashRunner.RunAsync(
-                $"git commit -m \"{commitMessage}\"",
+                bash,
+                _logger,
                 workingDirectory: RepoDir
             ).Result;
 
@@ -171,6 +187,7 @@ namespace SyntheticPDFs.Git
                 $"eval $(ssh-agent -s) && ssh-add {keyLoc} && " +
                 "git remote set-url origin git@github.com:Matthew-Holmes/Matthews_Mathematics.git && " +
                 "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null' git push",
+                _logger,
                 workingDirectory: RepoDir,
                 cancellationToken: cts.Token
             );
@@ -227,6 +244,7 @@ namespace SyntheticPDFs.Git
             // 1. Ensure we are in a git repo
             var verifyRepo = BashRunner.RunAsync(
                 "git rev-parse --is-inside-work-tree",
+                _logger,
                 workingDirectory: RepoDir
             ).Result;
 
@@ -236,11 +254,17 @@ namespace SyntheticPDFs.Git
                 throw new InvalidOperationException("Not inside a git repository");
             }
 
-            // 2. Pull latest changes
+            String keyLoc = OperatingSystem.IsWindows() ? "/home/matt/root/.ssh/id_ed25519" : "/root/.ssh/id_ed25519";
+
+            // pull the latest, use the token as this will sometimes fail
             var pull = BashRunner.RunAsync(
-                "git pull",
+                $"eval $(ssh-agent -s) && ssh-add {keyLoc} && " +
+                "git remote set-url origin git@github.com:Matthew-Holmes/Matthews_Mathematics.git && " +
+                "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null' git pull",
+                _logger,
                 workingDirectory: RepoDir
             ).Result;
+
 
             if (!pull.Success)
             {
@@ -251,6 +275,7 @@ namespace SyntheticPDFs.Git
             // 3. Get current HEAD hash
             var hash = BashRunner.RunAsync(
                 "git rev-parse HEAD",
+                _logger,
                 workingDirectory: RepoDir
             ).Result;
 

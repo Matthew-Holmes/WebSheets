@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text;
+using System.Threading;
 
 namespace SyntheticPDFs.Git
 {
@@ -15,12 +16,22 @@ namespace SyntheticPDFs.Git
 
         public static async Task<BashResult> RunAsync(
         string command,
+        ILogger logger,
         string? workingDirectory = null,
         IDictionary<string, string>? environmentVariables = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int killAfterSeconds = 60)
         {
+            // TODO - make all of these have a time limit - to stop hanging stuff
+
             var stdout = new StringBuilder();
             var stderr = new StringBuilder();
+
+            // Total permitted time ends up being grace + killAfter
+            int hardKillGracePeriod = 5;
+
+            string wrappedCommand =
+                $"timeout --signal=SIGTERM --kill-after={hardKillGracePeriod}s {killAfterSeconds}s {command}";
 
             var isWindows = OperatingSystem.IsWindows();
 
@@ -66,10 +77,20 @@ namespace SyntheticPDFs.Git
 
             process.Start();
 
+            int pid = process.Id;
+
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
 
-            await process.WaitForExitAsync(cancellationToken);
+            try
+            {
+                await process.WaitForExitAsync(cancellationToken);
+            } catch (Exception e)
+            {
+                logger.LogCritical($"processed failed!, {e.Message}");
+                throw e;
+            }
+
 
             return new BashResult
             {

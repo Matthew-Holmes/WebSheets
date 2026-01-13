@@ -10,7 +10,7 @@ namespace SyntheticPDFs.Git
             // 1. Remove existing repo directory if it exists
             // if this gives a permission error - kill WSL
             var cleanup = BashRunner.RunAsync(
-                $"if [ -d \"{RepoDir}\" ]; then rm -rf \"{RepoDir}\"; fi").Result;
+                $"if [ -d \"{RepoDir}\" ]; then rm -rf \"{RepoDir}\"; fi", _logger).Result;
 
             if (!cleanup.Success)
             {
@@ -20,7 +20,8 @@ namespace SyntheticPDFs.Git
 
             // 2. Clone repository
             var clone = BashRunner.RunAsync(
-                $"git clone \"{_repoUrl}\""
+                $"git clone \"{_repoUrl}\"",
+                _logger
             ).Result;
 
             if (!clone.Success)
@@ -31,7 +32,8 @@ namespace SyntheticPDFs.Git
 
             // 3. Verify repo directory exists
             var verifyDir = BashRunner.RunAsync(
-                $"test -d \"{RepoDir}\""
+                $"test -d \"{RepoDir}\"",
+                _logger
             ).Result;
 
             if (!verifyDir.Success)
@@ -43,6 +45,7 @@ namespace SyntheticPDFs.Git
             // 4. Configure git user.name (repo-local)
             var configName = BashRunner.RunAsync(
                 "git config user.name \"Server\"",
+                _logger,
                 workingDirectory: RepoDir
             ).Result;
 
@@ -55,6 +58,7 @@ namespace SyntheticPDFs.Git
             // 5. Configure git user.email (repo-local)
             var configEmail = BashRunner.RunAsync(
                 "git config user.email '<>'",
+                _logger,
                 workingDirectory: RepoDir
             ).Result;
 

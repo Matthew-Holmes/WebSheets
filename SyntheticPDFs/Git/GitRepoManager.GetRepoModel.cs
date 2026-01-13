@@ -6,6 +6,7 @@ namespace SyntheticPDFs.Git
 {
     public partial class GitRepoManager
     {
+        // this is hacky - but when will I ever need files with these names
         private string TransferFileLog => "transferFile_usri9ae584bn952vrplmlwd0hu1p2r.txt";
         private string TransferFileLive => "transferFile_6oqjjurw3dbealw0ef08bw7nrfzpvx.txt";
 
@@ -23,7 +24,7 @@ namespace SyntheticPDFs.Git
 
             String repoDetailsCommand = $"git log --all --oneline --name-only --format=\"%H\" > {TransferFileLog}"; 
 
-            var GetRepoDetails = BashRunner.RunAsync(repoDetailsCommand, RepoDir).Result;
+            var GetRepoDetails = BashRunner.RunAsync(repoDetailsCommand, _logger, RepoDir).Result;
 
             // just grabbing all the history and parsing in C# is faster than the slow git methods
             // assume most files have O(1) git commits, then this is O(N) where N is the repo size
@@ -41,7 +42,7 @@ namespace SyntheticPDFs.Git
 
             String liveFilesCommand = $"find ./ > {TransferFileLive}";
 
-            var getLiveFilesDetails = BashRunner.RunAsync(liveFilesCommand, RepoDir).Result;
+            var getLiveFilesDetails = BashRunner.RunAsync(liveFilesCommand, _logger, RepoDir).Result;
 
             if (!getLiveFilesDetails.Success)
             {

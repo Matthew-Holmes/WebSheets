@@ -44,6 +44,7 @@ namespace SyntheticPDFs.Git
         {
             var verifyRepo = BashRunner.RunAsync(
                 "git rev-parse --is-inside-work-tree",
+                _logger,
                 workingDirectory: _repoDir
             ).Result;
 

@@ -73,6 +73,9 @@ namespace SyntheticPDFs.Logic
                 {
                     await DoWorkAsync();
                     _logger.LogInformation("work complete");
+                } catch (Exception e)
+                {
+                    _logger.LogCritical($"failed to performed work with error {e.Message}");
                 }
                 finally
                 {
