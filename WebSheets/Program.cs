@@ -61,10 +61,21 @@ app.MapPost("/api/public/syntheticPDFs/ping", async (
 
     var http = factory.CreateClient("SyntheticPDFsAPI");
 
-    var response = await http.PostAsJsonAsync(
-        "ping",
-        request,
-        ct);
+
+    HttpResponseMessage response;
+
+    try
+    {
+        response = await http.PostAsJsonAsync(
+            "ping",
+            request,
+            ct);
+    } catch (Exception e)
+    {
+        logger.LogError($"failed to post to Synthetic PDF API {e.Message}");
+        return Results.Problem("Calling internal API threw!");
+    }
+
 
     if (!response.IsSuccessStatusCode)
     {
