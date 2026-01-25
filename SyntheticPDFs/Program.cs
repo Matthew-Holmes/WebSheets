@@ -2,6 +2,7 @@ using SyntheticPDFs.Logic;
 using Microsoft.Extensions.Logging;
 using SyntheticPDFs.Git;
 using SyntheticPDFs.Services;
+using Shared;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,11 +48,18 @@ builder.Services.AddSingleton<GitRepoManager>();
 builder.Services.AddSingleton<LLMService>();
 
 
+// only listen on local host - let the main website call it
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenLocalhost(5432);
+});
+
 var app = builder.Build();
 
 var orchestrator = app.Services.GetRequiredService<Orchestrator>(); // force startup
 
-app.MapGet("/ping", (
+app.MapPost("/ping", (
+    PingRequest _,
     Orchestrator orchestrator,
     ILogger<Program> logger) =>
 {
@@ -76,7 +84,7 @@ app.MapGet("/ping", (
     {
         PingOutcome.Started => Results.Ok(result),
         PingOutcome.Queued => Results.Ok(result),
-        PingOutcome.Ignored => Results.StatusCode(409),
+        PingOutcome.Ignored => Results.Ok(result),
         _ => Results.Ok(result)
     };
 });

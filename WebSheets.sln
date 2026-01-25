@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SyntheticPDFs", "SyntheticP
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Agents", "Agents\Agents.csproj", "{C3734E97-36E2-47E7-9617-D9D0A9340112}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shared", "Shared\Shared.csproj", "{F9F3CA90-E1CC-49E2-857B-2DB8C78A2D1C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{C3734E97-36E2-47E7-9617-D9D0A9340112}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C3734E97-36E2-47E7-9617-D9D0A9340112}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C3734E97-36E2-47E7-9617-D9D0A9340112}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F9F3CA90-E1CC-49E2-857B-2DB8C78A2D1C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F9F3CA90-E1CC-49E2-857B-2DB8C78A2D1C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F9F3CA90-E1CC-49E2-857B-2DB8C78A2D1C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F9F3CA90-E1CC-49E2-857B-2DB8C78A2D1C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

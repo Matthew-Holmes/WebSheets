@@ -1,5 +1,6 @@
 ﻿using SyntheticPDFs.Git;
 using SyntheticPDFs.Services;
+using Shared;
 
 namespace SyntheticPDFs.Logic
 {
