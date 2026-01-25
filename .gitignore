@@ -59,3 +59,8 @@ TestResult.xml
 nunit-*.xml
 /SyntheticPDFs/Matthews_Mathematics/
 /SyntheticPDFs/run/secrets/DeepSeekAPIKey.txt
+/WebSheets/Properties/PublishProfiles/FolderProfile.pubxml.user
+/WebSheets/Properties/PublishProfiles/FolderProfile.pubxml.user
+/SyntheticPDFs/Properties/PublishProfiles/FolderProfile.pubxml.user
+/SyntheticPDFs/SyntheticPDFs.csproj.user
+/SyntheticPDFs/SyntheticPDFs.csproj.user
