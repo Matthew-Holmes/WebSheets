@@ -5,29 +5,7 @@ namespace SyntheticPDFs.Logic
 {
     public static partial class SourceGenerator
     {
-        // As I see errors I can update these methods, or even find a library that will e.g. identify valid tex
-        private static bool IsValidTex(string response)
-        {
-            bool OkFirstChar = response.First() == ' ' || response.First() == '\\' || response.First() == '%';
-
-            // check begins match ends
-
-            return OkFirstChar;
-        }
-
-        private static String TryFixupTex(String badTex)
-        {
-            // occasionally is wrapped in ```latex from the LLM, so strip the first and last and see if that helps!
-
-            var lines = badTex.Split("\n");
-
-            int nLines = lines.Count();
-
-            // add trailing ends to the file
-
-            return String.Join('\n', lines.Skip(1).Take(nLines - 2));
-        }
-
+      
         private static async Task<String?> TryGetValidTex(LLMService LLM, String prompt, int retry = 3)
         {
             for (int i = 0; i != retry; i++)
@@ -38,7 +16,7 @@ namespace SyntheticPDFs.Logic
 
                 LLM.Log(LogLevel.Warning, "Failed to generate good source");
 
-                response = TryFixupTex(response);
+                response = TryFixupTex(response, LLM);
 
                 if (IsValidTex(response)) { return response; }
 
