@@ -65,6 +65,8 @@ namespace SyntheticPDFs.Logic
 
             if (staleFiles.Count > 0)
             {
+                _logger.LogInformation("found stale files: removing");
+
                 bool removed = await RepoManager.RemoveFiles(
                     staleFiles.Select(f => f.TrackedFile.FullPath).ToList(),
                     repoModel.LastCommitHash);
@@ -105,10 +107,14 @@ namespace SyntheticPDFs.Logic
             // TODO - make this an await all
             foreach (SourceMetadata sm in batchToCreate)
             {
+                _logger.LogInformation($"generating Tex source for {sm.RootName}");
+
                 syntheticSource.Add(await GenerateSyntheticSource(sm));
                 break; // just for testing! TODO - remove
             }
 
+
+            _logger.LogInformation("created source, committing and pushing");
 
             bool pushed = await RepoManager.CommitAndPushTexSource(syntheticSource, repoModel.LastCommitHash);
             
