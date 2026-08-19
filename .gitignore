@@ -58,5 +58,7 @@ CodeCoverage/
 TestResult.xml
 nunit-*.xml
 SyntheticPDFs/run/secrets/DeepSeekAPIKey.txt
-SyntheticPDFs/SyntheticPDFs.csproj.user
-SyntheticPDFs/Properties/PublishProfiles/FolderProfile.pubxml.user
+
+# User-specific files (MSBuild) - covers WebSheets and SyntheticPDFs alike
+*.csproj.user
+*.pubxml.user

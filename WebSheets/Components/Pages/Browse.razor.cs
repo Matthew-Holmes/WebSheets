@@ -76,13 +76,7 @@ public partial class Browse : ComponentBase
         // Strip file extension by taking the part before the first dot
         String withoutExt = fullPath.Split('.')[0];
 
-        String sourcePath;
-
-        // Remove last 13 characters if possible
-        if (withoutExt.Length > 13)
-            sourcePath = withoutExt.Substring(0, withoutExt.Length - 13);
-        else
-            sourcePath = withoutExt;
+        String sourcePath = WorksheetNaming.StripHashSuffix(withoutExt);
 
         return "https://github.com/Matthew-Holmes/Matthews_Mathematics/tree/main/latex/" + sourcePath + ".tex";
 

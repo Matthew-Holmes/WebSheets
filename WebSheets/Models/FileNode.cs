@@ -2,9 +2,6 @@
 {
     public class FileNode
     {
-        private static int GitHashLen => 12;
-        private static int PathNoiseToStrip => GitHashLen + 1; // plus the underscore
-
         public string Name { get; set; } = "";
 
         public string CleanName
@@ -17,10 +14,11 @@
                 const string extension = ".pdf";
                 int extIndex = Name.LastIndexOf(extension, StringComparison.OrdinalIgnoreCase);
 
-                if (extIndex <= PathNoiseToStrip)
-                    return Name; // Removing 12 chars would leave empty or negative length
+                if (extIndex < 0)
+                    return Name;
 
-                return Name.Substring(0, extIndex - PathNoiseToStrip) + Name.Substring(extIndex);
+                string baseName = WorksheetNaming.StripHashSuffix(Name[..extIndex]);
+                return baseName + Name[extIndex..];
             }
         }
 
