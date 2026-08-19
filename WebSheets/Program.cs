@@ -5,9 +5,6 @@ using WebSheets.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddAuthentication();
-
-
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -34,8 +31,6 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 
 }
-
-app.UseAuthentication();
 
 app.UseStaticFiles();
 app.UseAntiforgery();
