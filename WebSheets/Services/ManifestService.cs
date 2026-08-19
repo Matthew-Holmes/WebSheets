@@ -17,12 +17,12 @@ namespace WebSheets.Services
         private readonly SemaphoreSlim _lock = new(1, 1);
         private readonly SemaphoreSlim _innerLock = new(1, 1);
 
-        public string CloudFrontBaseUrl { get; }
+        public string ObjectStoreBaseUrl { get; }
 
         public ManifestService(HttpClient http, ILogger<ManifestService> logger, IOptions<WorksheetSourceOptions> options)
         {
             _http = http;
-            CloudFrontBaseUrl = options.Value.CloudFrontBaseUrl;
+            ObjectStoreBaseUrl = options.Value.ObjectStoreBaseUrl;
 
             // Start background hourly refresh
             _ = Task.Run(UpdateCachePeriodically);
@@ -78,7 +78,7 @@ namespace WebSheets.Services
 
             try
             {
-                var request = new HttpRequestMessage(HttpMethod.Get, $"{CloudFrontBaseUrl}/manifest.txt");
+                var request = new HttpRequestMessage(HttpMethod.Get, $"{ObjectStoreBaseUrl}/manifest.txt");
                 request.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
 
                 var response = await _http.SendAsync(request);

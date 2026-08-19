@@ -56,7 +56,7 @@ public partial class Browse : ComponentBase
             ? name
             : $"/{CurrentPath}/{name}";
 
-        return Manifest.CloudFrontBaseUrl + fullPath;
+        return Manifest.ObjectStoreBaseUrl + fullPath;
     }
 
     private string ParentDirLink()
