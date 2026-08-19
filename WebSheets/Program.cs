@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.HttpOverrides;
 
 using WebSheets.Components;
+using WebSheets.Configuration;
 using WebSheets.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,6 +11,8 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<ManifestService>();
+builder.Services.Configure<WorksheetSourceOptions>(
+    builder.Configuration.GetSection(WorksheetSourceOptions.SectionName));
 
 
 var app = builder.Build();

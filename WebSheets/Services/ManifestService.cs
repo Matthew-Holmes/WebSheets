@@ -1,5 +1,7 @@
 ﻿using System.Net.Http.Json;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Options;
+using WebSheets.Configuration;
 using WebSheets.Models;
 
 namespace WebSheets.Services
@@ -15,12 +17,12 @@ namespace WebSheets.Services
         private readonly SemaphoreSlim _lock = new(1, 1);
         private readonly SemaphoreSlim _innerLock = new(1, 1);
 
-        public string CloudFrontBaseUrl { get; } =
-            "https://d1bo9rmfj24lnn.cloudfront.net";
+        public string CloudFrontBaseUrl { get; }
 
-        public ManifestService(HttpClient http, ILogger<ManifestService> logger)
+        public ManifestService(HttpClient http, ILogger<ManifestService> logger, IOptions<WorksheetSourceOptions> options)
         {
             _http = http;
+            CloudFrontBaseUrl = options.Value.CloudFrontBaseUrl;
 
             // Start background hourly refresh
             _ = Task.Run(UpdateCachePeriodically);

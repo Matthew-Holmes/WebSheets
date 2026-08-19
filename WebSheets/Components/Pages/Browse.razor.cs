@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Options;
+using WebSheets.Configuration;
 using WebSheets.Models;
 using WebSheets.Services;
 
@@ -8,6 +10,7 @@ public partial class Browse : ComponentBase
 {
     [Inject] public ManifestService Manifest { get; set; } = default!;
     [Inject] public NavigationManager Nav { get; set; } = default!;
+    [Inject] public IOptions<WorksheetSourceOptions> SourceOptions { get; set; } = default!;
 
     [Parameter] public string? Path { get; set; }
 
@@ -76,9 +79,10 @@ public partial class Browse : ComponentBase
         // Strip file extension by taking the part before the first dot
         String withoutExt = fullPath.Split('.')[0];
 
-        String sourcePath = WorksheetNaming.StripHashSuffix(withoutExt);
+        String sourcePath = WorksheetNaming.StripHashSuffix(withoutExt).TrimStart('/');
 
-        return "https://github.com/Matthew-Holmes/Matthews_Mathematics/tree/main/latex/" + sourcePath + ".tex";
+        var options = SourceOptions.Value;
+        return $"{options.GitHubRepoUrl}/tree/main/{options.LatexSourcePath}/{sourcePath}.tex";
 
     }
 }
