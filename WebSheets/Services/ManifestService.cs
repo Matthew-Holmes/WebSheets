@@ -1,5 +1,5 @@
-﻿using System.Net.Http.Json;
-using System.Runtime.InteropServices;
+﻿using Amazon.S3;
+using Amazon.S3.Model;
 using Microsoft.Extensions.Options;
 using WebSheets.Configuration;
 using WebSheets.Models;
@@ -11,22 +11,39 @@ namespace WebSheets.Services
         private readonly ILogger<ManifestService> _logger;
 
 
-        private readonly HttpClient _http;
+        private readonly IAmazonS3 _s3;
+        private readonly string _bucketName;
         private FileNode? _cachedTree;
         private DateTime _lastRequest = DateTime.MinValue;
         private readonly SemaphoreSlim _lock = new(1, 1);
         private readonly SemaphoreSlim _innerLock = new(1, 1);
 
-        public string ObjectStoreBaseUrl { get; }
-
-        public ManifestService(HttpClient http, ILogger<ManifestService> logger, IOptions<WorksheetSourceOptions> options)
+        public ManifestService(IAmazonS3 s3, ILogger<ManifestService> logger, IOptions<WorksheetSourceOptions> options)
         {
-            _http = http;
-            ObjectStoreBaseUrl = options.Value.ObjectStoreBaseUrl;
+            _s3 = s3;
+            _bucketName = options.Value.ObjectStoreBucketName;
 
             // Start background hourly refresh
             _ = Task.Run(UpdateCachePeriodically);
             _logger = logger;
+        }
+
+        /// <summary>
+        /// Builds a short-lived, signed download URL for an object in the store,
+        /// so a browser can fetch a private object directly without holding the
+        /// access key itself. Signing is a local computation, not a network call.
+        /// </summary>
+        public string GetPresignedFileUrl(string key, TimeSpan? expiresIn = null)
+        {
+            var request = new GetPreSignedUrlRequest
+            {
+                BucketName = _bucketName,
+                Key = key,
+                Verb = HttpVerb.GET,
+                Expires = DateTime.UtcNow.Add(expiresIn ?? TimeSpan.FromMinutes(15)),
+            };
+
+            return _s3.GetPreSignedURL(request);
         }
 
         public async Task<FileNode> GetTreeAsync()
@@ -78,12 +95,9 @@ namespace WebSheets.Services
 
             try
             {
-                var request = new HttpRequestMessage(HttpMethod.Get, $"{ObjectStoreBaseUrl}/manifest.txt");
-                request.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
-
-                var response = await _http.SendAsync(request);
-                response.EnsureSuccessStatusCode(); // throw if not 2xx
-                var manifest = await response.Content.ReadAsStringAsync();
+                using var response = await _s3.GetObjectAsync(_bucketName, "manifest.txt");
+                using var reader = new StreamReader(response.ResponseStream);
+                var manifest = await reader.ReadToEndAsync();
 
                 _lastRequest = DateTime.UtcNow;
 

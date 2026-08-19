@@ -52,11 +52,13 @@ public partial class Browse : ComponentBase
 
     protected string FileLink(string name)
     {
-        var fullPath = string.IsNullOrEmpty(CurrentPath)
+        var key = string.IsNullOrEmpty(CurrentPath)
             ? name
-            : $"/{CurrentPath}/{name}";
+            : $"{CurrentPath}/{name}";
 
-        return Manifest.ObjectStoreBaseUrl + fullPath;
+        // The bucket is private, so hand the browser a short-lived signed URL
+        // rather than a plain one it couldn't authenticate on its own.
+        return Manifest.GetPresignedFileUrl(key);
     }
 
     private string ParentDirLink()

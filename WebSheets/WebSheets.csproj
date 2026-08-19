@@ -4,6 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>4398c0a9-c80b-45df-bfb2-2c1f0c883328</UserSecretsId>
   </PropertyGroup>
 
  <ItemGroup>
@@ -12,6 +13,10 @@
 
  <ItemGroup>
    <Folder Include="Properties\PublishProfiles\" />
+ </ItemGroup>
+
+ <ItemGroup>
+   <PackageReference Include="AWSSDK.S3" Version="4.0.102.2" />
  </ItemGroup>
 
 </Project>
