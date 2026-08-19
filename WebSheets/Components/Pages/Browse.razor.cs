@@ -56,9 +56,12 @@ public partial class Browse : ComponentBase
             ? name
             : $"{CurrentPath}/{name}";
 
-        // The bucket is private, so hand the browser a short-lived signed URL
-        // rather than a plain one it couldn't authenticate on its own.
-        return Manifest.GetPresignedFileUrl(key);
+        // Worksheets are public content, so this is a plain, permanent URL served
+        // by the object store's public website listener - a separate endpoint from
+        // the private/signed S3 API, and one that identifies the bucket from the
+        // hostname itself, so no bucket name goes in the path here.
+        var options = SourceOptions.Value;
+        return $"{options.PublicDownloadBaseUrl}/{key}";
     }
 
     private string ParentDirLink()

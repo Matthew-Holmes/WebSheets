@@ -19,6 +19,15 @@ namespace WebSheets.Configuration
         /// <summary>Region string to sign requests with. Garage accepts any value here; it isn't a real AWS region.</summary>
         public string ObjectStoreRegion { get; set; } = "garage";
 
+        /// <summary>
+        /// Base URL of the object store's public website listener, which serves the
+        /// bucket's contents to anonymous requests (no signing, no bucket name in the
+        /// path - Garage identifies the bucket from this hostname). Used for the plain
+        /// download links handed to the browser, separate from ObjectStoreBaseUrl,
+        /// which is the private, signed S3 API endpoint used server-side.
+        /// </summary>
+        public string PublicDownloadBaseUrl { get; set; } = "";
+
         /// <summary>Base URL of the GitHub repository holding the LaTeX source.</summary>
         public string GitHubRepoUrl { get; set; } = "";
 

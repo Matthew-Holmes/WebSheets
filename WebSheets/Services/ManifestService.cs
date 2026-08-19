@@ -1,5 +1,4 @@
 ﻿using Amazon.S3;
-using Amazon.S3.Model;
 using Microsoft.Extensions.Options;
 using WebSheets.Configuration;
 using WebSheets.Models;
@@ -26,24 +25,6 @@ namespace WebSheets.Services
             // Start background hourly refresh
             _ = Task.Run(UpdateCachePeriodically);
             _logger = logger;
-        }
-
-        /// <summary>
-        /// Builds a short-lived, signed download URL for an object in the store,
-        /// so a browser can fetch a private object directly without holding the
-        /// access key itself. Signing is a local computation, not a network call.
-        /// </summary>
-        public string GetPresignedFileUrl(string key, TimeSpan? expiresIn = null)
-        {
-            var request = new GetPreSignedUrlRequest
-            {
-                BucketName = _bucketName,
-                Key = key,
-                Verb = HttpVerb.GET,
-                Expires = DateTime.UtcNow.Add(expiresIn ?? TimeSpan.FromMinutes(15)),
-            };
-
-            return _s3.GetPreSignedURL(request);
         }
 
         public async Task<FileNode> GetTreeAsync()
