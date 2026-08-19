@@ -58,3 +58,5 @@ CodeCoverage/
 TestResult.xml
 nunit-*.xml
 SyntheticPDFs/run/secrets/DeepSeekAPIKey.txt
+SyntheticPDFs/SyntheticPDFs.csproj.user
+SyntheticPDFs/Properties/PublishProfiles/FolderProfile.pubxml.user
