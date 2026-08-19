@@ -105,6 +105,9 @@ namespace SyntheticPDFs.Logic
             List<TexSourceModel> syntheticSource = new();
 
             // TODO - make this an await all
+
+            throw new NotImplementedException();
+
             foreach (SourceMetadata sm in batchToCreate)
             {
                 _logger.LogInformation($"generating Tex source for {sm.RootName}");
