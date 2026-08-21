@@ -125,6 +125,7 @@ namespace SyntheticPDFs.Logic
             {
                 _logger.LogWarning("failed to push synthetic source, backing off, consider adding caching!");
                 BackoffAndRegisterRetry();
+                return;
             }
 
             _logger.LogInformation("succesfully added synthetic source");
