@@ -31,8 +31,6 @@ configuration and is committed; the *file it points at* is the secret and is not
 
 | Secret | Used by | Purpose |
 | --- | --- | --- |
-| `ObjectStoreCredentials:AccessKeyId` | WebSheets | Signs S3 requests to Garage to read `manifest.txt`. |
-| `ObjectStoreCredentials:SecretAccessKey` | WebSheets | As above. |
 | `SyntheticPdfsTrigger:ApiKey` | WebSheets | Shared secret callers must present to trigger a generation run. |
 | DeepSeek API key file | SyntheticPDFs | Contents are sent as the DeepSeek bearer token. Located by `LLM:DeepSeekAPIKeyFile`. |
 | SSH private key | SyntheticPDFs | Pushes generated source to the content repository. Located by `ContentRepository:SshKeyPath`. |
@@ -43,13 +41,11 @@ configuration and is committed; the *file it points at* is the secret and is not
 Only `WebSheets` has a `UserSecretsId`, so `dotnet user-secrets` works there and
 nowhere else in this solution.
 
-**Development** — set them once per machine:
+**Development** — set it once per machine:
 
 ```bash
 cd WebSheets
-dotnet user-secrets set "ObjectStoreCredentials:AccessKeyId"     "<garage access key id>"
-dotnet user-secrets set "ObjectStoreCredentials:SecretAccessKey" "<garage secret access key>"
-dotnet user-secrets set "SyntheticPdfsTrigger:ApiKey"            "<random hex string>"
+dotnet user-secrets set "SyntheticPdfsTrigger:ApiKey" "<random hex string>"
 ```
 
 **Check** what is currently set:
@@ -58,16 +54,14 @@ dotnet user-secrets set "SyntheticPdfsTrigger:ApiKey"            "<random hex st
 dotnet user-secrets list --project WebSheets
 ```
 
-**Production** — supply the same values as environment variables. The `__`
-separator maps to the `:` in the configuration key:
+**Production** — supply it as an environment variable. The `__` separator maps
+to the `:` in the configuration key:
 
 ```bash
-ObjectStoreCredentials__AccessKeyId=...
-ObjectStoreCredentials__SecretAccessKey=...
 SyntheticPdfsTrigger__ApiKey=...
 ```
 
-**Check** they arrived, whatever the host: the app logs a warning at startup if
+**Check** it arrived, whatever the host: the app logs a warning at startup if
 the trigger key is missing —
 
 ```
@@ -75,10 +69,12 @@ warn: Program[0]
       SyntheticPdfsTrigger:ApiKey is not configured - the Synthetic PDF trigger will reject every request
 ```
 
-No warning means the key was picked up. For the object store credentials, browse
-to `/browse`: a populated tree and a `refreshed cached tree` log line mean the
-credentials work; an empty page with an error logged from `ManifestService` means
-they do not.
+No warning means the key was picked up.
+
+The site needs no object store credentials at all: `manifest.txt` and the PDFs
+are both served by the anonymous public endpoint, so the site reads the manifest
+over plain HTTP. Browsing to `/browse` and seeing a populated tree, alongside a
+`refreshed cached tree` log line, confirms it can reach the object store.
 
 ### SyntheticPDFs
 
@@ -131,10 +127,7 @@ All committed, all overridable by environment variable using `__` for `:`.
 
 | Setting | Purpose |
 | --- | --- |
-| `WorksheetSource:ObjectStoreBaseUrl` | Private, signed S3 API endpoint, used server-side. |
-| `WorksheetSource:ObjectStoreBucketName` | Bucket holding `manifest.txt` and the PDFs. |
-| `WorksheetSource:ObjectStoreRegion` | Region string to sign with. Garage accepts any value. |
-| `WorksheetSource:PublicDownloadBaseUrl` | Public website listener, used for the download links handed to browsers. |
+| `WorksheetSource:PublicDownloadBaseUrl` | Public website listener. Serves `manifest.txt` and the PDF download links. |
 | `WorksheetSource:GitHubRepoUrl` | Content repository, for the "source" links beside each PDF. |
 | `WorksheetSource:LatexSourcePath` | Folder within that repository holding the `.tex` files. |
 | `SyntheticPdfsTrigger:BaseUrl` | Where the generation service listens. Must agree with `Api:Port` below. |

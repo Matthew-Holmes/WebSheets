@@ -1,4 +1,3 @@
-using Amazon.S3;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
 
@@ -19,27 +18,8 @@ builder.Services.AddRazorComponents()
 builder.Services.AddSingleton<ManifestService>();
 builder.Services.Configure<WorksheetSourceOptions>(
     builder.Configuration.GetSection(WorksheetSourceOptions.SectionName));
-builder.Services.Configure<ObjectStoreCredentialsOptions>(
-    builder.Configuration.GetSection(ObjectStoreCredentialsOptions.SectionName));
 builder.Services.Configure<SyntheticPdfsTriggerOptions>(
     builder.Configuration.GetSection(SyntheticPdfsTriggerOptions.SectionName));
-
-// SigV4-authenticated S3 client, pointed at the Garage endpoint rather than real AWS.
-builder.Services.AddSingleton<IAmazonS3>(sp =>
-{
-    var source = sp.GetRequiredService<IOptions<WorksheetSourceOptions>>().Value;
-    var credentials = sp.GetRequiredService<IOptions<ObjectStoreCredentialsOptions>>().Value;
-
-    var config = new AmazonS3Config
-    {
-        ServiceURL = source.ObjectStoreBaseUrl,
-        AuthenticationRegion = source.ObjectStoreRegion,
-        ForcePathStyle = true, // Garage expects path-style requests: {endpoint}/{bucket}/{key}
-    };
-
-    return new AmazonS3Client(credentials.AccessKeyId, credentials.SecretAccessKey, config);
-});
-
 
 builder.Services.AddHttpClient("SyntheticPDFsAPI", (sp, client) =>
 {

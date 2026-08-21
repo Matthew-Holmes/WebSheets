@@ -1,4 +1,3 @@
-﻿using Amazon.S3;
 using Microsoft.Extensions.Options;
 using WebSheets.Configuration;
 using WebSheets.Models;
@@ -10,17 +9,20 @@ namespace WebSheets.Services
         private readonly ILogger<ManifestService> _logger;
 
 
-        private readonly IAmazonS3 _s3;
-        private readonly string _bucketName;
+        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly string _manifestUrl;
         private FileNode? _cachedTree;
         private DateTime _lastRequest = DateTime.MinValue;
         private readonly SemaphoreSlim _lock = new(1, 1);
         private readonly SemaphoreSlim _innerLock = new(1, 1);
 
-        public ManifestService(IAmazonS3 s3, ILogger<ManifestService> logger, IOptions<WorksheetSourceOptions> options)
+        public ManifestService(IHttpClientFactory httpClientFactory, ILogger<ManifestService> logger, IOptions<WorksheetSourceOptions> options)
         {
-            _s3 = s3;
-            _bucketName = options.Value.ObjectStoreBucketName;
+            _httpClientFactory = httpClientFactory;
+
+            // manifest.txt is public, served by the same anonymous endpoint as the
+            // PDFs themselves, so this needs no credentials and no S3 client.
+            _manifestUrl = $"{options.Value.PublicDownloadBaseUrl.TrimEnd('/')}/manifest.txt";
 
             // Start background hourly refresh
             _ = Task.Run(UpdateCachePeriodically);
@@ -76,9 +78,7 @@ namespace WebSheets.Services
 
             try
             {
-                using var response = await _s3.GetObjectAsync(_bucketName, "manifest.txt");
-                using var reader = new StreamReader(response.ResponseStream);
-                var manifest = await reader.ReadToEndAsync();
+                var manifest = await _httpClientFactory.CreateClient().GetStringAsync(_manifestUrl);
 
                 _lastRequest = DateTime.UtcNow;
 
