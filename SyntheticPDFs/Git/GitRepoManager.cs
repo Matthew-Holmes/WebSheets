@@ -1,4 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
 using SyntheticPDFs.Models;
 using System.Runtime.InteropServices;
@@ -12,6 +14,8 @@ namespace SyntheticPDFs.Git
         String _repoDir;
         String _sourceDir;
 
+        private readonly ContentRepositoryOptions _options;
+
 
         public String RepoDir => _repoDir;
 
@@ -22,16 +26,16 @@ namespace SyntheticPDFs.Git
 
         public GitRepoManager(
             ILogger<GitRepoManager> logger,
-            String repoUrl = "https://github.com/Matthew-Holmes/Matthews_Mathematics",
-            String repoDir = "Matthews_Mathematics",
-            String sourceDir = "latex")
+            IOptions<ContentRepositoryOptions> options)
         {
             _logger = logger;
 
-            _repoUrl = repoUrl;
+            _options = options.Value;
 
-            _repoDir = repoDir;
-            _sourceDir = sourceDir;
+            _repoUrl = _options.CloneUrl;
+
+            _repoDir = _options.LocalDirectory;
+            _sourceDir = _options.SourceDirectory;
 
             PrepareRepository();
 

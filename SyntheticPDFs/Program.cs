@@ -1,3 +1,4 @@
+using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
 using Microsoft.Extensions.Logging;
 using SyntheticPDFs.Git;
@@ -43,15 +44,35 @@ builder.Services
 
 
 
+// where the worksheet source lives, and which key may push to it
+builder.Services
+    .AddOptions<ContentRepositoryOptions>()
+    .Bind(builder.Configuration.GetSection(ContentRepositoryOptions.SectionName))
+    .Validate(o => !string.IsNullOrWhiteSpace(o.CloneUrl),
+        $"{ContentRepositoryOptions.SectionName}:CloneUrl is not configured")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.PushUrl),
+        $"{ContentRepositoryOptions.SectionName}:PushUrl is not configured")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.LocalDirectory),
+        $"{ContentRepositoryOptions.SectionName}:LocalDirectory is not configured")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.SourceDirectory),
+        $"{ContentRepositoryOptions.SectionName}:SourceDirectory is not configured")
+    .Validate(o => !string.IsNullOrWhiteSpace(o.SshKeyPath),
+        $"{ContentRepositoryOptions.SectionName}:SshKeyPath is not configured")
+    .ValidateOnStart();
+
+
 builder.Services.AddSingleton<Orchestrator>();
 builder.Services.AddSingleton<GitRepoManager>();
 builder.Services.AddSingleton<LLMService>();
 
 
 // only listen on local host - let the main website call it
+int apiPort = builder.Configuration.GetValue<int?>("Api:Port")
+    ?? throw new InvalidOperationException("Api:Port is not configured");
+
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.ListenLocalhost(5432);
+    options.ListenLocalhost(apiPort);
 });
 
 var app = builder.Build();

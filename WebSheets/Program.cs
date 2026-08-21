@@ -41,9 +41,10 @@ builder.Services.AddSingleton<IAmazonS3>(sp =>
 });
 
 
-builder.Services.AddHttpClient("SyntheticPDFsAPI", client =>
+builder.Services.AddHttpClient("SyntheticPDFsAPI", (sp, client) =>
 {
-    client.BaseAddress = new Uri("http://localhost:5432/");
+    var trigger = sp.GetRequiredService<IOptions<SyntheticPdfsTriggerOptions>>().Value;
+    client.BaseAddress = new Uri(trigger.BaseUrl);
 });
 
 

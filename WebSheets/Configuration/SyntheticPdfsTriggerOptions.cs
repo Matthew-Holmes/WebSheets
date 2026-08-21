@@ -19,6 +19,14 @@ namespace WebSheets.Configuration
         /// <summary>Header the caller puts the key in.</summary>
         public const string ApiKeyHeader = "X-WebSheets-Trigger-Key";
 
+        /// <summary>
+        /// Base URL of the generation service. It listens on loopback only, so
+        /// this stays a localhost address unless the two are split across hosts.
+        /// Not a secret, and so lives in appsettings.json alongside the other
+        /// addresses rather than in user secrets.
+        /// </summary>
+        public string BaseUrl { get; set; } = "http://localhost:5432/";
+
         /// <summary>Shared secret the caller must present in <see cref="ApiKeyHeader"/>.</summary>
         public string ApiKey { get; set; } = "";
     }

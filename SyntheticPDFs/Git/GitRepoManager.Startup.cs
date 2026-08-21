@@ -20,7 +20,7 @@ namespace SyntheticPDFs.Git
 
             // 2. Clone repository
             var clone = BashRunner.RunAsync(
-                $"git clone \"{_repoUrl}\"",
+                $"git clone \"{_repoUrl}\" \"{RepoDir}\"",
                 _logger
             ).Result;
 

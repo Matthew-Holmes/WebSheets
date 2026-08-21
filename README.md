@@ -19,10 +19,13 @@ and the service that writes new LaTeX source back into the content repository.
 
 ## Configuration and secrets
 
-Non-secret configuration lives in each project's `appsettings.json` and is safe
-to commit. **Secrets never go in `appsettings.json`** — in development they go in
-user secrets or a gitignored file, and in production they come from the
-environment.
+Everything that varies between machines — URLs, ports, file paths — lives in
+`appsettings.json` and is safe to commit. **Secret values never go in
+`appsettings.json`**: in development they go in user secrets or a gitignored
+file, and in production they come from the environment.
+
+Note the distinction for keys held on disk: the *path* to a key file is ordinary
+configuration and is committed; the *file it points at* is the secret and is not.
 
 ### Required secrets
 
@@ -31,8 +34,8 @@ environment.
 | `ObjectStoreCredentials:AccessKeyId` | WebSheets | Signs S3 requests to Garage to read `manifest.txt`. |
 | `ObjectStoreCredentials:SecretAccessKey` | WebSheets | As above. |
 | `SyntheticPdfsTrigger:ApiKey` | WebSheets | Shared secret callers must present to trigger a generation run. |
-| DeepSeek API key file | SyntheticPDFs | Contents of the file are sent as the DeepSeek bearer token. |
-| SSH private key | SyntheticPDFs | Pushes generated source to the content repository. |
+| DeepSeek API key file | SyntheticPDFs | Contents are sent as the DeepSeek bearer token. Located by `LLM:DeepSeekAPIKeyFile`. |
+| SSH private key | SyntheticPDFs | Pushes generated source to the content repository. Located by `ContentRepository:SshKeyPath`. |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Content repo Actions | Uploads compiled PDFs to Garage. Set as GitHub Actions secrets on `Matthews_Mathematics`, not here. |
 
 ### WebSheets
@@ -46,7 +49,7 @@ nowhere else in this solution.
 cd WebSheets
 dotnet user-secrets set "ObjectStoreCredentials:AccessKeyId"     "<garage access key id>"
 dotnet user-secrets set "ObjectStoreCredentials:SecretAccessKey" "<garage secret access key>"
-dotnet user-secrets set "SyntheticPdfsTrigger:ApiKey"            "$(openssl rand -hex 32)"
+dotnet user-secrets set "SyntheticPdfsTrigger:ApiKey"            "<random hex string>"
 ```
 
 **Check** what is currently set:
@@ -75,48 +78,115 @@ warn: Program[0]
 No warning means the key was picked up. For the object store credentials, browse
 to `/browse`: a populated tree and a `refreshed cached tree` log line mean the
 credentials work; an empty page with an error logged from `ManifestService` means
-they did not.
+they do not.
 
 ### SyntheticPDFs
 
-This project has no `UserSecretsId`, so its two secrets are handled as files.
+This project has no `UserSecretsId`, so its two secrets are files on disk located
+by configured paths.
 
-**DeepSeek API key.** `appsettings.json` holds the *path* to a file, not the key
-itself, under `LLM:DeepSeekAPIKeyFile` (default `run/secrets/DeepSeekAPIKey.txt`,
-relative to the working directory). Create it with the key as its only contents:
+**DeepSeek API key.** `LLM:DeepSeekAPIKeyFile` holds the *path* to a file, not the
+key itself (default `run/secrets/DeepSeekAPIKey.txt`, relative to the working
+directory). Create it with the key as its only contents:
 
 ```bash
 mkdir -p SyntheticPDFs/run/secrets
-printf '%s' '<deepseek api key>' > SyntheticPDFs/run/secrets/DeepSeekAPIKey.txt
+echo -n "<deepseek api key>" > SyntheticPDFs/run/secrets/DeepSeekAPIKey.txt
 ```
 
-That path is gitignored. To point at a different location, override
-`LLM__DeepSeekAPIKeyFile` in the environment.
+That path is gitignored. To point elsewhere, override `LLM__DeepSeekAPIKeyFile`.
 
 **Check**: the service validates this at startup and refuses to start otherwise,
-so a clean boot is the check. A missing file throws
-`DeepSeek API key file not found: <path>`, and an empty one throws
-`Deepseek API key file is empty`.
+so a clean boot is the check. A missing file throws `DeepSeek API key file not
+found: <path>`, and an empty one throws `Deepseek API key file is empty`.
 
-**SSH key.** Pushes to the content repository authenticate with an SSH key whose
-path is currently hardcoded in `GitRepoManager.GitActions.cs`:
+**SSH deploy key.** `ContentRepository:SshKeyPath` holds the path to the private
+half of a key with write access to the content repository. Register the public
+half as a deploy key on `Matthews_Mathematics`.
 
-- Linux: `/root/.ssh/id_ed25519`
-- Windows (via WSL): `/home/matt/root/.ssh/id_ed25519`
+This path is resolved by the shell that runs the git commands, not by .NET. On
+Windows that shell is WSL, so the development value is a *WSL* path rather than a
+Windows one — which is why the two environments set it separately:
 
-The public half must be registered as a deploy key with write access on
-`Matthews_Mathematics`.
+| Environment | File | Value |
+| --- | --- | --- |
+| Production (Linux) | `appsettings.json` | `/root/.ssh/id_ed25519` |
+| Development (Windows/WSL) | `appsettings.Development.json` | `/home/matt/root/.ssh/id_ed25519` |
 
-**Check**:
+**Check** the key is accepted:
 
 ```bash
-ssh -T git@github.com -i /root/.ssh/id_ed25519
+ssh -T git@github.com -i /root/.ssh/id_ed25519                     # Linux
+wsl -e ssh -T git@github.com -i /home/matt/root/.ssh/id_ed25519    # Windows
 ```
 
-A greeting naming the account means the key is accepted; `Permission denied
-(publickey)` means it is not.
+A greeting naming the account means the key works; `Permission denied
+(publickey)` means it does not.
+
+### Non-secret settings
+
+All committed, all overridable by environment variable using `__` for `:`.
+
+**WebSheets** — `WebSheets/appsettings.json`
+
+| Setting | Purpose |
+| --- | --- |
+| `WorksheetSource:ObjectStoreBaseUrl` | Private, signed S3 API endpoint, used server-side. |
+| `WorksheetSource:ObjectStoreBucketName` | Bucket holding `manifest.txt` and the PDFs. |
+| `WorksheetSource:ObjectStoreRegion` | Region string to sign with. Garage accepts any value. |
+| `WorksheetSource:PublicDownloadBaseUrl` | Public website listener, used for the download links handed to browsers. |
+| `WorksheetSource:GitHubRepoUrl` | Content repository, for the "source" links beside each PDF. |
+| `WorksheetSource:LatexSourcePath` | Folder within that repository holding the `.tex` files. |
+| `SyntheticPdfsTrigger:BaseUrl` | Where the generation service listens. Must agree with `Api:Port` below. |
+
+**SyntheticPDFs** — `SyntheticPDFs/appsettings.json`
+
+| Setting | Purpose |
+| --- | --- |
+| `ContentRepository:CloneUrl` | HTTPS URL used for the initial clone. |
+| `ContentRepository:PushUrl` | SSH URL the origin remote is repointed at before pulling or pushing. |
+| `ContentRepository:LocalDirectory` | Directory the repository is cloned into, relative to the working directory. |
+| `ContentRepository:SourceDirectory` | Folder within the repository holding the `.tex` files. |
+| `ContentRepository:SshKeyPath` | Deploy key, as described above. |
+| `LLM:DeepSeekAPIKeyFile` | Path to the file holding the DeepSeek key. |
+| `Api:Port` | Loopback port the service listens on. Must agree with `SyntheticPdfsTrigger:BaseUrl`. |
+
+Every `ContentRepository` value is validated at startup; a blank one stops the
+service with `ContentRepository:<Name> is not configured`.
+
+## Migrating to the configured paths
+
+These values used to be hardcoded in `GitRepoManager`, `GitRepoManager.GitActions`
+and the two `Program.cs` files. **No new secret values are needed** — this change
+moved paths and URLs, not secrets, and the committed defaults reproduce exactly
+what the code did before. Existing key files and deploy keys keep working
+untouched.
+
+What to check when you first deploy this:
+
+1. **Production SSH key path.** `appsettings.json` says `/root/.ssh/id_ed25519`,
+   which is what the Linux branch of the old ternary used. If the deploy host
+   keeps it elsewhere, set `ContentRepository__SshKeyPath` in the environment
+   rather than editing the committed file.
+2. **Development SSH key path.** `appsettings.Development.json` says
+   `/home/matt/root/.ssh/id_ed25519`, the old Windows branch. Change it if your
+   WSL user differs.
+3. **The two ports must agree.** `Api:Port` in SyntheticPDFs and
+   `SyntheticPdfsTrigger:BaseUrl` in WebSheets are set independently now, so
+   changing one without the other breaks the trigger.
+4. **If you change `LocalDirectory`,** update `.gitignore` — it currently pins
+   the old name, `/SyntheticPDFs/Matthews_Mathematics/`.
+
+The clone is now `git clone <url> <dir>`, so `LocalDirectory` no longer has to
+match the repository name in `CloneUrl`.
 
 ## Triggering a generation run
+
+> **This does real work.** A run pulls the content repository, deletes source it
+> considers stale, and pushes the result — which in turn causes the CI to delete
+> the corresponding PDFs from the object store. It is not a health check. Point a
+> test instance at a scratch repository with `ContentRepository__CloneUrl` and
+> `ContentRepository__PushUrl` before pinging it.
 
 `POST /api/public/syntheticPDFs/ping` on the site starts a run, and requires the
 trigger key in the `X-WebSheets-Trigger-Key` header:
@@ -125,7 +195,7 @@ trigger key in the `X-WebSheets-Trigger-Key` header:
 curl -X POST https://matthewsmathematics.uk/api/public/syntheticPDFs/ping \
   -H "Content-Type: application/json" \
   -H "X-WebSheets-Trigger-Key: <key>" \
-  -d '{}'
+  -d "{}"
 ```
 
 Without a valid key the endpoint returns `401` and logs the caller's IP. If no
@@ -140,8 +210,8 @@ dotnet run --project WebSheets        # site, http://localhost:5008
 dotnet run --project SyntheticPDFs    # generator, http://localhost:5432
 ```
 
-`SyntheticPDFs` binds to localhost only by design — reach it through the site's
+`SyntheticPDFs` binds to loopback only by design — reach it through the site's
 trigger endpoint rather than directly. On startup it deletes and re-clones the
-content repository into `SyntheticPDFs/Matthews_Mathematics/`, which is
-gitignored. On Windows its git commands run through WSL, so a working WSL install
-with `git` is required for local development.
+content repository into `ContentRepository:LocalDirectory`. On Windows its git
+commands run through WSL, so a working WSL install with `git` is required for
+local development.

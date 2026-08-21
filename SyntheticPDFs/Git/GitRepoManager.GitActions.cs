@@ -176,11 +176,11 @@ namespace SyntheticPDFs.Git
             int? timeoutMs = 50000; // 50 sec timeout
             CancellationTokenSource cts = new CancellationTokenSource();
 
-            String keyLoc = OperatingSystem.IsWindows() ? "/home/matt/root/.ssh/id_ed25519" : "/root/.ssh/id_ed25519";
+            String keyLoc = _options.SshKeyPath;
 
             var pushTask = BashRunner.RunAsync(
                 $"eval $(ssh-agent -s) && ssh-add {keyLoc} && " +
-                "git remote set-url origin git@github.com:Matthew-Holmes/Matthews_Mathematics.git && " +
+                $"git remote set-url origin {_options.PushUrl} && " +
                 "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null' git push",
                 _logger,
                 workingDirectory: RepoDir,
@@ -249,12 +249,12 @@ namespace SyntheticPDFs.Git
                 throw new InvalidOperationException("Not inside a git repository");
             }
 
-            String keyLoc = OperatingSystem.IsWindows() ? "/home/matt/root/.ssh/id_ed25519" : "/root/.ssh/id_ed25519";
+            String keyLoc = _options.SshKeyPath;
 
             // pull the latest, use the token as this will sometimes fail
             var pull = BashRunner.RunAsync(
                 $"eval $(ssh-agent -s) && ssh-add {keyLoc} && " +
-                "git remote set-url origin git@github.com:Matthew-Holmes/Matthews_Mathematics.git && " +
+                $"git remote set-url origin {_options.PushUrl} && " +
                 "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null' git pull",
                 _logger,
                 workingDirectory: RepoDir
