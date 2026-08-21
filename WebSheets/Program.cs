@@ -8,7 +8,8 @@ using WebSheets.Services;
 
 using Shared;
 using System.Net.Http.Headers;
-using Microsoft.AspNetCore.Identity;
+using System.Security.Cryptography;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +21,8 @@ builder.Services.Configure<WorksheetSourceOptions>(
     builder.Configuration.GetSection(WorksheetSourceOptions.SectionName));
 builder.Services.Configure<ObjectStoreCredentialsOptions>(
     builder.Configuration.GetSection(ObjectStoreCredentialsOptions.SectionName));
+builder.Services.Configure<SyntheticPdfsTriggerOptions>(
+    builder.Configuration.GetSection(SyntheticPdfsTriggerOptions.SectionName));
 
 // SigV4-authenticated S3 client, pointed at the Garage endpoint rather than real AWS.
 builder.Services.AddSingleton<IAmazonS3>(sp =>
@@ -70,12 +73,54 @@ app.UseAntiforgery();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
+// Say so at startup rather than letting a missing key look like a working endpoint.
+var triggerOptions = app.Services
+    .GetRequiredService<IOptions<SyntheticPdfsTriggerOptions>>().Value;
+
+if (string.IsNullOrWhiteSpace(triggerOptions.ApiKey))
+{
+    app.Logger.LogWarning(
+        "{Section}:{Key} is not configured - the Synthetic PDF trigger will reject every request",
+        SyntheticPdfsTriggerOptions.SectionName,
+        nameof(SyntheticPdfsTriggerOptions.ApiKey));
+}
+
+// Compare hashes rather than the raw values, so that neither the key nor its
+// length is recoverable from how long the comparison takes.
+static bool IsAuthorisedTrigger(HttpRequest request, string expectedKey)
+{
+    if (string.IsNullOrWhiteSpace(expectedKey))
+        return false; // no key configured, so no caller can be authorised
+
+    if (!request.Headers.TryGetValue(SyntheticPdfsTriggerOptions.ApiKeyHeader, out var provided))
+        return false;
+
+    Span<byte> providedHash = stackalloc byte[SHA256.HashSizeInBytes];
+    Span<byte> expectedHash = stackalloc byte[SHA256.HashSizeInBytes];
+
+    SHA256.HashData(Encoding.UTF8.GetBytes(provided.ToString()), providedHash);
+    SHA256.HashData(Encoding.UTF8.GetBytes(expectedKey), expectedHash);
+
+    return CryptographicOperations.FixedTimeEquals(providedHash, expectedHash);
+}
+
 app.MapPost("/api/public/syntheticPDFs/ping", async (
+    HttpContext context,
     IHttpClientFactory factory,
+    IOptions<SyntheticPdfsTriggerOptions> trigger,
     PingRequest request,
     ILogger<Program> logger,
     CancellationToken ct) =>
 {
+    if (!IsAuthorisedTrigger(context.Request, trigger.Value.ApiKey))
+    {
+        logger.LogWarning(
+            "Rejected unauthorised ping from {RemoteIp}",
+            context.Connection.RemoteIpAddress);
+
+        return Results.Unauthorized();
+    }
+
     logger.LogInformation("Forwarding ping request");
 
     var http = factory.CreateClient("SyntheticPDFsAPI");
