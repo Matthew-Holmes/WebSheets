@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.Options;
+using WebSheets.Configuration;
 using WebSheets.Models;
 using WebSheets.Services;
 
@@ -8,6 +10,7 @@ public partial class Browse : ComponentBase
 {
     [Inject] public ManifestService Manifest { get; set; } = default!;
     [Inject] public NavigationManager Nav { get; set; } = default!;
+    [Inject] public IOptions<WorksheetSourceOptions> SourceOptions { get; set; } = default!;
 
     [Parameter] public string? Path { get; set; }
 
@@ -49,11 +52,16 @@ public partial class Browse : ComponentBase
 
     protected string FileLink(string name)
     {
-        var fullPath = string.IsNullOrEmpty(CurrentPath)
+        var key = string.IsNullOrEmpty(CurrentPath)
             ? name
-            : $"/{CurrentPath}/{name}";
+            : $"{CurrentPath}/{name}";
 
-        return Manifest.CloudFrontBaseUrl + fullPath;
+        // Worksheets are public content, so this is a plain, permanent URL served
+        // by the object store's public website listener - a separate endpoint from
+        // the private/signed S3 API, and one that identifies the bucket from the
+        // hostname itself, so no bucket name goes in the path here.
+        var options = SourceOptions.Value;
+        return $"{options.PublicDownloadBaseUrl}/{key}";
     }
 
     private string ParentDirLink()
@@ -76,15 +84,10 @@ public partial class Browse : ComponentBase
         // Strip file extension by taking the part before the first dot
         String withoutExt = fullPath.Split('.')[0];
 
-        String sourcePath;
+        String sourcePath = WorksheetNaming.StripHashSuffix(withoutExt).TrimStart('/');
 
-        // Remove last 13 characters if possible
-        if (withoutExt.Length > 13)
-            sourcePath = withoutExt.Substring(0, withoutExt.Length - 13);
-        else
-            sourcePath = withoutExt;
-
-        return "https://github.com/Matthew-Holmes/Matthews_Mathematics/tree/main/latex/" + sourcePath + ".tex";
+        var options = SourceOptions.Value;
+        return $"{options.GitHubRepoUrl}/tree/main/{options.LatexSourcePath}/{sourcePath}.tex";
 
     }
 }

@@ -1,5 +1,6 @@
 ﻿@page "/contribute"
-   
+@inject Microsoft.Extensions.Options.IOptions<WebSheets.Configuration.WorksheetSourceOptions> SourceOptions
+
 <PageTitle>Contribute</PageTitle>
 
 <h1>You can help!</h1>
@@ -8,8 +9,8 @@
 
 <p>
     To browse the source visit the GitHub repository:
-    <a href="https://github.com/Matthew-Holmes/Matthews_Mathematics">
-        https://github.com/Matthew-Holmes/Matthews_Mathematics
+    <a href="@SourceOptions.Value.GitHubRepoUrl">
+        @SourceOptions.Value.GitHubRepoUrl
     </a>
 </p>
 
