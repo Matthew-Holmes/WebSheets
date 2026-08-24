@@ -86,6 +86,9 @@ namespace SyntheticPDFs.Logic
             switch (outcome)
             {
                 case PassOutcome.RemovedStaleFiles:
+                    Ping();
+                    break;
+
                 case PassOutcome.Generated:
                     // each pass advances a worksheet one step, so keep going until converged
                     RollbackBackoffStrategy();
