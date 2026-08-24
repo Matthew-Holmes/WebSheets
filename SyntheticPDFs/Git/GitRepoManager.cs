@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 
 namespace SyntheticPDFs.Git
 {
-    public partial class GitRepoManager
+    public partial class GitRepoManager : IGitRepoManager
     {
         String _repoUrl;
         String _repoDir;
@@ -59,6 +59,7 @@ namespace SyntheticPDFs.Git
             }
         }
 
+        // used by ValidateGitHash - the log parser keeps its own copy
         private static readonly Regex GitFullHashRegex =
             new Regex("^[0-9a-f]{40}$", RegexOptions.Compiled);
 

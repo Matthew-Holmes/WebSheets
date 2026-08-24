@@ -1,4 +1,6 @@
-﻿using SyntheticPDFs.Git;
+﻿using Microsoft.Extensions.Options;
+using SyntheticPDFs.Configuration;
+using SyntheticPDFs.Git;
 using SyntheticPDFs.Services;
 using Shared;
 
@@ -11,18 +13,25 @@ namespace SyntheticPDFs.Logic
         private bool _isRunning;
         private bool _isQueued; 
 
-        private GitRepoManager RepoManager { get; set; }
-        private LLMService LLMService { get; set; }
+        private IGitRepoManager RepoManager { get; set; }
+        private ILLMService LLMService { get; set; }
 
 
         private readonly ILogger<Orchestrator> _logger;
 
-        public Orchestrator(ILogger<Orchestrator> logger, GitRepoManager repoManager, LLMService lLMService)
+        public Orchestrator(
+            ILogger<Orchestrator> logger,
+            IGitRepoManager repoManager,
+            ILLMService lLMService,
+            IOptions<GenerationOptions> options)
         {
             _logger = logger;
 
             RepoManager = repoManager;
             LLMService = lLMService;
+
+            MaxFilesToGenerateBase = options.Value.MaxFilesPerRun;
+            MaxFilesToGenerate = options.Value.MaxFilesPerRun;
         }
 
         public PingResult Ping()
@@ -62,6 +71,43 @@ namespace SyntheticPDFs.Logic
             finally
             {
                 _lock.Release();
+            }
+        }
+
+        // how long to wait before retrying after git rejected our commit - without this
+        // a persistent failure becomes a tight loop against git and the LLM API
+        private static readonly TimeSpan ConflictRetryDelay = TimeSpan.FromSeconds(30);
+
+        // runs one pass, then decides whether to queue another
+        private async Task DoWorkAsync()
+        {
+            PassOutcome outcome = await DoOnePassAsync();
+
+            switch (outcome)
+            {
+                case PassOutcome.RemovedStaleFiles:
+                case PassOutcome.Generated:
+                    // each pass advances a worksheet one step, so keep going until converged
+                    RollbackBackoffStrategy();
+                    Ping();
+                    break;
+
+                case PassOutcome.GitConflict:
+                    Backoff();
+                    _logger.LogInformation(
+                        "backing off for {Seconds}s before retrying",
+                        ConflictRetryDelay.TotalSeconds);
+                    await Task.Delay(ConflictRetryDelay);
+                    Ping();
+                    break;
+
+                case PassOutcome.GenerationFailed:
+                    // don't requeue - that would just burn LLM calls on the same failure
+                    _logger.LogError("pass produced nothing, not queueing another run");
+                    break;
+
+                case PassOutcome.NothingToDo:
+                    break;
             }
         }
 

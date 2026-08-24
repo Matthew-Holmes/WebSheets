@@ -30,7 +30,7 @@ namespace SyntheticPDFs.Logic
         }
 
 
-        private static async Task<TexSourceModel> GenerateSytheticEnglishWorkedSolutions(RootName rootName, GitRepoManager gm, LLMService LLM)
+        private static async Task<TexSourceModel> GenerateSytheticEnglishWorkedSolutions(RootName rootName, IGitRepoManager gm, ILLMService LLM)
         {
             SourceMetadata rootMetadata = new SourceMetadata { Language = ISO639_3Code.eng, RootName = rootName, Type = SourceType.Root };
             String rootFilename = GetFilenameFromMetadata(rootMetadata);
@@ -44,7 +44,7 @@ namespace SyntheticPDFs.Logic
             return new TexSourceModel { FileNameFullPath = synthFilename, TexSource = genSource };
         }
 
-        private static async Task<TexSourceModel> GenerateSytheticEnglishSolutions(RootName rootName, GitRepoManager gm, LLMService LLM)
+        private static async Task<TexSourceModel> GenerateSytheticEnglishSolutions(RootName rootName, IGitRepoManager gm, ILLMService LLM)
         {
             SourceMetadata rootMetadata = new SourceMetadata { Language = ISO639_3Code.eng, RootName = rootName, Type = SourceType.Root };
             SourceMetadata wsolMetadata = new SourceMetadata { Language = ISO639_3Code.eng, RootName = rootName, Type = SourceType.WorkedSolutions };

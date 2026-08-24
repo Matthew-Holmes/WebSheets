@@ -7,7 +7,7 @@ namespace SyntheticPDFs.Logic
 
     public partial class Orchestrator
     {
-        private async Task<TexSourceModel> GenerateSyntheticSource(SourceMetadata sm)
+        internal async Task<TexSourceModel> GenerateSyntheticSource(SourceMetadata sm)
         {
             if (sm.Language == ISO639_3Code.eng)
             {

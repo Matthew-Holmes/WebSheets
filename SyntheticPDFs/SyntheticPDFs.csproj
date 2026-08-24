@@ -11,4 +11,9 @@
     <ProjectReference Include="..\Shared\Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- the naming, staleness and batching types are internal -->
+    <InternalsVisibleTo Include="SyntheticPDFs.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -51,80 +51,11 @@ namespace SyntheticPDFs.Git
             }
 
 
-            return Parse(
+            return RepoLogParser.Parse(
                 File.ReadAllText(_repoDir + "/" + TransferFileLog),
                 File.ReadAllText(_repoDir + "/" + TransferFileLive),
-                hash);
-        }
-
-        public RepoModel Parse(String input, String liveFilesWithDotSlashPrefixes, String hash)
-        {
-            HashSet<String> live = liveFilesWithDotSlashPrefixes
-                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(l => l.Trim())
-                .Select(l => l[2..] /* drop the ./ */)
-                .Where(l => l.StartsWith(SourceDir + '/'))
-                .ToHashSet();
-            
-            
-            var fileAges = new Dictionary<string, int>(StringComparer.Ordinal);
-            var pendingFiles = new List<string>();
-
-            int commitIndex = 0;
-
-            var lines = input
-                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(l => l.Trim());
-
-            foreach (var line in lines)
-            {
-                if (GitFullHashRegex.IsMatch(line))
-                {
-                    // We reached a commit boundary
-                    foreach (var file in pendingFiles)
-                    {
-                        // Only record the most recent edit
-                        if (!fileAges.ContainsKey(file))
-                        {
-                            fileAges[file] = commitIndex;
-                        }
-                    }
-
-                    pendingFiles.Clear();
-                    commitIndex++;
-                }
-                else
-                {
-                    if (!live.Contains(line))
-                    {
-                        // this isn't a live file - skip it
-                        continue;
-                    }
-                    else
-                    {
-                        // File path
-                        pendingFiles.Add(line);
-                    }
-                }
-            }
-
-            // file ages only contains live files so this will be OK
-
-            var contents = fileAges
-                .Select(kvp => new TrackedFile
-                {
-                    FullPath = kvp.Key,
-                    AgeCommits = kvp.Value
-                })
-                .OrderBy(tf => tf.FullPath)
-                .ToList()
-                .AsReadOnly();
-
-            return new RepoModel
-            {
-                Contents = contents,
-                LastCommitHash = hash
-            };
+                hash,
+                SourceDir);
         }
     }
 }

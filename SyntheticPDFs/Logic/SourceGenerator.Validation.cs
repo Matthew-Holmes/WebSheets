@@ -83,7 +83,7 @@ namespace SyntheticPDFs.Logic
 
 
         // As I see errors I can update these methods, or even find a library that will e.g. identify valid tex
-        private static bool IsValidTex(String response)
+        internal static bool IsValidTex(String response)
         {
             bool okFirstLast = OkFirstChar(response) && !LastLineIsTicks(response);
 
@@ -94,7 +94,7 @@ namespace SyntheticPDFs.Logic
             return okFirstLast && allBeginsAreClosed && noBadChars;
         }
 
-        private static String TryFixupTex(String badTex, LLMService LLM)
+        internal static String TryFixupTex(String badTex, ILLMService LLM)
         {
             // occasionally is wrapped in ```latex from the LLM, so strip the first and last and see if that helps!
 
@@ -135,7 +135,7 @@ namespace SyntheticPDFs.Logic
             return badTex;
         }
 
-        private static string CloseUnclosedBegins(String badTex, LLMService LLM)
+        internal static string CloseUnclosedBegins(String badTex, ILLMService LLM)
         {
             Stack<String> stack = new();
 

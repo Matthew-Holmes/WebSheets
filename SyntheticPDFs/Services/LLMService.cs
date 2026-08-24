@@ -4,7 +4,7 @@ using Microsoft.Extensions.Options;
 
 namespace SyntheticPDFs.Services
 {
-    public class LLMService
+    public class LLMService : ILLMService
     {
         private ILogger<LLMService> _logger;
         

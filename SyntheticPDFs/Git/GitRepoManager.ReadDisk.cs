@@ -4,7 +4,7 @@ namespace SyntheticPDFs.Git
 {
     public partial class GitRepoManager
     {
-        internal TexSourceModel GetContent(String filename)
+        public TexSourceModel GetContent(String filename)
         {
             String contents = File.ReadAllText(RepoDir + '/' + filename);
 

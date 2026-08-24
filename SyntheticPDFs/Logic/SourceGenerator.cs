@@ -6,7 +6,7 @@ namespace SyntheticPDFs.Logic
     public static partial class SourceGenerator
     {
       
-        private static async Task<String?> TryGetValidTex(LLMService LLM, String prompt, int retry = 3)
+        internal static async Task<String?> TryGetValidTex(ILLMService LLM, String prompt, int retry = 3)
         {
             for (int i = 0; i != retry; i++)
             {
@@ -30,7 +30,7 @@ namespace SyntheticPDFs.Logic
             return null;
         }
 
-        internal static async Task<String> GenerateSyntheticEnglishWorkedSolutionsTexSource(TexSourceModel rootSource, LLMService LLM)
+        internal static async Task<String> GenerateSyntheticEnglishWorkedSolutionsTexSource(TexSourceModel rootSource, ILLMService LLM)
         {
             String prompt = GenerateEnglishWorkedSolutionsPrompt(rootSource.TexSource);
 
@@ -46,7 +46,7 @@ namespace SyntheticPDFs.Logic
 
 
 
-        internal static async Task<String> GenerateSyntheticEnglishSolutionsTexSource(TexSourceModel rootSource, TexSourceModel wsolSource, LLMService LLM)
+        internal static async Task<String> GenerateSyntheticEnglishSolutionsTexSource(TexSourceModel rootSource, TexSourceModel wsolSource, ILLMService LLM)
         {
             String prompt = GenerateEnglishSolutionsPrompt(rootSource.TexSource, wsolSource.TexSource);
 

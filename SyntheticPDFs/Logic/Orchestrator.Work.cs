@@ -34,13 +34,23 @@ namespace SyntheticPDFs.Logic
             public required SourceMetadata SourceMetadata { get; init; }
         }
 
-        private int MaxFilesToGenerateBase { get; init; } = 30;
+        // what one pass actually did, so the caller can decide whether to queue another
+        internal enum PassOutcome
+        {
+            RemovedStaleFiles,
+            Generated,
+            NothingToDo,
+            GitConflict,
+            GenerationFailed,
+        }
+
+        private int MaxFilesToGenerateBase { get; init; }
 
         // dynamically change this if having to back off too much
         // i.e. the repo is seeing high traffic and we need to sqeeze our commits in
-        private int MaxFilesToGenerate { get; set; } = 30;
+        private int MaxFilesToGenerate { get; set; }
 
-        private async Task DoWorkAsync()
+        internal async Task<PassOutcome> DoOnePassAsync()
         {
 
             // early exit after any git repo change, more maximum granularity of interactions
@@ -73,18 +83,13 @@ namespace SyntheticPDFs.Logic
 
                 if (!removed)
                 {
-                    _logger.LogWarning("failed to remove stale files, backing off, will retry later");
-                    BackoffAndRegisterRetry();
-                    return;
+                    _logger.LogWarning("failed to remove stale files, will back off and retry later");
+                    return PassOutcome.GitConflict;
                 }
 
-                // this just did a commit, to keep synchronisation snappy, lets end it here
-                // register a Ping to queue another run:
-                Ping();
-
-                // then exit - will pull the latest repo and build a model in the queued work
-                return;
-
+                // this just did a commit, to keep synchronisation snappy, lets end the pass here
+                // the caller queues another run, which pulls the latest and rebuilds the model
+                return PassOutcome.RemovedStaleFiles;
             }
 
             // decide what to generate (get this in separate file for business logic clarity)
@@ -96,41 +101,66 @@ namespace SyntheticPDFs.Logic
             if (batchToCreate.Count == 0)
             {
                 _logger.LogInformation("nothing to do, leaving work early!");
-                return;
+                return PassOutcome.NothingToDo;
             }
 
+            // generate concurrently - AgentBase already caps this at 5 locally and 20 across
+            // all agents, so there is no need to throttle again here
+            List<TexSourceModel?> generated = (await Task.WhenAll(
+                batchToCreate.Select(TryGenerateSyntheticSource))).ToList();
 
-            // create synthetic Tex source
+            List<TexSourceModel> syntheticSource = generated
+                .Where(ts => ts is not null)
+                .Select(ts => ts!)
+                .ToList();
 
-            List<TexSourceModel> syntheticSource = new();
-
-            // TODO - make this an await all
-
-            throw new NotImplementedException();
-
-            foreach (SourceMetadata sm in batchToCreate)
+            if (syntheticSource.Count == 0)
             {
-                _logger.LogInformation($"generating Tex source for {sm.RootName}");
-
-                syntheticSource.Add(await GenerateSyntheticSource(sm));
-                break; // just for testing! TODO - remove
+                _logger.LogError("every file in the batch failed to generate, giving up on this pass");
+                return PassOutcome.GenerationFailed;
             }
 
+            if (syntheticSource.Count < batchToCreate.Count)
+            {
+                _logger.LogWarning(
+                    "{Failed} of {Total} files failed to generate, pushing the rest",
+                    batchToCreate.Count - syntheticSource.Count,
+                    batchToCreate.Count);
+            }
 
             _logger.LogInformation("created source, committing and pushing");
 
             bool pushed = await RepoManager.CommitAndPushTexSource(syntheticSource, repoModel.LastCommitHash);
-            
+
             if (!pushed)
             {
-                _logger.LogWarning("failed to push synthetic source, backing off, consider adding caching!");
-                BackoffAndRegisterRetry();
-                return;
+                _logger.LogWarning("failed to push synthetic source, will back off and retry later");
+                return PassOutcome.GitConflict;
             }
 
             _logger.LogInformation("succesfully added synthetic source");
 
-            RollbackBackoffStrategy();
+            return PassOutcome.Generated;
+        }
+
+        // one file failing shouldn't cost us the rest of the batch - it stays missing
+        // from the repo model, so the next pass picks it up again
+        private async Task<TexSourceModel?> TryGenerateSyntheticSource(SourceMetadata sm)
+        {
+            _logger.LogInformation($"generating Tex source for {sm.RootName}");
+
+            try
+            {
+                return await GenerateSyntheticSource(sm);
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(
+                    "failed to generate {Type} for {Root}: {Message}",
+                    sm.Type, sm.RootName, e.Message);
+
+                return null;
+            }
         }
 
 
@@ -151,15 +181,13 @@ namespace SyntheticPDFs.Logic
             _logger.LogInformation($"Max files to generate set to {MaxFilesToGenerate}");
         }
 
-        private void BackoffAndRegisterRetry()
+        private void Backoff()
         {
             MaxFilesToGenerate /= 2;
 
             if (MaxFilesToGenerate < 1) { MaxFilesToGenerate = 1; }
 
-            _logger.LogInformation($"Max files to generate set to {MaxFilesToGenerate}, trying work again");
-
-            Ping();
+            _logger.LogInformation($"Max files to generate set to {MaxFilesToGenerate}");
         }
 
         private Dictionary<RootName, HashSet<TrackedFileWitMetadata>> GetVariantInfo(RepoModel repoModel, String extSubset = "tex")
@@ -175,7 +203,7 @@ namespace SyntheticPDFs.Logic
                 //                                                                  extension       + "."
                 String withoutExt = tf.FullPath.Substring(0, tf.FullPath.Length - (extSubset.Length + 1));
 
-                SourceMetadata sourceMetadata = ParseMetadataFromFilename(withoutExt);
+                SourceMetadata sourceMetadata = ParseMetadataFromFilename(withoutExt, _logger);
 
                 TrackedFileWitMetadata tsm = new TrackedFileWitMetadata
                 {

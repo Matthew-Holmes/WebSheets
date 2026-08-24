@@ -61,9 +61,17 @@ builder.Services
     .ValidateOnStart();
 
 
+builder.Services
+    .AddOptions<GenerationOptions>()
+    .Bind(builder.Configuration.GetSection(GenerationOptions.SectionName))
+    .Validate(o => o.MaxFilesPerRun > 0,
+        $"{GenerationOptions.SectionName}:MaxFilesPerRun must be at least 1")
+    .ValidateOnStart();
+
+
 builder.Services.AddSingleton<Orchestrator>();
-builder.Services.AddSingleton<GitRepoManager>();
-builder.Services.AddSingleton<LLMService>();
+builder.Services.AddSingleton<IGitRepoManager, GitRepoManager>();
+builder.Services.AddSingleton<ILLMService, LLMService>();
 
 
 // only listen on local host - let the main website call it

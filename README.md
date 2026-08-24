@@ -142,6 +142,7 @@ All committed, all overridable by environment variable using `__` for `:`.
 | `ContentRepository:SourceDirectory` | Folder within the repository holding the `.tex` files. |
 | `ContentRepository:SshKeyPath` | Deploy key, as described above. |
 | `LLM:DeepSeekAPIKeyFile` | Path to the file holding the DeepSeek key. |
+| `Generation:MaxFilesPerRun` | Ceiling on files generated in one pass. Halved on each git conflict, restored on success. Keep it low for a first run against a live repository. |
 | `Api:Port` | Loopback port the service listens on. Must agree with `SyntheticPdfsTrigger:BaseUrl`. |
 
 Every `ContentRepository` value is validated at startup; a blank one stops the
@@ -194,6 +195,40 @@ curl -X POST https://matthewsmathematics.uk/api/public/syntheticPDFs/ping \
 Without a valid key the endpoint returns `401` and logs the caller's IP. If no
 key is configured server-side it rejects every request, so a missing environment
 variable fails closed rather than leaving the endpoint open.
+
+### What one trigger does
+
+A pass advances each worksheet by a single step — question sheet → worked
+solutions → answer key — because the answer key is derived from the worked
+solutions and so cannot be written in the same commit. A pass that commits
+anything queues another automatically, so **one trigger runs the repository to
+completion** and stops when there is nothing left to generate.
+
+Passes report one of five outcomes, which decide what happens next:
+
+| Outcome | Meaning | Next |
+| --- | --- | --- |
+| `RemovedStaleFiles` | Source that no longer matches its parent was deleted | Queue another pass |
+| `Generated` | New source was committed and pushed | Queue another pass |
+| `NothingToDo` | Everything is present and causally ordered | Stop |
+| `GitConflict` | The repository moved under us, so the commit was refused | Halve the batch size, wait 30s, retry |
+| `GenerationFailed` | Nothing in the batch produced valid LaTeX | Stop, rather than burn API calls on the same failure |
+
+A single file that fails to generate is logged and skipped; the rest of the batch
+still commits, and the failed one is picked up on a later pass because the
+repository model still shows it missing.
+
+## Tests
+
+```bash
+dotnet test SyntheticPDFs.Tests
+```
+
+`SyntheticPDFs.Tests` (MSTest) covers the naming convention, the staleness rules,
+batch selection, git-log parsing, the LaTeX validator, and full orchestrator
+passes. `FakeGitRepoManager` and `FakeLLMService` in `SyntheticPDFs.Tests/Fakes/`
+stand in for git and the LLM, so the suite touches no network and no repository
+and runs in well under a second.
 
 ## Running locally
 

@@ -67,7 +67,9 @@ namespace SyntheticPDFs.Logic
 
         }
 
-        internal static SourceMetadata ParseMetadataFromFilename(String filenameNoExt)
+        // logger is optional so the parse stays static and testable - callers that have
+        // one pass it so misnamed files get surfaced rather than silently absorbed
+        internal static SourceMetadata ParseMetadataFromFilename(String filenameNoExt, ILogger? logger = null)
         {
             String[] parts = filenameNoExt.Split('_');
 
@@ -103,9 +105,17 @@ namespace SyntheticPDFs.Logic
 
             if (isoCode is null)
             {
-                // really we need to ban root filenames ending in _ISO - but realistically that will happen
-                // if I stick to camelCase
-                throw new NotImplementedException($"need to implement the isocode {isoCodeMaybe}");
+                // not a language we know, so it is just part of the name - a sheet called
+                // foo_abc.tex is a root, not a translation. treating this as an error would
+                // take the whole service down over an ordinary filename, but it is worth
+                // saying so: it is equally likely to be a translation we cannot handle yet
+                logger?.LogWarning(
+                    "'{File}' ends in '_{Suffix}', which is not a language code we recognise - "
+                    + "treating the whole name as an English root. Add {Suffix} to ISO639_3Code "
+                    + "if this was meant to be a translation.",
+                    filenameNoExt, isoCodeMaybe, isoCodeMaybe);
+
+                return new SourceMetadata { Type = SourceType.Root, Language = ISO639_3Code.eng, RootName = filenameNoExt };
             }
 
 
@@ -118,7 +128,7 @@ namespace SyntheticPDFs.Logic
             if (parts[parts.Count()-2] == SolutionsIndicator)
             {
                 String rootName = String.Join('_', parts.Take(parts.Count() - 2));
-                return new SourceMetadata { Type = SourceType.WorkedSolutions, Language = (ISO639_3Code)isoCode, RootName = rootName };
+                return new SourceMetadata { Type = SourceType.Solutions, Language = (ISO639_3Code)isoCode, RootName = rootName };
             }
 
             String rootName_ = String.Join('_', parts.Take(parts.Count() - 1));
