@@ -2,7 +2,7 @@
 {
     public static partial class SourceGenerator
     {
-        private static String Requirements => "Just provide the contents of the worked solutions .tex file, nothing else, it MUST compile first time.";
+        private static String Requirements => "Just provide the contents of the worked solutions .tex file, nothing else, it MUST compile first time. It must define a document class and include imports for all packages that will be used";
 
 
         private static String GenerateEnglishWorkedSolutionsPrompt(String rootSourceContents)

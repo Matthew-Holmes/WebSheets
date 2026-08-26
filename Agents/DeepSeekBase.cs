@@ -17,9 +17,10 @@ namespace Agents.DeepSeek
             this._httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
             this._httpClient.Timeout = TimeSpan.FromSeconds(600); // these can take a while!
 
+            // need to change the values in the factory instead of here if planning changes to these!
             DiscreteParameters.Add(new Parameter<int>("PromptDepth", 10, int.MaxValue, 0, 100, 0));
-            DiscreteParameters.Add(new Parameter<int>("ContextTokens", 1000, int.MaxValue, 0, 500_000, 0));
-            DiscreteParameters.Add(new Parameter<int>("ResponseTokens", 1000, int.MaxValue, 0, 250_000, 0));
+            DiscreteParameters.Add(new Parameter<int>("ContextTokens", 500_000, int.MaxValue, 0, 500_000, 0));
+            DiscreteParameters.Add(new Parameter<int>("ResponseTokens", 250_000, int.MaxValue, 0, 250_000, 0));
             DiscreteParameters.Add(new Parameter<int>("RetryCount", 3, int.MaxValue, 0, 10, 0));
 
             ContinuousParameters.Add(new Parameter<double>("Temperature", 1.0, 2.0, 0.0));
@@ -33,7 +34,7 @@ namespace Agents.DeepSeek
 
             // Thinking-mode toggle: "enabled" or "disabled".
             // Effort (only meaningful while thinking is enabled): low | medium | high | xhigh | max
-            StringParameters.Add("thinking", "disabled");
+            StringParameters.Add("thinking", "enabled"); // if enabled need to make sure to extract the response - not working now!?
             StringParameters.Add("reasoning_effort", "high");
         }
 
