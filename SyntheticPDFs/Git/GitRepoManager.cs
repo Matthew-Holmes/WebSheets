@@ -63,6 +63,13 @@ namespace SyntheticPDFs.Git
         private static readonly Regex GitFullHashRegex =
             new Regex("^[0-9a-f]{40}$", RegexOptions.Compiled);
 
+        // -i plus IdentitiesOnly does the job ssh-agent used to, without leaving a daemon
+        // behind whose cwd is inside the repo - those blocked the startup cleanup.
+        // BatchMode stops ssh waiting on a prompt nobody is there to answer
+        private static String SshCommand(String keyLoc) =>
+            $"GIT_SSH_COMMAND='ssh -i {keyLoc} -o IdentitiesOnly=yes -o BatchMode=yes " +
+            "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'";
+
 
         private void LogFailure(string message, BashRunner.BashResult result)
         {

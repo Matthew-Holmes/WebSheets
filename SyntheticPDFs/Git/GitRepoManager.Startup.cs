@@ -8,9 +8,12 @@ namespace SyntheticPDFs.Git
         private void PrepareRepository()
         {
             // 1. Remove existing repo directory if it exists
-            // if this gives a permission error - kill WSL
+            // deliberately no workingDirectory - bash must not sit inside the directory
+            // it is about to delete, or drvfs keeps a windows handle open on it
             var cleanup = BashRunner.RunAsync(
-                $"if [ -d \"{RepoDir}\" ]; then rm -rf \"{RepoDir}\"; fi", _logger).Result;
+                $"if [ -d \"{RepoDir}\" ]; then rm -rf \"{RepoDir}\"; fi",
+                _logger,
+                killAfterSeconds: 120).Result;
 
             if (!cleanup.Success)
             {
@@ -21,7 +24,8 @@ namespace SyntheticPDFs.Git
             // 2. Clone repository
             var clone = BashRunner.RunAsync(
                 $"git clone \"{_repoUrl}\" \"{RepoDir}\"",
-                _logger
+                _logger,
+                killAfterSeconds: 300
             ).Result;
 
             if (!clone.Success)

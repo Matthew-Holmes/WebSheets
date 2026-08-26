@@ -173,55 +173,29 @@ namespace SyntheticPDFs.Git
                 throw new InvalidOperationException("git commit failed");
             }
 
-            int? timeoutMs = 50000; // 50 sec timeout
-            CancellationTokenSource cts = new CancellationTokenSource();
+            int pushTimeoutSeconds = 50;
 
             String keyLoc = _options.SshKeyPath;
 
-            var pushTask = BashRunner.RunAsync(
-                $"eval $(ssh-agent -s) && ssh-add {keyLoc} && " +
+            // BashRunner does the timing out now, inside the distro, so a hung push
+            // gets signalled rather than abandoned still running
+            var pushResult = await BashRunner.RunAsync(
                 $"git remote set-url origin {_options.PushUrl} && " +
-                "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null' git push",
+                $"{SshCommand(keyLoc)} git push",
                 _logger,
                 workingDirectory: RepoDir,
-                cancellationToken: cts.Token
+                killAfterSeconds: pushTimeoutSeconds
             );
 
-
-            if (timeoutMs.HasValue)
-            {
-                var completedTask = await Task.WhenAny(pushTask, Task.Delay(timeoutMs.Value));
-
-                if (completedTask != pushTask)
-                {
-                    // Timeout reached
-                    var partialResult = pushTask.IsCompletedSuccessfully ? pushTask.Result : null;
-
-                    if (partialResult != null)
-                    {
-                        _logger.LogWarning("Git push timed out. Partial output:");
-                        _logger.LogWarning("\t stdout:\n" + partialResult.StdOut);
-                        _logger.LogWarning("\t stderr:\n" + partialResult.StdErr);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Git push timed out. No output available yet.");
-                    }
-
-                    _logger.LogInformation("cancelling task");
-                    cts.Cancel();
-
-                    throw new TimeoutException("Git push timed out after " + timeoutMs.Value + "ms");
-                }
-            }
-
-            // Await the result if it completed on time
-            var pushResult = await pushTask;
-
-            // Optionally log output
             _logger.LogInformation("Git push completed:");
             _logger.LogInformation("stdout:\n" + pushResult.StdOut);
             _logger.LogInformation("stderr:\n" + pushResult.StdErr);
+
+            if (pushResult.TimedOut)
+            {
+                LogFailure("git push timed out", pushResult);
+                throw new TimeoutException("Git push timed out after " + pushTimeoutSeconds + "s");
+            }
 
             if (!pushResult.Success)
             {
@@ -253,11 +227,11 @@ namespace SyntheticPDFs.Git
 
             // pull the latest, use the token as this will sometimes fail
             var pull = BashRunner.RunAsync(
-                $"eval $(ssh-agent -s) && ssh-add {keyLoc} && " +
                 $"git remote set-url origin {_options.PushUrl} && " +
-                "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null' git pull",
+                $"{SshCommand(keyLoc)} git pull",
                 _logger,
-                workingDirectory: RepoDir
+                workingDirectory: RepoDir,
+                killAfterSeconds: 50
             ).Result;
 
 
