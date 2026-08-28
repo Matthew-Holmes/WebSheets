@@ -30,9 +30,9 @@ namespace SyntheticPDFs.Logic
             return null;
         }
 
-        internal static async Task<String> GenerateSyntheticEnglishWorkedSolutionsTexSource(TexSourceModel rootSource, ILLMService LLM)
+        internal static async Task<String> GenerateSyntheticEnglishWorkedSolutionsTexSource(TexSourceModel rootSource, SourceArchetype at, ILLMService LLM)
         {
-            String prompt = GenerateEnglishWorkedSolutionsPrompt(rootSource.TexSource);
+            String prompt = GenerateEnglishWorkedSolutionsPrompt(rootSource.TexSource, at);
 
             String? texSource = await TryGetValidTex(LLM, prompt);
 

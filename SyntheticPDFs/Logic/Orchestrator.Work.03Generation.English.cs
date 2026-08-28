@@ -18,11 +18,11 @@ namespace SyntheticPDFs.Logic
                     throw new ArgumentException("can't generate English root source");
                 case SourceType.WorkedSolutions:
                     {
-                        return await GenerateSytheticEnglishWorkedSolutions(sm.RootName, RepoManager, LLMService);
+                        return await GenerateSytheticEnglishWorkedSolutions(sm.RootName, sm.Archetype, RepoManager, LLMService);
                     }
                 case SourceType.Solutions:
                     {
-                        return await GenerateSytheticEnglishSolutions(sm.RootName, RepoManager, LLMService);
+                        return await GenerateSytheticEnglishSolutions(sm.RootName, sm.Archetype, RepoManager, LLMService);
                     }
                 default:
                     throw new NotImplementedException();
@@ -30,13 +30,13 @@ namespace SyntheticPDFs.Logic
         }
 
 
-        private static async Task<TexSourceModel> GenerateSytheticEnglishWorkedSolutions(RootName rootName, IGitRepoManager gm, ILLMService LLM)
+        private static async Task<TexSourceModel> GenerateSytheticEnglishWorkedSolutions(RootName rootName, SourceArchetype at, IGitRepoManager gm, ILLMService LLM)
         {
-            SourceMetadata rootMetadata = new SourceMetadata { Language = ISO639_3Code.eng, RootName = rootName, Type = SourceType.Root };
+            SourceMetadata rootMetadata = new SourceMetadata { Language = ISO639_3Code.eng, RootName = rootName, Type = SourceType.Root, Archetype = at };
             String rootFilename = GetFilenameFromMetadata(rootMetadata);
             TexSourceModel rootSource = gm.GetContent(rootFilename);
 
-            String genSource = await SourceGenerator.GenerateSyntheticEnglishWorkedSolutionsTexSource(rootSource, LLM);
+            String genSource = await SourceGenerator.GenerateSyntheticEnglishWorkedSolutionsTexSource(rootSource, at, LLM);
 
             SourceMetadata synthMetadata = rootMetadata with { Type = SourceType.WorkedSolutions };
             String synthFilename = GetFilenameFromMetadata(synthMetadata);
@@ -44,16 +44,19 @@ namespace SyntheticPDFs.Logic
             return new TexSourceModel { FileNameFullPath = synthFilename, TexSource = genSource };
         }
 
-        private static async Task<TexSourceModel> GenerateSytheticEnglishSolutions(RootName rootName, IGitRepoManager gm, ILLMService LLM)
+        private static async Task<TexSourceModel> GenerateSytheticEnglishSolutions(RootName rootName, SourceArchetype at, IGitRepoManager gm, ILLMService LLM)
         {
-            SourceMetadata rootMetadata = new SourceMetadata { Language = ISO639_3Code.eng, RootName = rootName, Type = SourceType.Root };
-            SourceMetadata wsolMetadata = new SourceMetadata { Language = ISO639_3Code.eng, RootName = rootName, Type = SourceType.WorkedSolutions };
+            SourceMetadata rootMetadata = new SourceMetadata { Language = ISO639_3Code.eng, RootName = rootName, Type = SourceType.Root,            Archetype = at, };
+            SourceMetadata wsolMetadata = new SourceMetadata { Language = ISO639_3Code.eng, RootName = rootName, Type = SourceType.WorkedSolutions, Archetype = at };
 
             String rootFilename = GetFilenameFromMetadata(rootMetadata);
             String wsolFilename = GetFilenameFromMetadata(wsolMetadata);
 
             TexSourceModel rootSource = gm.GetContent(rootFilename);
             TexSourceModel wsolSource = gm.GetContent(wsolFilename);
+
+            // TODO extract logic about which archetype is allowed which source type and then reuse that here to check that not generating stuff we shouldn't
+            // is there a smarter way to refactor all this??
 
             String genSource = await SourceGenerator.GenerateSyntheticEnglishSolutionsTexSource(rootSource, wsolSource, LLM);
 

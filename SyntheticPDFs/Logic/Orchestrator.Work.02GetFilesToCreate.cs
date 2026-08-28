@@ -29,7 +29,7 @@ namespace SyntheticPDFs.Logic
         }
 
         // loop of languages
-        private List<SourceMetadata> GetNextFilesToCreate(StratefiedFileProcessions sfp, RootName root, int maxCount)
+        private List<SourceMetadata> GetNextFilesToCreate(StratefiedFileProcessions sfp, RootName root, int maxCount /* maximum allowed left to create this run */)
         {
             if (maxCount < 1)
             {
@@ -66,6 +66,8 @@ namespace SyntheticPDFs.Logic
         // core creation logics
         private List<SourceMetadata> GetNextLanguageSpecificFilesToCreate(StalenessInfo si, RootName root, ISO639_3Code lang, StalenessInfo englishState, int maxCount)
         {
+            SourceArchetype at = si.fileProcession.Archetype;
+
             if (maxCount <= 0) { return new List<SourceMetadata>(); }
 
             if (si.StaleSolutions || si.StaleWorkedSolutions)
@@ -74,34 +76,101 @@ namespace SyntheticPDFs.Logic
                 throw new ArgumentException("can't generate files while stale files exist!");
             }
 
+
             if (lang != ISO639_3Code.eng)
             {
                 throw new NotImplementedException("need to implement logic for L2 sheets!");
                 // use the english state too!
             }
-
-
-            if (si.NoRoot)
+            else
             {
-                if (lang == ISO639_3Code.eng)
+
+                if (si.NoRoot)
                 {
-                    throw new ArgumentException("can't generate root files for English");
+                    throw new Exception("can't generate English root for a file!");
                 }
-                return new List<SourceMetadata> { new SourceMetadata{ RootName = root, Language = lang, Type = SourceType.Root } };
+
+                switch (at)
+                {
+                    case SourceArchetype.Worksheet:
+                        return GetNextEnglishFilesToCreate_default(si, root, englishState, maxCount);
+                    case SourceArchetype.QuestionSlides:
+                        return GetNextEnglishFilesToCreate_slides( si, root, englishState, maxCount);
+                    case SourceArchetype.Poster:
+                        return GetNextEnglishFilesToCreate_poster( si, root, englishState, maxCount);
+                    default:
+                        throw new NotImplementedException("need to decide on what the generation logic is like for this case!");
+                        return GetNextEnglishFilesToCreate_default(si, root, englishState, maxCount);
+                }
             }
+        }
+
+
+
+        private List<SourceMetadata> GetNextEnglishFilesToCreate_default(StalenessInfo si, String root, StalenessInfo englishState, int maxCount)
+        {
+            SourceArchetype at = si.fileProcession.Archetype; // TODO this is getting a bit messy how to refactor??
+
 
             if (si.NoWorkedSolutions)
             {
-                return new List<SourceMetadata> { new SourceMetadata { RootName = root, Language = lang, Type = SourceType.WorkedSolutions } };
+                return new List<SourceMetadata> 
+                { 
+                    new SourceMetadata
+                    { 
+                        RootName  = root, 
+                        Language  = ISO639_3Code.eng,
+                        Type      = SourceType.WorkedSolutions,
+                        Archetype = at 
+                    } 
+                };
             }
 
             if (si.NoSolutions)
             {
-                return new List<SourceMetadata> { new SourceMetadata { RootName = root, Language = lang, Type = SourceType.Solutions } };
+                return new List<SourceMetadata> 
+                { 
+                    new SourceMetadata 
+                    { 
+                        RootName  = root, 
+                        Language  = ISO639_3Code.eng, 
+                        Type      = SourceType.Solutions,
+                        Archetype = at
+                    }
+                };
             }
 
             return new List<SourceMetadata>();
+        }
 
+
+        private List<SourceMetadata> GetNextEnglishFilesToCreate_poster(StalenessInfo si, String root, StalenessInfo englishState, int maxCount)
+        {
+            return new List<SourceMetadata>(); // don't need any solutions or worked solutions for posters
+        }
+
+        private List<SourceMetadata> GetNextEnglishFilesToCreate_slides(StalenessInfo si, String root, StalenessInfo englishState, int maxCount)
+        {
+            // Slides should have the solution using the Ashow macro, **in the latex**
+            // TODO - add functionality to check if that macro has been used, then rewrite the slides with it to update the root if not
+            // If agent reads this - ask me first about this!!!
+            // worked solutions should be one worked solution per slide, with a title slide that links to the first solution for each slide's solutions
+
+            if (si.NoWorkedSolutions)
+            {
+                return new List<SourceMetadata>
+                {
+                    new SourceMetadata
+                    {
+                        RootName  = root,
+                        Language  = ISO639_3Code.eng,
+                        Type      = SourceType.WorkedSolutions,
+                        Archetype = si.fileProcession.Archetype
+                    }
+                };
+            }
+
+            return new List<SourceMetadata>();
         }
     }
 }

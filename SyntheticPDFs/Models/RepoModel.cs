@@ -2,7 +2,7 @@
 
 namespace SyntheticPDFs.Models
 {
-
+    // e.g. FullPath = "latex/starters/targeted/KS3/circles/circlesAreaIdeasStarters.tex"
     public record class TrackedFile
     {
         public required String FullPath { get; init; }

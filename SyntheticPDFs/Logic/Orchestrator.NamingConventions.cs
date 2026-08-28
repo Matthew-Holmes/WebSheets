@@ -16,6 +16,12 @@ namespace SyntheticPDFs.Logic
         eng,
     }
 
+    internal enum SourceArchetype
+    {
+        Worksheet,
+        QuestionSlides,
+        Poster
+    }
 
 
 
@@ -69,34 +75,48 @@ namespace SyntheticPDFs.Logic
 
         // logger is optional so the parse stays static and testable - callers that have
         // one pass it so misnamed files get surfaced rather than silently absorbed
+        // TODO - update the test suite for this and various edge cases
         internal static SourceMetadata ParseMetadataFromFilename(String filenameNoExt, ILogger? logger = null)
         {
-            String[] parts = filenameNoExt.Split('_');
+
+            SourceArchetype at = ParseArchetype(filenameNoExt, logger);
 
             // english language defaults
+            SourceMetadata smet = new SourceMetadata 
+            { 
+                Type      = SourceType.Root,
+                Archetype = at, 
+                Language  = ISO639_3Code.eng, 
+                RootName  = filenameNoExt 
+            };
+
+
+            String[] parts = filenameNoExt.Split('_');
+
+            // no language code => english, so handle that here
 
             if (parts.Length == 1) /* short circuit */
             {
-                return new SourceMetadata { Type = SourceType.Root, Language = ISO639_3Code.eng, RootName = filenameNoExt };
+                return smet;
             }
+
+            String rootName = String.Join('_', parts.Take(parts.Count() - 1));
 
             if (parts.Last() == WorkedSolutionsIndicator)
             {
-                String rootName = String.Join('_', parts.Take(parts.Count() - 1));
-                return new SourceMetadata { Type = SourceType.WorkedSolutions, Language = ISO639_3Code.eng, RootName = rootName };
+                return smet with { Type = SourceType.WorkedSolutions, RootName = rootName };
             }
 
             if (parts.Last() == SolutionsIndicator)
             {
-                String rootName = String.Join('_', parts.Take(parts.Count() - 1));
-                return new SourceMetadata { Type = SourceType.Solutions, Language = ISO639_3Code.eng, RootName = rootName };
+                return smet with { Type = SourceType.Solutions, RootName = rootName };
             }
 
             String isoCodeMaybe = parts.Last();
 
             if (isoCodeMaybe.Length != 3)
             {
-                return new SourceMetadata { Type = SourceType.Root, Language = ISO639_3Code.eng, RootName = filenameNoExt };
+                return smet;
             }
 
             // foreign language variants
@@ -115,26 +135,63 @@ namespace SyntheticPDFs.Logic
                     + "if this was meant to be a translation.",
                     filenameNoExt, isoCodeMaybe, isoCodeMaybe);
 
-                return new SourceMetadata { Type = SourceType.Root, Language = ISO639_3Code.eng, RootName = filenameNoExt };
+                return smet;
             }
+
+            rootName = String.Join('_', parts.Take(parts.Count() - 2));
+
+            SourceMetadata smetL2 = smet with { Language = (ISO639_3Code)isoCode};
 
 
             if (parts[parts.Count()-2] == WorkedSolutionsIndicator)
             {
-                String rootName = String.Join('_', parts.Take(parts.Count() - 2));
-                return new SourceMetadata { Type = SourceType.WorkedSolutions, Language = (ISO639_3Code)isoCode, RootName = rootName };
+                return smetL2 with { Type = SourceType.WorkedSolutions, RootName = rootName };
             }
 
             if (parts[parts.Count()-2] == SolutionsIndicator)
             {
-                String rootName = String.Join('_', parts.Take(parts.Count() - 2));
-                return new SourceMetadata { Type = SourceType.Solutions, Language = (ISO639_3Code)isoCode, RootName = rootName };
+                return smetL2 with { Type = SourceType.Solutions, RootName = rootName };
             }
 
-            String rootName_ = String.Join('_', parts.Take(parts.Count() - 1));
+            rootName = String.Join('_', parts.Take(parts.Count() - 1));
 
-            return new SourceMetadata { Type = SourceType.Root, Language = (ISO639_3Code)isoCode, RootName = rootName_ };
 
+            return smetL2 with { RootName = rootName };
+
+        }
+
+        private static SourceArchetype ParseArchetype(String filenameNoExt, ILogger? logger)
+        {
+            SourceArchetype at = SourceArchetype.Worksheet; // default assumption for content in this repo
+
+            String[] levels = filenameNoExt.Split('/'); // TODO will this work on both Windows/Linus
+
+            if (levels[0] != "latex")
+            {
+                throw new NotImplementedException("has the structure of the repository changed?!");
+            }
+
+            if (levels.Count() >= 3)
+            {
+                // "latex/atype/nameofsource.tex e.g. is the bare minium
+                switch (levels[1])
+                {
+                    case "worksheets":
+                        at = SourceArchetype.Worksheet;
+                        break;
+                    case "starters":
+                        at = SourceArchetype.QuestionSlides;
+                        break;
+                    case "cheatSheets":
+                        at = SourceArchetype.Poster;
+                        break;
+                    default:
+                        logger?.LogWarning($"unexpected folder seen: {levels[1]}");
+                        break;
+                }
+            }
+
+            return at;
         }
 
 

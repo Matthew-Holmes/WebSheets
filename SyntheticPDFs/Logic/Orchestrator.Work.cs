@@ -20,7 +20,8 @@ namespace SyntheticPDFs.Logic
 
         internal record SourceMetadata
         {
-            internal required SourceType Type { get; init; }
+            internal required SourceType Type { get; init; } // root/solution/worked solutions
+            internal required SourceArchetype Archetype { get; init; } // worksheet/slides/poster etc.
             internal required ISO639_3Code Language { get; init; }
 
             internal required RootName RootName { get; init; }

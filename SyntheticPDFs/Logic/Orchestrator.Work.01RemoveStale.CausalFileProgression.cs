@@ -1,4 +1,6 @@
-﻿namespace SyntheticPDFs.Logic
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace SyntheticPDFs.Logic
 {
     public partial class Orchestrator
     {
@@ -25,6 +27,7 @@
 
             internal required CausalFileProcession fileProcession { get; init; }
 
+
         }
 
 
@@ -35,10 +38,17 @@
             internal TrackedFileWithMetadata? WorkedSolutions { get; set; }
             internal TrackedFileWithMetadata? Solutions { get; set; }
 
+            internal required SourceArchetype Archetype { get; init; }
 
+
+            [SetsRequiredMembers]
             internal CausalFileProcession(IEnumerable<TrackedFileWithMetadata> files)
             {
                 // arg checking
+                if (files.Count() == 0)
+                {
+                    throw new ArgumentException("No files!");
+                }
 
                 var distinctLangs = files.Select(tfwm => tfwm.SourceMetadata.Language).ToHashSet();
 
@@ -53,6 +63,15 @@
                 {
                     throw new ArgumentException("each file must be a distinct type!");
                 }
+
+                var distinctArchetypes = files.Select(tfwm => tfwm.SourceMetadata.Archetype).ToHashSet();
+
+                if (distinctArchetypes.Count != 1)
+                {
+                    throw new ArgumentException("each file must be the same archetype!");
+                }
+
+                Archetype = distinctArchetypes.FirstOrDefault();
 
                 // populate properties
 
