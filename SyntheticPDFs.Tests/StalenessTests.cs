@@ -9,7 +9,7 @@ namespace SyntheticPDFs.Tests
         private const String Root = "latex/worksheets/sheet";
 
         // lower age == younger, since age counts commits back from HEAD
-        private static Orchestrator.TrackedFileWitMetadata File(SourceType type, int age)
+        private static Orchestrator.TrackedFileWithMetadata File(SourceType type, int age)
         {
             var metadata = new Orchestrator.SourceMetadata
             {
@@ -18,7 +18,7 @@ namespace SyntheticPDFs.Tests
                 Language = ISO639_3Code.eng,
             };
 
-            return new Orchestrator.TrackedFileWitMetadata
+            return new Orchestrator.TrackedFileWithMetadata
             {
                 SourceMetadata = metadata,
                 TrackedFile = new TrackedFile
@@ -29,7 +29,7 @@ namespace SyntheticPDFs.Tests
             };
         }
 
-        private static Orchestrator.StalenessInfo Info(params Orchestrator.TrackedFileWitMetadata[] files)
+        private static Orchestrator.StalenessInfo Info(params Orchestrator.TrackedFileWithMetadata[] files)
             => new Orchestrator.CausalFileProcession(files).GetStalenessInfo();
 
         [TestMethod]

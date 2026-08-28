@@ -7,9 +7,9 @@ namespace SyntheticPDFs.Logic
 {
     using RootName = String;
 
-    using VariantInfo = HashSet<TrackedFileWitMetadata>;
+    using VariantInfo = HashSet<TrackedFileWithMetadata>;
 
-    using StratefiedVariantInfo = Dictionary<ISO639_3Code, HashSet<TrackedFileWitMetadata>>;
+    using StratefiedVariantInfo = Dictionary<ISO639_3Code, HashSet<TrackedFileWithMetadata>>;
 
     using StalenessInformation = Dictionary<ISO639_3Code, StalenessInfo>;
 

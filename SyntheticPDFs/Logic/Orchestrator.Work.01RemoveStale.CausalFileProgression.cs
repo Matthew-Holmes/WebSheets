@@ -3,7 +3,7 @@
     public partial class Orchestrator
     {
 
-        private static bool IsYounger(TrackedFileWitMetadata A, TrackedFileWitMetadata ThanB)
+        private static bool IsYounger(TrackedFileWithMetadata A, TrackedFileWithMetadata ThanB)
         {
             // use leq since we may add in batches, and be optimistic that the adder
             // has respected causality!
@@ -21,7 +21,7 @@
             internal required bool NoWorkedSolutions { get; init; }
             internal required bool NoSolutions { get; init; }
 
-            internal required List<TrackedFileWitMetadata> StaleFiles { get; init; }
+            internal required List<TrackedFileWithMetadata> StaleFiles { get; init; }
 
             internal required CausalFileProcession fileProcession { get; init; }
 
@@ -31,12 +31,12 @@
         internal class CausalFileProcession
         {
 
-            internal TrackedFileWitMetadata? Root { get; set; }
-            internal TrackedFileWitMetadata? WorkedSolutions { get; set; }
-            internal TrackedFileWitMetadata? Solutions { get; set; }
+            internal TrackedFileWithMetadata? Root { get; set; }
+            internal TrackedFileWithMetadata? WorkedSolutions { get; set; }
+            internal TrackedFileWithMetadata? Solutions { get; set; }
 
 
-            internal CausalFileProcession(IEnumerable<TrackedFileWitMetadata> files)
+            internal CausalFileProcession(IEnumerable<TrackedFileWithMetadata> files)
             {
                 // arg checking
 
@@ -56,7 +56,7 @@
 
                 // populate properties
 
-                foreach (TrackedFileWitMetadata tfwm in files)
+                foreach (TrackedFileWithMetadata tfwm in files)
                 {
                     switch (tfwm.SourceMetadata.Type)
                     {
@@ -80,7 +80,7 @@
             // a necessary condition for them to be correct and not stale
             internal StalenessInfo GetStalenessInfo()
             {
-                var stale = new HashSet<TrackedFileWitMetadata>();
+                var stale = new HashSet<TrackedFileWithMetadata>();
 
                 bool staleWorkedSolutions = false, staleSolutions = false;
 

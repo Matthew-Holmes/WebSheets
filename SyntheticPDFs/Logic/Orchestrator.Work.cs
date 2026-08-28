@@ -8,9 +8,9 @@ namespace SyntheticPDFs.Logic
 
     using RootName = String;
 
-    using VariantInfo = HashSet<TrackedFileWitMetadata>;
+    using VariantInfo = HashSet<TrackedFileWithMetadata>;
 
-    using StratefiedVariantInfo = Dictionary<ISO639_3Code, HashSet<TrackedFileWitMetadata>>;
+    using StratefiedVariantInfo = Dictionary<ISO639_3Code, HashSet<TrackedFileWithMetadata>>;
 
     using StalenessInformation = Dictionary<ISO639_3Code, StalenessInfo>;
 
@@ -27,7 +27,7 @@ namespace SyntheticPDFs.Logic
         }
 
 
-        internal record TrackedFileWitMetadata
+        internal record TrackedFileWithMetadata
         {
             public required TrackedFile TrackedFile { get; init; }
 
@@ -67,7 +67,7 @@ namespace SyntheticPDFs.Logic
 
             Dictionary<RootName, StalenessInformation> stalenessInformation = GetStalenessInformation(repoModel, texExtNoDot);
           
-            List<TrackedFileWitMetadata> staleFiles = stalenessInformation.Values
+            List<TrackedFileWithMetadata> staleFiles = stalenessInformation.Values
                 .SelectMany(
                     sfp => sfp.Values.Select(si => si.StaleFiles))
                 .SelectMany(x => x)
@@ -190,9 +190,9 @@ namespace SyntheticPDFs.Logic
             _logger.LogInformation($"Max files to generate set to {MaxFilesToGenerate}");
         }
 
-        private Dictionary<RootName, HashSet<TrackedFileWitMetadata>> GetVariantInfo(RepoModel repoModel, String extSubset = "tex")
+        private Dictionary<RootName, HashSet<TrackedFileWithMetadata>> GetVariantInfo(RepoModel repoModel, String extSubset = "tex")
         {
-            Dictionary<RootName, HashSet<TrackedFileWitMetadata>> variantInfo = new();
+            Dictionary<RootName, HashSet<TrackedFileWithMetadata>> variantInfo = new();
 
             foreach (TrackedFile tf in repoModel.Contents)
             {
@@ -205,7 +205,7 @@ namespace SyntheticPDFs.Logic
 
                 SourceMetadata sourceMetadata = ParseMetadataFromFilename(withoutExt, _logger);
 
-                TrackedFileWitMetadata tsm = new TrackedFileWitMetadata
+                TrackedFileWithMetadata tsm = new TrackedFileWithMetadata
                 {
                     TrackedFile = tf,
                     SourceMetadata = sourceMetadata
@@ -217,7 +217,7 @@ namespace SyntheticPDFs.Logic
                 }
                 else
                 {
-                    variantInfo[sourceMetadata.RootName] = new HashSet<TrackedFileWitMetadata> { tsm };
+                    variantInfo[sourceMetadata.RootName] = new HashSet<TrackedFileWithMetadata> { tsm };
                 }
             }
 
