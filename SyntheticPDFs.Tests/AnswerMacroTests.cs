@@ -226,6 +226,56 @@ namespace SyntheticPDFs.Tests
             Assert.AreEqual(0, _git.CommitCalls.Count);
         }
 
+        // ---- the usage rules that keep a rewrite compiling ----
+
+        // the answer has to be inside the braces AND in math mode - a deck that got the
+        // second part wrong is what prompted these rules, and it fails to build rather
+        // than just looking wrong, so every prompt that asks for the helpers says it
+        private const String MathModeRule = @"\ablank{$3x^2$}";
+
+        [TestMethod]
+        public async Task TheRewriteIsToldToPutMathematicalAnswersInMathMode()
+        {
+            _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckWithoutAnswerMacros());
+
+            await _orchestrator.DoOnePassAsync();
+
+            StringAssert.Contains(_llm.PromptsSeen.Single(), MathModeRule);
+        }
+
+        [TestMethod]
+        public async Task TheWorkedSolutionsPromptIsToldTheSameRules()
+        {
+            // these reproduce the questions with the helpers, so they can hit the same bug
+            _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckDefiningAnswerMacros());
+
+            await _orchestrator.DoOnePassAsync();
+
+            StringAssert.Contains(_llm.PromptsSeen.Single(), MathModeRule);
+        }
+
+        [TestMethod]
+        public async Task AWorksheetPromptIsNotBurdenedWithSlideRules()
+        {
+            _git.AddFile("latex/worksheets/quadratics.tex", ageCommits: 1);
+
+            await _orchestrator.DoOnePassAsync();
+
+            Assert.IsFalse(_llm.PromptsSeen.Single().Contains(MathModeRule, StringComparison.Ordinal));
+        }
+
+        [TestMethod]
+        public async Task TheCheckCountsABadlyTypesetAnswerAsNotUsingTheHelpers()
+        {
+            // a deck whose answers won't compile needs the rewrite just as much as one
+            // with no helpers at all, so the question has to ask about it
+            _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckDefiningAnswerMacros());
+
+            await _orchestrator.DoOnePassAsync();
+
+            StringAssert.Contains(_llm.QuestionsSeen.Single(), "inline math mode");
+        }
+
         // ---- worked solutions that carry no record of a check ----
 
         [TestMethod]

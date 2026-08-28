@@ -17,7 +17,7 @@ namespace SyntheticPDFs.Logic
             switch (at)
             {
                 case SourceArchetype.QuestionSlides:
-                    return $"Below is the contents of a .tex file for slides of questions. Typeset worked solutions in LaTeX, showing clear workings with explanations. {QuestionSlidesWorkedSolutionRequirements}. {Requirements} Original source: \n\n {rootSourceContents}";
+                    return $"Below is the contents of a .tex file for slides of questions. Typeset worked solutions in LaTeX, showing clear workings with explanations. {QuestionSlidesWorkedSolutionRequirements}. {AnswerMacroUsageRules} {Requirements} Original source: \n\n {rootSourceContents}";
                 default:
                     return $"Below is the contents of a .tex file. Typeset worked solutions in LaTeX, showing clear workings with explanations. {Requirements} Original source: \n\n {rootSourceContents}";
             }
@@ -32,8 +32,27 @@ namespace SyntheticPDFs.Logic
 
         #region Answer overlay helpers
 
+        // how the helpers have to be used, said the same way in every prompt that asks for
+        // them. \ablank typesets its argument twice - once for real and once inside a
+        // \phantom to reserve the width - so an argument that only works in text mode, or
+        // that isn't one well formed group, takes the whole build down rather than looking
+        // slightly wrong. each of these is a compile error we would otherwise only find out
+        // about from a failed build
+        private static String AnswerMacroUsageRules => String.Join(' ',
+            @"The answer always goes inside the braces of \ablank, \ashow or \ashowq, never beside the macro.",
+            @"An answer that is mathematical must be in inline math mode inside those braces: write \ablank{$3x^2$}, never \ablank{3x^2}.",
+            "Anything with a superscript, subscript, fraction, root, integral or Greek letter counts as mathematical.",
+            @"Inside the braces use inline math only, never \[ \], never $$ $$ and never a display environment, since the argument is measured and underlined.",
+            "If the macro is already inside math mode, do not open math mode again inside the braces.",
+            @"The argument must be a single balanced group: no blank lines, no \\, no & and nothing verbatim.",
+            @"Outside math mode, escape %, &, # and _ in the answer.",
+            @"Do not add size or colour commands, \ashow and \ashowq already apply \small and red.",
+            @"Keep \ablank answers short, since it reserves the width of the answer in the question line.",
+            @"Write mathematical symbols as LaTeX commands such as \implies and \approx, never as unicode characters.",
+            "Only use the helpers in the body of a frame, never in a frame title or a section heading.");
+
         // the deck is known to define the helpers by the time this gets asked - what is left
-        // is whether they are actually used, which needs eyes on the questions
+        // is whether they are actually used, and used in a way that will compile
         private static String AnswerMacroUsageQuestion(String rootSourceContents)
         {
             return "Below is the contents of a .tex file for slides of questions. It defines "
@@ -41,6 +60,8 @@ namespace SyntheticPDFs.Logic
                 + "Is every question in this deck given its answer through one of those three macros? "
                 + "Answer NO if any question is left without an answer, or if any answer is typeset "
                 + "without using them. "
+                + "Answer NO if any mathematical answer inside those macros is not in inline math mode, "
+                + @"so \ablank{3x^2} is a NO where \ablank{$3x^2$} is fine. "
                 + $"Source: \n\n {rootSourceContents}";
         }
 
@@ -55,6 +76,7 @@ namespace SyntheticPDFs.Logic
                 + "Leave the questions themselves unchanged - only the answers are being added. "
                 + "If the deck already puts its solutions on separate slides then keep those slides "
                 + "exactly as they are, the helpers are needed as well, not instead. "
+                + $"{AnswerMacroUsageRules} "
                 + $"{RewriteRequirements} Original source: \n\n {rootSourceContents}";
         }
 
