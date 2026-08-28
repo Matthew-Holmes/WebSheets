@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
@@ -147,12 +147,12 @@ namespace SyntheticPDFs.Tests
         [TestMethod]
         public async Task OneFailedFileDoesNotCostTheRestOfTheBatch()
         {
-            _git.AddFile("latex/a.tex", ageCommits: 1);
-            _git.AddFile("latex/b.tex", ageCommits: 1);
-            _git.AddFile("latex/c.tex", ageCommits: 1);
+            _git.AddFile("latex/worksheets/a.tex", ageCommits: 1);
+            _git.AddFile("latex/worksheets/b.tex", ageCommits: 1);
+            _git.AddFile("latex/worksheets/c.tex", ageCommits: 1);
 
             // the prompt embeds the source, so tag b's contents to target it
-            _git.Contents["latex/b.tex"] = "\\documentclass{article} % POISON";
+            _git.Contents["latex/worksheets/b.tex"] = "\\documentclass{article} % POISON";
             _llm.ScriptedResponses.Add(("POISON", "not tex at all, just prose"));
 
             var outcome = await _orchestrator.DoOnePassAsync();
@@ -162,9 +162,9 @@ namespace SyntheticPDFs.Tests
             var committed = _git.LastCommit.Select(NameOf).ToArray();
 
             CollectionAssert.AreEquivalent(
-                new[] { "latex/a_workedSolutions.tex", "latex/c_workedSolutions.tex" },
+                new[] { "latex/worksheets/a_workedSolutions.tex", "latex/worksheets/c_workedSolutions.tex" },
                 committed);
-            CollectionAssert.DoesNotContain(committed, "latex/b_workedSolutions.tex");
+            CollectionAssert.DoesNotContain(committed, "latex/worksheets/b_workedSolutions.tex");
         }
 
         [TestMethod]
@@ -184,7 +184,7 @@ namespace SyntheticPDFs.Tests
         {
             for (int i = 0; i < 10; i++)
             {
-                _git.AddFile($"latex/sheet{i}.tex", ageCommits: 1);
+                _git.AddFile($"latex/worksheets/sheet{i}.tex", ageCommits: 1);
             }
 
             var orchestrator = Build(maxFilesPerRun: 4);
@@ -196,15 +196,15 @@ namespace SyntheticPDFs.Tests
         [TestMethod]
         public async Task EachRootAdvancesAtMostOneStepPerPass()
         {
-            _git.AddFile("latex/a.tex", ageCommits: 1);
-            _git.AddFile("latex/b.tex", ageCommits: 1);
+            _git.AddFile("latex/worksheets/a.tex", ageCommits: 1);
+            _git.AddFile("latex/worksheets/b.tex", ageCommits: 1);
 
             await _orchestrator.DoOnePassAsync();
 
             // two roots, so two files - never the answer keys as well in the same pass
             Assert.AreEqual(2, _git.LastCommit.Count);
             CollectionAssert.AreEquivalent(
-                new[] { "latex/a_workedSolutions.tex", "latex/b_workedSolutions.tex" },
+                new[] { "latex/worksheets/a_workedSolutions.tex", "latex/worksheets/b_workedSolutions.tex" },
                 _git.LastCommit.Select(NameOf).ToArray());
         }
 

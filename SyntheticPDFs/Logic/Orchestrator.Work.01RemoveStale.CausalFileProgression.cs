@@ -71,7 +71,7 @@ namespace SyntheticPDFs.Logic
                     throw new ArgumentException("each file must be the same archetype!");
                 }
 
-                Archetype = distinctArchetypes.FirstOrDefault();
+                Archetype = distinctArchetypes.First();
 
                 // populate properties
 

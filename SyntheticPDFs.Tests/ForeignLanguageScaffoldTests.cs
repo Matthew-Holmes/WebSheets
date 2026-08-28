@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
@@ -31,8 +31,9 @@ namespace SyntheticPDFs.Tests
 
             var metadata = new Orchestrator.SourceMetadata
             {
-                RootName = "latex/sheet",
+                RootName = "latex/worksheets/sheet",
                 Type = SourceType.Root,
+                Archetype = SourceArchetype.Worksheet,
                 // cast past the enum, since only eng exists to name
                 Language = (ISO639_3Code)999,
             };
@@ -53,8 +54,9 @@ namespace SyntheticPDFs.Tests
 
             var metadata = new Orchestrator.SourceMetadata
             {
-                RootName = "latex/sheet",
+                RootName = "latex/worksheets/sheet",
                 Type = SourceType.Root,
+                Archetype = SourceArchetype.Worksheet,
                 Language = ISO639_3Code.eng,
             };
 

@@ -99,8 +99,8 @@ namespace SyntheticPDFs.Logic
                     case SourceArchetype.Poster:
                         return GetNextEnglishFilesToCreate_poster( si, root, englishState, maxCount);
                     default:
+                        // only fires if a new archetype is added without deciding its logic
                         throw new NotImplementedException("need to decide on what the generation logic is like for this case!");
-                        return GetNextEnglishFilesToCreate_default(si, root, englishState, maxCount);
                 }
             }
         }

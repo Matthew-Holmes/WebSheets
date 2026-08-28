@@ -6,24 +6,28 @@ namespace SyntheticPDFs.Tests
     [TestClass]
     public class NamingConventionTests
     {
-        // SourceType is internal, so it can't be a parameter on a public test method
+        // SourceType and SourceArchetype are internal, so they can't be parameters on a public test method
         [TestMethod]
-        [DataRow("quadratics", "Root")]
-        [DataRow("quadratics", "WorkedSolutions")]
-        [DataRow("quadratics", "Solutions")]
-        [DataRow("latex/worksheets/algebra/quadratics", "Root")]
-        [DataRow("latex/worksheets/algebra/quadratics", "WorkedSolutions")]
-        [DataRow("latex/worksheets/algebra/quadratics", "Solutions")]
+        [DataRow("quadratics", "Root", "Worksheet")]
+        [DataRow("quadratics", "WorkedSolutions", "Worksheet")]
+        [DataRow("quadratics", "Solutions", "Worksheet")]
+        [DataRow("latex/worksheets/algebra/quadratics", "Root", "Worksheet")]
+        [DataRow("latex/worksheets/algebra/quadratics", "WorkedSolutions", "Worksheet")]
+        [DataRow("latex/worksheets/algebra/quadratics", "Solutions", "Worksheet")]
+        [DataRow("latex/starters/targeted/KS3/circles/circlesArea", "Root", "QuestionSlides")]
+        [DataRow("latex/starters/targeted/KS3/circles/circlesArea", "WorkedSolutions", "QuestionSlides")]
+        [DataRow("latex/cheatSheets/trigIdentities", "Root", "Poster")]
         // root names containing underscores must survive the split/rejoin
-        [DataRow("latex/test/generated/test_document", "Root")]
-        [DataRow("latex/test/generated/test_document", "WorkedSolutions")]
-        [DataRow("latex/test/generated/test_document", "Solutions")]
-        public void FilenameRoundTripsThroughMetadata(String rootName, String typeName)
+        [DataRow("latex/worksheets/generated/test_document", "Root", "Worksheet")]
+        [DataRow("latex/worksheets/generated/test_document", "WorkedSolutions", "Worksheet")]
+        [DataRow("latex/worksheets/generated/test_document", "Solutions", "Worksheet")]
+        public void FilenameRoundTripsThroughMetadata(String rootName, String typeName, String archetypeName)
         {
             var original = new Orchestrator.SourceMetadata
             {
                 RootName = rootName,
                 Type = Enum.Parse<SourceType>(typeName),
+                Archetype = Enum.Parse<SourceArchetype>(archetypeName),
                 Language = ISO639_3Code.eng,
             };
 
@@ -36,6 +40,10 @@ namespace SyntheticPDFs.Tests
             Assert.AreEqual(original.RootName, parsed.RootName, "root name changed");
             Assert.AreEqual(original.Type, parsed.Type, "source type changed");
             Assert.AreEqual(original.Language, parsed.Language, "language changed");
+
+            // the archetype is carried by the folder, not the filename, so it has to
+            // survive a round trip that never writes it down
+            Assert.AreEqual(original.Archetype, parsed.Archetype, "archetype changed");
         }
 
         [TestMethod]
@@ -93,7 +101,9 @@ namespace SyntheticPDFs.Tests
             Orchestrator.ParseMetadataFromFilename("latex/worksheets/quadratics", logger);
             Orchestrator.ParseMetadataFromFilename("latex/worksheets/quadratics_solutions", logger);
             Orchestrator.ParseMetadataFromFilename("latex/worksheets/quadratics_workedSolutions", logger);
-            Orchestrator.ParseMetadataFromFilename("latex/test/generated/test_document", logger);
+            Orchestrator.ParseMetadataFromFilename("latex/starters/KS3/circlesArea", logger);
+            Orchestrator.ParseMetadataFromFilename("latex/cheatSheets/trigIdentities", logger);
+            Orchestrator.ParseMetadataFromFilename("latex/worksheets/generated/test_document", logger);
 
             CollectionAssert.AreEqual(
                 Array.Empty<String>(),
@@ -117,6 +127,7 @@ namespace SyntheticPDFs.Tests
             {
                 RootName = "sheet",
                 Type = SourceType.Root,
+                Archetype = SourceArchetype.Worksheet,
                 Language = ISO639_3Code.eng,
             };
 

@@ -1,4 +1,4 @@
-using SyntheticPDFs.Logic;
+﻿using SyntheticPDFs.Logic;
 using SyntheticPDFs.Models;
 
 namespace SyntheticPDFs.Tests
@@ -9,12 +9,17 @@ namespace SyntheticPDFs.Tests
         private const String Root = "latex/worksheets/sheet";
 
         // lower age == younger, since age counts commits back from HEAD
-        private static Orchestrator.TrackedFileWithMetadata File(SourceType type, int age)
+        private static Orchestrator.TrackedFileWithMetadata File(
+            SourceType type,
+            int age,
+            SourceArchetype archetype = SourceArchetype.Worksheet,
+            String root = Root)
         {
             var metadata = new Orchestrator.SourceMetadata
             {
-                RootName = Root,
+                RootName = root,
                 Type = type,
+                Archetype = archetype,
                 Language = ISO639_3Code.eng,
             };
 
@@ -119,6 +124,36 @@ namespace SyntheticPDFs.Tests
                 File(SourceType.Solutions, 2));
 
             Assert.AreEqual(0, info.StaleFiles.Count);
+        }
+
+        [TestMethod]
+        public void ProcessionKnowsItsArchetype()
+        {
+            var procession = new Orchestrator.CausalFileProcession(new[]
+            {
+                File(SourceType.Root, 2, SourceArchetype.QuestionSlides),
+                File(SourceType.WorkedSolutions, 1, SourceArchetype.QuestionSlides),
+            });
+
+            Assert.AreEqual(SourceArchetype.QuestionSlides, procession.Archetype);
+        }
+
+        [TestMethod]
+        public void MixedArchetypesAreRejected()
+        {
+            // the archetype comes from the folder, so files sharing a root name must agree
+            Assert.ThrowsException<ArgumentException>(() => Info(
+                File(SourceType.Root, 2, SourceArchetype.Worksheet),
+                File(SourceType.WorkedSolutions, 1, SourceArchetype.Poster)));
+        }
+
+        [TestMethod]
+        public void AnEmptyProcessionIsRejected()
+        {
+            // there is no archetype to read off nothing
+            Assert.ThrowsException<ArgumentException>(
+                () => new Orchestrator.CausalFileProcession(
+                    Array.Empty<Orchestrator.TrackedFileWithMetadata>()));
         }
     }
 }

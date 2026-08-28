@@ -39,6 +39,9 @@ namespace SyntheticPDFs.Logic
         private static String WorkedSolutionsIndicator = "workedSolutions";
         private static String SolutionsIndicator = "solutions";
 
+        // must match ContentRepository:SourceDirectory in appsettings.json
+        private static String SourceDirectoryName = "latex";
+
         internal static String GetFilenameFromMetadata(SourceMetadata sm)
         {
             StringBuilder sb = new StringBuilder(sm.RootName);
@@ -75,7 +78,6 @@ namespace SyntheticPDFs.Logic
 
         // logger is optional so the parse stays static and testable - callers that have
         // one pass it so misnamed files get surfaced rather than silently absorbed
-        // TODO - update the test suite for this and various edge cases
         internal static SourceMetadata ParseMetadataFromFilename(String filenameNoExt, ILogger? logger = null)
         {
 
@@ -160,35 +162,54 @@ namespace SyntheticPDFs.Logic
 
         }
 
+        // the archetype lives in the folder, not the filename - "latex/starters/..." is a deck
+        // of question slides, "latex/cheatSheets/..." is a poster, and so on
         private static SourceArchetype ParseArchetype(String filenameNoExt, ILogger? logger)
         {
             SourceArchetype at = SourceArchetype.Worksheet; // default assumption for content in this repo
 
-            String[] levels = filenameNoExt.Split('/'); // TODO will this work on both Windows/Linus
+            // git reports paths with '/' on every platform, and RepoLogParser only keeps paths
+            // under the source directory, so splitting on '/' is correct on Windows too
+            String[] levels = filenameNoExt.Split('/');
 
-            if (levels[0] != "latex")
+            if (levels[0] != SourceDirectoryName)
             {
-                throw new NotImplementedException("has the structure of the repository changed?!");
+                // throwing here would take the whole pass down over a single path, and the
+                // source directory is configurable, so say so loudly but carry on
+                logger?.LogWarning(
+                    "'{File}' is not under '{SourceDir}' - has the structure of the repository changed? "
+                    + "treating it as a {Archetype}.",
+                    filenameNoExt, SourceDirectoryName, at);
+
+                return at;
             }
 
-            if (levels.Count() >= 3)
+            if (levels.Length < 3)
             {
-                // "latex/atype/nameofsource.tex e.g. is the bare minium
-                switch (levels[1])
-                {
-                    case "worksheets":
-                        at = SourceArchetype.Worksheet;
-                        break;
-                    case "starters":
-                        at = SourceArchetype.QuestionSlides;
-                        break;
-                    case "cheatSheets":
-                        at = SourceArchetype.Poster;
-                        break;
-                    default:
-                        logger?.LogWarning($"unexpected folder seen: {levels[1]}");
-                        break;
-                }
+                // "latex/atype/nameofsource" is the bare minimum, so there is no folder to read
+                logger?.LogWarning(
+                    "'{File}' has no archetype folder, treating it as a {Archetype}.",
+                    filenameNoExt, at);
+
+                return at;
+            }
+
+            switch (levels[1])
+            {
+                case "worksheets":
+                    at = SourceArchetype.Worksheet;
+                    break;
+                case "starters":
+                    at = SourceArchetype.QuestionSlides;
+                    break;
+                case "cheatSheets":
+                    at = SourceArchetype.Poster;
+                    break;
+                default:
+                    logger?.LogWarning(
+                        "unexpected folder seen: {Folder}, treating '{File}' as a {Archetype}.",
+                        levels[1], filenameNoExt, at);
+                    break;
             }
 
             return at;
