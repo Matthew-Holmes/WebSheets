@@ -29,17 +29,21 @@ namespace SyntheticPDFs.Tests
                 new FakeLLMService(),
                 Options.Create(new GenerationOptions()));
 
-            var metadata = new Orchestrator.SourceMetadata
+            var request = new Orchestrator.GenerationRequest
             {
-                RootName = "latex/worksheets/sheet",
-                Type = SourceType.Root,
-                Archetype = SourceArchetype.Worksheet,
-                // cast past the enum, since only eng exists to name
-                Language = (ISO639_3Code)999,
+                Target = new Orchestrator.SourceMetadata
+                {
+                    RootName = "latex/worksheets/sheet",
+                    Type = SourceType.Root,
+                    Archetype = SourceArchetype.Worksheet,
+                    // cast past the enum, since only eng exists to name
+                    Language = (ISO639_3Code)999,
+                },
+                Job = Orchestrator.GenerationJob.CreateSource,
             };
 
             await Assert.ThrowsExceptionAsync<NotImplementedException>(
-                () => orchestrator.GenerateSyntheticSource(metadata));
+                () => orchestrator.GenerateSyntheticSource(request));
         }
 
         [TestMethod]
@@ -52,16 +56,20 @@ namespace SyntheticPDFs.Tests
                 new FakeLLMService(),
                 Options.Create(new GenerationOptions()));
 
-            var metadata = new Orchestrator.SourceMetadata
+            var request = new Orchestrator.GenerationRequest
             {
-                RootName = "latex/worksheets/sheet",
-                Type = SourceType.Root,
-                Archetype = SourceArchetype.Worksheet,
-                Language = ISO639_3Code.eng,
+                Target = new Orchestrator.SourceMetadata
+                {
+                    RootName = "latex/worksheets/sheet",
+                    Type = SourceType.Root,
+                    Archetype = SourceArchetype.Worksheet,
+                    Language = ISO639_3Code.eng,
+                },
+                Job = Orchestrator.GenerationJob.CreateSource,
             };
 
             Assert.ThrowsExceptionAsync<ArgumentException>(
-                () => orchestrator.GenerateSyntheticSource(metadata)).Wait();
+                () => orchestrator.GenerateSyntheticSource(request)).Wait();
         }
     }
 }

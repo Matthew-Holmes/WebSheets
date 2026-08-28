@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
@@ -120,7 +120,8 @@ namespace SyntheticPDFs.Tests
         public async Task SlidesGetWorkedSolutionsButNeverAnAnswerKey()
         {
             // the answers belong in the deck itself, so a separate key would be redundant
-            _git.AddFile("latex/starters/KS3/circlesArea.tex", ageCommits: 1);
+            _git.AddFile("latex/starters/KS3/circlesArea.tex", ageCommits: 1,
+                contents: TexFixtures.SlideDeckDefiningAnswerMacros());
 
             Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
             CollectionAssert.AreEqual(
@@ -163,7 +164,8 @@ namespace SyntheticPDFs.Tests
         public async Task EachArchetypeFollowsItsOwnRulesInOnePass()
         {
             _git.AddFile("latex/worksheets/quadratics.tex", ageCommits: 1);
-            _git.AddFile("latex/starters/circlesArea.tex", ageCommits: 1);
+            _git.AddFile("latex/starters/circlesArea.tex", ageCommits: 1,
+                contents: TexFixtures.SlideDeckDefiningAnswerMacros());
             _git.AddFile("latex/cheatSheets/trigIdentities.tex", ageCommits: 1);
 
             Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
@@ -190,7 +192,8 @@ namespace SyntheticPDFs.Tests
         [TestMethod]
         public async Task SlidesPromptAsksForOneSolutionPerSlide()
         {
-            _git.AddFile("latex/starters/KS3/circlesArea.tex", ageCommits: 1);
+            _git.AddFile("latex/starters/KS3/circlesArea.tex", ageCommits: 1,
+                contents: TexFixtures.SlideDeckDefiningAnswerMacros());
 
             await _orchestrator.DoOnePassAsync();
 

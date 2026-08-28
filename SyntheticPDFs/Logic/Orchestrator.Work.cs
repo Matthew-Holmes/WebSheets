@@ -27,6 +27,21 @@ namespace SyntheticPDFs.Logic
             internal required RootName RootName { get; init; }
         }
 
+        // what a batch entry is asking for. most work synthesises a file that isn't there
+        // yet, but question slides also have to have their answer overlay helpers checked,
+        // and that check is what stamps the worked solutions as seen
+        internal enum GenerationJob
+        {
+            CreateSource,
+            CheckAnswerMacros,
+        }
+
+        internal record GenerationRequest
+        {
+            internal required SourceMetadata Target { get; init; }
+            internal required GenerationJob Job { get; init; }
+        }
+
 
         internal record TrackedFileWithMetadata
         {
@@ -97,7 +112,7 @@ namespace SyntheticPDFs.Logic
             // get batch of files to create - since some will depend on these, not all the required files
             // will be in this batch
 
-            List<SourceMetadata> batchToCreate = GetCreationBatch(stalenessInformation, MaxFilesToGenerate);
+            List<GenerationRequest> batchToCreate = GetCreationBatch(stalenessInformation, MaxFilesToGenerate);
 
             if (batchToCreate.Count == 0)
             {
@@ -146,19 +161,19 @@ namespace SyntheticPDFs.Logic
 
         // one file failing shouldn't cost us the rest of the batch - it stays missing
         // from the repo model, so the next pass picks it up again
-        private async Task<TexSourceModel?> TryGenerateSyntheticSource(SourceMetadata sm)
+        private async Task<TexSourceModel?> TryGenerateSyntheticSource(GenerationRequest request)
         {
-            _logger.LogInformation($"generating Tex source for {sm.RootName}");
+            _logger.LogInformation($"generating Tex source for {request.Target.RootName}");
 
             try
             {
-                return await GenerateSyntheticSource(sm);
+                return await GenerateSyntheticSource(request);
             }
             catch (Exception e)
             {
                 _logger.LogError(
-                    "failed to generate {Type} for {Root}: {Message}",
-                    sm.Type, sm.RootName, e.Message);
+                    "failed to {Job} {Type} for {Root}: {Message}",
+                    request.Job, request.Target.Type, request.Target.RootName, e.Message);
 
                 return null;
             }

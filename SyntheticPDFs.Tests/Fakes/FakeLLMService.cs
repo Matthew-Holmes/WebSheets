@@ -14,7 +14,17 @@ namespace SyntheticPDFs.Tests.Fakes
 
         public List<String> PromptsSeen { get; } = new();
 
+        // yes/no questions are recorded separately, so a test can tell a check apart from
+        // a generation without picking through one list
+        public List<(String QuestionContains, bool? Answer)> ScriptedYesNo { get; } = new();
+
+        public bool? DefaultYesNo { get; set; } = true;
+
+        public List<String> QuestionsSeen { get; } = new();
+
         public int CallCount => PromptsSeen.Count;
+
+        public int YesNoCallCount => QuestionsSeen.Count;
 
         public Task<String> GetResponse(String prompt)
         {
@@ -32,6 +42,24 @@ namespace SyntheticPDFs.Tests.Fakes
             }
 
             return Task.FromResult(DefaultResponse);
+        }
+
+        public Task<bool?> GetYesNoResponse(String question)
+        {
+            lock (QuestionsSeen)
+            {
+                QuestionsSeen.Add(question);
+            }
+
+            foreach (var (contains, answer) in ScriptedYesNo)
+            {
+                if (question.Contains(contains, StringComparison.Ordinal))
+                {
+                    return Task.FromResult(answer);
+                }
+            }
+
+            return Task.FromResult(DefaultYesNo);
         }
 
         public void Log(LogLevel lvl, String message)
