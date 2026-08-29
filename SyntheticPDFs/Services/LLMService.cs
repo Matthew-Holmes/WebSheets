@@ -12,13 +12,18 @@ namespace SyntheticPDFs.Services
 
         private static readonly String _systemMessage = "You are a LaTeX source writer, producing .tex file contents that will compile, follow instructions for file contents to generate";
 
-        // its own agent, since a reviewer that answers in one word wants a different brief
+        // its own agent, since a reviewer that has to reach a verdict wants a different brief
         // to a writer that emits whole files
-        private static readonly String _yesNoSystemMessage = "You are a LaTeX source reviewer, answer the question with exactly one word, YES or NO, and nothing else";
+        private static readonly String _reviewSystemMessage = "You are a LaTeX slide reviewer. Put PASS or FAIL on the first line on its own. If it is FAIL, follow it with one short line per thing that is wrong, each one concrete and checkable. Never quote LaTeX source in your reasons, describe what is wrong in words";
+
+        // and again for prose, since notes for a person must not come back as .tex
+        private static readonly String _summarySystemMessage = "You write short, plain notes for a teacher. Be concise and concrete, use ordinary prose, and never use LaTeX or markdown";
 
         private AgentBase Agent { get; init; }
 
-        private AgentBase YesNoAgent { get; init; }
+        private AgentBase ReviewAgent { get; init; }
+
+        private AgentBase SummaryAgent { get; init; }
 
         public LLMService(IOptions<LLMOptions> options, ILogger<LLMService> logger)
         {
@@ -27,7 +32,9 @@ namespace SyntheticPDFs.Services
             Agent = AgentFactory.GenerateDeepSeekProcessingAgent(_systemMessage, LLM.DeepSeek_chat, false, _options.DeepSeekAPIKey);
 
             // temperature zero, since the same deck should get the same verdict twice running
-            YesNoAgent = AgentFactory.GenerateDeepSeekProcessingAgent(_yesNoSystemMessage, LLM.DeepSeek_chat, true, _options.DeepSeekAPIKey);
+            ReviewAgent = AgentFactory.GenerateDeepSeekProcessingAgent(_reviewSystemMessage, LLM.DeepSeek_chat, true, _options.DeepSeekAPIKey);
+
+            SummaryAgent = AgentFactory.GenerateDeepSeekProcessingAgent(_summarySystemMessage, LLM.DeepSeek_chat, true, _options.DeepSeekAPIKey);
 
             _logger = logger;
         }
@@ -37,34 +44,66 @@ namespace SyntheticPDFs.Services
             return await Agent.GetResponse(prompt);
         }
 
-        public async Task<bool?> GetYesNoResponse(String question)
+        public async Task<String> GetSummaryResponse(String prompt)
         {
-            String response = await YesNoAgent.GetResponse(question);
+            return await SummaryAgent.GetResponse(prompt);
+        }
 
-            bool? answer = ParseYesNo(response);
+        public async Task<ReviewVerdict?> GetReviewResponse(String question)
+        {
+            String response = await ReviewAgent.GetResponse(question);
 
-            if (answer is null)
+            ReviewVerdict? verdict = ParseReview(response);
+
+            if (verdict is null)
             {
-                _logger.LogWarning($"could not read a yes/no answer out of: {response}");
+                _logger.LogWarning($"could not read a verdict out of: {response}");
             }
 
-            return answer;
+            return verdict;
         }
 
         // models like to add a full stop, or wrap the word in markdown, so read the first
-        // word rather than demanding the response be exactly YES or NO
-        internal static bool? ParseYesNo(String response)
+        // word rather than demanding the response start with exactly PASS or FAIL
+        internal static bool? ParseVerdict(String response)
         {
             String first = new String(response
                 .SkipWhile(c => !Char.IsLetter(c))
                 .TakeWhile(Char.IsLetter)
                 .ToArray());
 
+            if (String.Equals(first, "PASS", StringComparison.OrdinalIgnoreCase)) { return true; }
             if (String.Equals(first, "YES", StringComparison.OrdinalIgnoreCase)) { return true; }
 
+            if (String.Equals(first, "FAIL", StringComparison.OrdinalIgnoreCase)) { return false; }
             if (String.Equals(first, "NO", StringComparison.OrdinalIgnoreCase)) { return false; }
 
             return null;
+        }
+
+        internal static ReviewVerdict? ParseReview(String response)
+        {
+            bool? passed = ParseVerdict(response);
+
+            if (passed is null) { return null; }
+
+            if ((bool)passed)
+            {
+                return new ReviewVerdict { Passed = true, Reasons = String.Empty };
+            }
+
+            // everything after the verdict word is why, with the verdict line itself dropped
+            String[] lines = response.Replace("\r\n", "\n").Split('\n');
+
+            String reasons = String.Join('\n', lines.Skip(1).Select(l => l.Trim()).Where(l => l.Length > 0)).Trim();
+
+            if (reasons.Length == 0)
+            {
+                // a bare FAIL tells whoever reads the log nothing, but it is still a verdict
+                reasons = "no reason given";
+            }
+
+            return new ReviewVerdict { Passed = false, Reasons = reasons };
         }
 
         public void Log(LogLevel lvl, String message)

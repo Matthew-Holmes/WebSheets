@@ -122,13 +122,15 @@ namespace SyntheticPDFs.Logic
 
             // generate concurrently - AgentBase already caps this at 5 locally and 20 across
             // all agents, so there is no need to throttle again here
-            List<TexSourceModel?> generated = (await Task.WhenAll(
+            List<List<TexSourceModel>> generated = (await Task.WhenAll(
                 batchToCreate.Select(TryGenerateSyntheticSource))).ToList();
 
             List<TexSourceModel> syntheticSource = generated
-                .Where(ts => ts is not null)
-                .Select(ts => ts!)
+                .SelectMany(ts => ts)
                 .ToList();
+
+            // a request that settled nothing produced no files at all
+            int failed = generated.Count(ts => ts.Count == 0);
 
             if (syntheticSource.Count == 0)
             {
@@ -136,11 +138,11 @@ namespace SyntheticPDFs.Logic
                 return PassOutcome.GenerationFailed;
             }
 
-            if (syntheticSource.Count < batchToCreate.Count)
+            if (failed > 0)
             {
                 _logger.LogWarning(
-                    "{Failed} of {Total} files failed to generate, pushing the rest",
-                    batchToCreate.Count - syntheticSource.Count,
+                    "{Failed} of {Total} requests failed to generate, pushing the rest",
+                    failed,
                     batchToCreate.Count);
             }
 
@@ -161,7 +163,7 @@ namespace SyntheticPDFs.Logic
 
         // one file failing shouldn't cost us the rest of the batch - it stays missing
         // from the repo model, so the next pass picks it up again
-        private async Task<TexSourceModel?> TryGenerateSyntheticSource(GenerationRequest request)
+        private async Task<List<TexSourceModel>> TryGenerateSyntheticSource(GenerationRequest request)
         {
             _logger.LogInformation($"generating Tex source for {request.Target.RootName}");
 
@@ -175,7 +177,7 @@ namespace SyntheticPDFs.Logic
                     "failed to {Job} {Type} for {Root}: {Message}",
                     request.Job, request.Target.Type, request.Target.RootName, e.Message);
 
-                return null;
+                return new List<TexSourceModel>();
             }
         }
 

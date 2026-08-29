@@ -51,17 +51,39 @@ namespace SyntheticPDFs.Logic
             @"Write mathematical symbols as LaTeX commands such as \implies and \approx, never as unicode characters.",
             "Only use the helpers in the body of a frame, never in a frame title or a section heading.");
 
+        // the things a reviewer must NOT fail a deck for. every one of these has been seen, or
+        // is a plain misreading of the source, and each false rejection used to cost a full
+        // rewrite of the deck. the reviewer is deliberately given a narrow definition of
+        // broken - a question with no answer, or an answer that will not compile
+        private static String AnswerMacroReviewExclusions => String.Join(' ',
+            @"Read only the LaTeX that will actually be typeset. Anything commented out with % does not exist:",
+            "a commented out answers slide, or a commented out frame, is not a problem and is not an answer",
+            "typeset outside the helpers.",
+            "Only questions count. Titles, section headings, contents slides, instructions, prompts to discuss",
+            "something, and worked examples are not questions and need no answer.",
+            "An answer revealed by a drawing counts as answered, for instance a TikZ picture or a label that",
+            "appears on the second overlay - the answer does not have to be words or numbers.",
+            "One macro may answer several parts at once, and a question may have its answer shown anywhere on",
+            "its slide.",
+            @"A helper used inside existing math mode, such as $x = \ablank{52}$, is correct, and the braces do",
+            "not need dollar signs of their own there.",
+            "Numbering questions by hand, rather than with an enumerate, is fine.",
+            "Do not fail a deck over style, wording, spacing, layout, slide order, consistency between slides,",
+            "or anything you would merely prefer done differently.");
+
         // the deck is known to define the helpers by the time this gets asked - what is left
-        // is whether they are actually used, and used in a way that will compile
+        // is whether they are used, and used in a way that will compile
         private static String AnswerMacroUsageQuestion(String rootSourceContents)
         {
             return "Below is the contents of a .tex file for slides of questions. It defines "
                 + @"\ablank, \ashow and \ashowq, which reveal answers on a second overlay. "
-                + "Is every question in this deck given its answer through one of those three macros? "
-                + "Answer NO if any question is left without an answer, or if any answer is typeset "
-                + "without using them. "
-                + "Answer NO if any mathematical answer inside those macros is not in inline math mode, "
-                + @"so \ablank{3x^2} is a NO where \ablank{$3x^2$} is fine. "
+                + "Decide whether this deck is finished as far as those helpers are concerned. "
+                + $"{AnswerMacroReviewExclusions} "
+                + "Answer PASS if every question that needs an answer has one through those helpers. "
+                + "Answer FAIL only if a question that plainly needs an answer has none, or an answer is "
+                + "typeset outside the helpers in the part of the file that is not commented out, or an "
+                + @"answer inside the braces would not compile, such as \ablank{3x^2} where the macro is not "
+                + "already inside math mode. "
                 + $"Source: \n\n {rootSourceContents}";
         }
 
@@ -76,8 +98,24 @@ namespace SyntheticPDFs.Logic
                 + "Leave the questions themselves unchanged - only the answers are being added. "
                 + "If the deck already puts its solutions on separate slides then keep those slides "
                 + "exactly as they are, the helpers are needed as well, not instead. "
+                + "If a question already reveals its answer properly, leave it exactly as it is. "
                 + $"{AnswerMacroUsageRules} "
                 + $"{RewriteRequirements} Original source: \n\n {rootSourceContents}";
+        }
+
+        // the reviewer's own words are too long, and often too pedantic, to put in front of a
+        // teacher unedited
+        private static String SummariseReviewReasonsPrompt(IEnumerable<String> reasons)
+        {
+            return "An automated review of a set of question slides rejected them, and a rewrite did not "
+                + "settle it. Below are the reasons the review gave, one round per block, oldest first. "
+                + "Write a note for the teacher who owns the slides, at most three sentences, saying plainly "
+                + "what the review thought was wrong with the way the answers are shown, and which slides or "
+                + "questions it was talking about if that is clear. "
+                + "If the reasons contradict each other, or look like nitpicking rather than a real problem, "
+                + "say so plainly - the teacher needs to know the review may be wrong. "
+                + "Reasons: \n\n"
+                + String.Join("\n\n", reasons);
         }
 
         #endregion

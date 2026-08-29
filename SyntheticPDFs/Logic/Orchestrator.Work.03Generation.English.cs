@@ -10,7 +10,7 @@ namespace SyntheticPDFs.Logic
     {
         // DI the services so can have pure functions below this
 
-        private async Task<TexSourceModel> GenerateEnglishSyntheticSource(GenerationRequest request)
+        private async Task<List<TexSourceModel>> GenerateEnglishSyntheticSource(GenerationRequest request)
         {
             SourceMetadata sm = request.Target;
 
@@ -37,37 +37,43 @@ namespace SyntheticPDFs.Logic
         }
 
 
-        private static async Task<TexSourceModel> GenerateSyntheticEnglishWorkedSolutions(RootName rootName, SourceArchetype at, IGitRepoManager gm, ILLMService LLM)
+        private static async Task<List<TexSourceModel>> GenerateSyntheticEnglishWorkedSolutions(RootName rootName, SourceArchetype at, IGitRepoManager gm, ILLMService LLM)
         {
             SourceMetadata rootMetadata = new SourceMetadata { Language = ISO639_3Code.eng, RootName = rootName, Type = SourceType.Root, Archetype = at };
             String rootFilename = GetFilenameFromMetadata(rootMetadata);
             TexSourceModel rootSource = gm.GetContent(rootFilename);
 
+            List<TexSourceModel> ret = new();
+
             if (at == SourceArchetype.QuestionSlides)
             {
-                TexSourceModel? rewritten = await TryRewriteSlidesForAnswerMacros(rootSource, LLM);
+                // the review settles within this job now, so the deck and its worked solutions
+                // go in together - a batch lands in one commit, and IsYounger allows equal ages
+                AnswerMacroReviewOutcome review = await ReviewAndFixAnswerMacros(rootSource, LLM);
 
-                // the deck needed fixing, so that goes in first and the worked solutions
-                // wait for the pass after - the rewritten root makes them stale anyway
-                if (rewritten is not null) { return rewritten; }
+                if (review.DeckChanged) { ret.Add(review.Deck); }
+
+                rootSource = review.Questions;
             }
 
             String genSource = await SourceGenerator.GenerateSyntheticEnglishWorkedSolutionsTexSource(rootSource, at, LLM);
 
             if (at == SourceArchetype.QuestionSlides)
             {
-                // the deck was just checked, so say so here rather than checking it again
-                // next pass. a human edit makes these stale, which brings the check back
+                // the deck has been settled one way or another, so record that here and stop
+                // reviewing it. a human edit makes these stale, which brings the review back
                 genSource = AnswerMacros.AddVerifiedMarker(genSource);
             }
 
             SourceMetadata synthMetadata = rootMetadata with { Type = SourceType.WorkedSolutions };
             String synthFilename = GetFilenameFromMetadata(synthMetadata);
 
-            return new TexSourceModel { FileNameFullPath = synthFilename, TexSource = genSource };
+            ret.Add(new TexSourceModel { FileNameFullPath = synthFilename, TexSource = genSource });
+
+            return ret;
         }
 
-        private static async Task<TexSourceModel> GenerateSyntheticEnglishSolutions(RootName rootName, SourceArchetype at, IGitRepoManager gm, ILLMService LLM)
+        private static async Task<List<TexSourceModel>> GenerateSyntheticEnglishSolutions(RootName rootName, SourceArchetype at, IGitRepoManager gm, ILLMService LLM)
         {
             SourceMetadata rootMetadata = new SourceMetadata { Language = ISO639_3Code.eng, RootName = rootName, Type = SourceType.Root,            Archetype = at, };
             SourceMetadata wsolMetadata = new SourceMetadata { Language = ISO639_3Code.eng, RootName = rootName, Type = SourceType.WorkedSolutions, Archetype = at };
@@ -86,32 +92,16 @@ namespace SyntheticPDFs.Logic
             SourceMetadata synthMetadata = rootMetadata with { Type = SourceType.Solutions };
             String synthFilename = GetFilenameFromMetadata(synthMetadata);
 
-            return new TexSourceModel { FileNameFullPath = synthFilename, TexSource = genSource };
+            return new List<TexSourceModel> { new TexSourceModel { FileNameFullPath = synthFilename, TexSource = genSource } };
         }
 
 
         #region Answer overlay helpers
 
-        // a deck that doesn't reveal its own answers has to be fixed before anything is
-        // derived from it, so both jobs below can come back with the rewritten root instead
-        // of the file they were asked for. the pass just commits whatever it is handed, and
-        // the derived work comes round again once the deck has settled
-        private static async Task<TexSourceModel?> TryRewriteSlidesForAnswerMacros(TexSourceModel rootSource, ILLMService LLM)
-        {
-            if (await SourceGenerator.QuestionSlidesUseAnswerMacros(rootSource, LLM))
-            {
-                return null;
-            }
-
-            String genSource = await SourceGenerator.GenerateSlidesWithAnswerMacrosTexSource(rootSource, LLM);
-
-            return new TexSourceModel { FileNameFullPath = rootSource.FileNameFullPath, TexSource = genSource };
-        }
-
-        // worked solutions that are already in the repo but carry no record of a check - the
-        // deck gets looked at, and if it is fine the existing file is stamped rather than
+        // worked solutions that are already in the repo but carry no record of a review - the
+        // deck gets looked at, and if it settles the existing file is stamped rather than
         // generated again, which would be paying twice for the same content
-        private static async Task<TexSourceModel> CheckAnswerMacrosAndMarkWorkedSolutions(RootName rootName, IGitRepoManager gm, ILLMService LLM)
+        private static async Task<List<TexSourceModel>> CheckAnswerMacrosAndMarkWorkedSolutions(RootName rootName, IGitRepoManager gm, ILLMService LLM)
         {
             SourceMetadata rootMetadata = new SourceMetadata
             {
@@ -123,20 +113,24 @@ namespace SyntheticPDFs.Logic
 
             TexSourceModel rootSource = gm.GetContent(GetFilenameFromMetadata(rootMetadata));
 
-            TexSourceModel? rewritten = await TryRewriteSlidesForAnswerMacros(rootSource, LLM);
+            AnswerMacroReviewOutcome review = await ReviewAndFixAnswerMacros(rootSource, LLM);
 
-            if (rewritten is not null) { return rewritten; }
+            List<TexSourceModel> ret = new();
+
+            if (review.DeckChanged) { ret.Add(review.Deck); }
 
             SourceMetadata wsolMetadata = rootMetadata with { Type = SourceType.WorkedSolutions };
             String wsolFilename = GetFilenameFromMetadata(wsolMetadata);
 
             TexSourceModel wsolSource = gm.GetContent(wsolFilename);
 
-            return new TexSourceModel
+            ret.Add(new TexSourceModel
             {
                 FileNameFullPath = wsolFilename,
                 TexSource = AnswerMacros.AddVerifiedMarker(wsolSource.TexSource)
-            };
+            });
+
+            return ret;
         }
 
         #endregion

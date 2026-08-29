@@ -7,7 +7,9 @@ namespace SyntheticPDFs.Logic
 
     public partial class Orchestrator
     {
-        internal async Task<TexSourceModel> GenerateSyntheticSource(GenerationRequest request)
+        // one request can settle more than one file - a slide deck that needed fixing comes
+        // back alongside the worked solutions derived from it
+        internal async Task<List<TexSourceModel>> GenerateSyntheticSource(GenerationRequest request)
         {
             if (request.Target.Language == ISO639_3Code.eng)
             {
