@@ -291,6 +291,9 @@ namespace SyntheticPDFs.Tests
         [DataRow("commented out")]
         [DataRow("Only questions count")]
         [DataRow("drawn on to a diagram")]
+        [DataRow("whose whole job is to list the answers")]
+        [DataRow("Never fail a deck because such a slide reveals")]
+        [DataRow("again in full on a later answers slide")]
         [DataRow("where you would have chosen another")]
         [DataRow("ans, ansfill or anslab")]
         [DataRow("several parts at once")]
@@ -351,6 +354,23 @@ namespace SyntheticPDFs.Tests
 
             StringAssert.Contains(_llm.QuestionsSeen.Single(), "reveal it on overlay 2");
             StringAssert.Contains(_llm.PromptsSeen.Single(), "whichever of these makes the answer clearest");
+        }
+
+        [TestMethod]
+        public async Task OnlyAQuestionSlideGivingItselfAwayCountsAsALeak()
+        {
+            // a deck may end with a slide that lists every answer at once - the fixer is told
+            // to keep those, so the review must not fail the deck for them
+            _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckDefiningAnswerMacros());
+
+            await _orchestrator.DoOnePassAsync();
+
+            String question = _llm.QuestionsSeen.Single();
+
+            StringAssert.Contains(question, "a question slide gives its own answer away on overlay 1");
+            Assert.IsFalse(
+                question.Contains("already visible on overlay 1 in the part of the file", StringComparison.Ordinal),
+                "the old wording condemned a deliberate answers slide");
         }
 
         // ---- the house style for a set of worked solutions ----

@@ -115,6 +115,11 @@ namespace SyntheticPDFs.Logic
             @"styles or a short \ashowq label - the answer does not have to be words or numbers.",
             "One macro may answer several parts at once, and a question may have its answer shown anywhere on",
             "its slide.",
+            "A deck may also carry a slide whose whole job is to list the answers, however it is titled -",
+            "Answers, Solutions, Final answers and so on. That slide is meant to show everything at once with",
+            "nothing hidden, which is deliberate and useful. Never fail a deck because such a slide reveals",
+            "its answers immediately, and never fail one because an answer appears both held back on its",
+            "question slide and again in full on a later answers slide.",
             @"A helper used inside existing math mode, such as $x = \ablank{52}$, is correct, and the braces do",
             "not need dollar signs of their own there.",
             "Numbering questions by hand, rather than with an enumerate, is fine.",
@@ -133,8 +138,8 @@ namespace SyntheticPDFs.Logic
                 + $"{AnswerMacroReviewExclusions} "
                 + "Answer PASS if every question that needs an answer has one that reveals on overlay 2 by "
                 + "any of those means. "
-                + "Answer FAIL only if a question that plainly needs an answer has none, or an answer is "
-                + "already visible on overlay 1 in the part of the file that is not commented out, or an "
+                + "Answer FAIL only if a question that plainly needs an answer has none, or a question "
+                + "slide gives its own answer away on overlay 1 instead of holding it back to overlay 2, or an "
                 + @"answer inside the braces would not compile, such as \ablank{3x^2} where the macro is not "
                 + "already inside math mode. "
                 + $"Source: \n\n {rootSourceContents}";
