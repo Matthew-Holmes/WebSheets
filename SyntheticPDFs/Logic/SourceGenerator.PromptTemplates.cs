@@ -38,15 +38,29 @@ namespace SyntheticPDFs.Logic
         // that isn't one well formed group, takes the whole build down rather than looking
         // slightly wrong. each of these is a compile error we would otherwise only find out
         // about from a failed build
+        // there is more than one way to reveal an answer and none of them is the right one.
+        // what every prompt is told is the goal - the answer appears on overlay 2 - and then
+        // which helper suits which kind of answer, plus the things that stop a deck compiling
         private static String AnswerMacroUsageRules => String.Join(' ',
+            "Every answer must appear on overlay 2 of its own slide, so that it reveals on the next slide",
+            "of the compiled pdf. Which helper does that is a matter of what reads best on the slide.",
+            @"Use \ablank for an answer that fills a gap in a sentence or an equation, \ashow for an answer",
+            @"shown alongside its question, and \ashowq for an answer that replaces a question mark, including",
+            "a short label on a diagram.",
+            "For an answer that is better drawn than written, add it to the picture the slide already has and",
+            "give it the ans style for a line or a shape, ansfill for a shaded region, and anslab for a text",
+            "label. Those are TikZ styles, so they go in the options of a node or a path, as in",
+            @"\draw[ans] or \node[anslab].",
+            "Pick whichever of these makes the answer clearest, and use different ones on the same slide if",
+            "that reads better.",
             @"The answer always goes inside the braces of \ablank, \ashow or \ashowq, never beside the macro.",
             @"An answer that is mathematical must be in inline math mode inside those braces: write \ablank{$3x^2$}, never \ablank{3x^2}.",
             "Anything with a superscript, subscript, fraction, root, integral or Greek letter counts as mathematical.",
-            @"Inside the braces use inline math only, never \[ \], never $$ $$ and never a display environment, since the argument is measured and underlined.",
+            @"Inside the braces use inline math only, never \[ \], never $$ $$ and never a display environment, since the argument is measured to reserve its space.",
             "If the macro is already inside math mode, do not open math mode again inside the braces.",
             @"The argument must be a single balanced group: no blank lines, no \\, no & and nothing verbatim.",
             @"Outside math mode, escape %, &, # and _ in the answer.",
-            @"Do not add size or colour commands, \ashow and \ashowq already apply \small and red.",
+            @"Do not add size or colour commands, the helpers already apply \small and red.",
             @"Keep \ablank answers short, since it reserves the width of the answer in the question line.",
             @"Write mathematical symbols as LaTeX commands such as \implies and \approx, never as unicode characters.",
             "Only use the helpers in the body of a frame, never in a frame title or a section heading.");
@@ -61,8 +75,10 @@ namespace SyntheticPDFs.Logic
             "typeset outside the helpers.",
             "Only questions count. Titles, section headings, contents slides, instructions, prompts to discuss",
             "something, and worked examples are not questions and need no answer.",
-            "An answer revealed by a drawing counts as answered, for instance a TikZ picture or a label that",
-            "appears on the second overlay - the answer does not have to be words or numbers.",
+            "Any of the ways of revealing an answer is as good as any other, and the deck is free to mix them.",
+            "Never fail a deck because one helper was used where you would have chosen another.",
+            "An answer drawn on to a diagram counts as answered, whether it uses the ans, ansfill or anslab",
+            @"styles or a short \ashowq label - the answer does not have to be words or numbers.",
             "One macro may answer several parts at once, and a question may have its answer shown anywhere on",
             "its slide.",
             @"A helper used inside existing math mode, such as $x = \ablank{52}$, is correct, and the braces do",
@@ -72,16 +88,19 @@ namespace SyntheticPDFs.Logic
             "or anything you would merely prefer done differently.");
 
         // the deck is known to define the helpers by the time this gets asked - what is left
-        // is whether they are used, and used in a way that will compile
+        // is whether every answer reveals on overlay 2, in a way that will compile
         private static String AnswerMacroUsageQuestion(String rootSourceContents)
         {
             return "Below is the contents of a .tex file for slides of questions. It defines "
-                + @"\ablank, \ashow and \ashowq, which reveal answers on a second overlay. "
-                + "Decide whether this deck is finished as far as those helpers are concerned. "
+                + @"\ablank, \ashow and \ashowq, and the TikZ styles ans, ansfill and anslab for answers "
+                + "drawn on to a diagram. All of them keep the answer hidden on overlay 1 and reveal it on "
+                + "overlay 2, so the answers appear on the next slide of the compiled pdf. "
+                + "Decide whether this deck is finished as far as revealing its answers is concerned. "
                 + $"{AnswerMacroReviewExclusions} "
-                + "Answer PASS if every question that needs an answer has one through those helpers. "
+                + "Answer PASS if every question that needs an answer has one that reveals on overlay 2 by "
+                + "any of those means. "
                 + "Answer FAIL only if a question that plainly needs an answer has none, or an answer is "
-                + "typeset outside the helpers in the part of the file that is not commented out, or an "
+                + "already visible on overlay 1 in the part of the file that is not commented out, or an "
                 + @"answer inside the braces would not compile, such as \ablank{3x^2} where the macro is not "
                 + "already inside math mode. "
                 + $"Source: \n\n {rootSourceContents}";
@@ -90,15 +109,16 @@ namespace SyntheticPDFs.Logic
         private static String GenerateAnswerMacroRewritePrompt(String rootSourceContents)
         {
             return "Below is the contents of a .tex file for slides of questions. Rewrite it so that "
-                + "every question reveals its answer on a second overlay of the same slide, using "
-                + @"\ablank for an answer that fills a gap in a sentence, \ashow for an answer shown "
-                + @"alongside its question, and \ashowq for an answer that replaces a question mark. "
-                + "These definitions must appear verbatim in the preamble: "
+                + "every question reveals its answer on overlay 2 of its own slide, choosing for each answer "
+                + "whichever of the helpers below shows it best. "
+                + "These definitions must appear verbatim in the preamble, and the deck must load tikz for "
+                + "the last of them: "
                 + $"\n\n{AnswerMacros.Definitions}\n\n"
                 + "Leave the questions themselves unchanged - only the answers are being added. "
                 + "If the deck already puts its solutions on separate slides then keep those slides "
                 + "exactly as they are, the helpers are needed as well, not instead. "
-                + "If a question already reveals its answer properly, leave it exactly as it is. "
+                + "If a question already reveals its answer properly, leave it exactly as it is, whichever "
+                + "helper it uses. "
                 + $"{AnswerMacroUsageRules} "
                 + $"{RewriteRequirements} Original source: \n\n {rootSourceContents}";
         }

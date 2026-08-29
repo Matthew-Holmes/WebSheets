@@ -13,6 +13,7 @@ namespace SyntheticPDFs.Tests.Fakes
         public static String SlideDeckDefiningAnswerMacros(String body = DefaultBody) =>
             "\\documentclass{beamer}\n"
             + "\\usepackage{xcolor}\n"
+            + "\\usepackage{tikz}\n"
             + AnswerMacros.Definitions + "\n"
             + "\\begin{document}\n"
             + body + "\n"

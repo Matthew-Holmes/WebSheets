@@ -2,8 +2,10 @@ using System.Text;
 
 namespace SyntheticPDFs.Logic
 {
-    // question slides reveal their answers on a second overlay rather than in a separate
-    // solutions pdf, which only works if the deck defines and uses these helpers
+    // question slides reveal their answers on the next overlay rather than in a separate
+    // solutions pdf, which only works if the deck defines and uses these helpers. there is
+    // more than one way to reveal an answer and none of them is the right one - what matters
+    // is that every answer appears on overlay 2, however that reads best on the slide
     internal static class AnswerMacros
     {
         // built line by line rather than as one literal so the constants don't pick up
@@ -11,7 +13,7 @@ namespace SyntheticPDFs.Logic
 
         internal static String Ablank => String.Join('\n',
             @"\newcommand{\ablank}[1]{%",
-            @"  \alt<2>{\textcolor{red}{\underline{#1}}}{\underline{\phantom{#1}}}%",
+            @"  \alt<2>{\textcolor{red}{#1}}{\underline{\phantom{#1}}}%",
             @"}");
 
         internal static String Ashow =>
@@ -20,14 +22,29 @@ namespace SyntheticPDFs.Logic
         internal static String Ashowq =>
             @"\newcommand{\ashowq}[1]{\alt<2->{\textcolor{red}{\small #1}}{?}}";
 
-        // what a deck missing the helpers gets handed to paste in, banner and all
+        // for an answer that is better drawn on to a diagram than written out. the styles go
+        // on nodes and paths inside a picture the deck already has, so they are checked as
+        // one block rather than as a command
+        internal static String DiagramStyles => String.Join('\n',
+            @"\usetikzlibrary{overlay-beamer-styles}",
+            @"\tikzset{",
+            @"  ans/.style     = {red, thick, visible on=<2->},",
+            @"  ansfill/.style = {red!15, visible on=<2->},",
+            @"  anslab/.style  = {red, font=\tiny, visible on=<2->},",
+            @"}");
+
+        // what a deck missing the helpers gets handed to paste in, banners and all
         internal static String Definitions => String.Join('\n',
             "% ================================================================",
             "% Answer-overlay helpers",
             "% ================================================================",
             Ablank,
             Ashow,
-            Ashowq);
+            Ashowq,
+            "",
+            @"% Answers drawn straight on to a TikZ diagram, revealed on overlay 2 like \ashow.",
+            "% Space is reserved on overlay 1, so the diagram does not move between slides.",
+            DiagramStyles);
 
         // written into the worked solutions once a deck has been checked, so we don't pay
         // to ask again every pass. a human editing the deck makes the worked solutions
@@ -38,17 +55,18 @@ namespace SyntheticPDFs.Logic
         // doesn't stack a second note on top of the first
         internal static String ReviewNoteMarker => "% answer macro review note";
 
-        // the definitions have to be there verbatim - that is the cheap necessary condition
-        // that settles most decks before the LLM is asked anything. line endings are the
-        // only difference forgiven: a deck that has retyped the helpers slightly gets
-        // rewritten, which is the safe way round to be wrong
+        // all four have to be there verbatim - that is the cheap necessary condition that
+        // settles most decks before the LLM is asked anything. line endings are the only
+        // difference forgiven: a deck that has retyped the helpers slightly gets rewritten,
+        // which is the safe way round to be wrong
         internal static bool AreDefined(String texSource)
         {
             String normalised = Normalise(texSource);
 
             return normalised.Contains(Ablank, StringComparison.Ordinal)
                 && normalised.Contains(Ashow, StringComparison.Ordinal)
-                && normalised.Contains(Ashowq, StringComparison.Ordinal);
+                && normalised.Contains(Ashowq, StringComparison.Ordinal)
+                && normalised.Contains(DiagramStyles, StringComparison.Ordinal);
         }
 
         // a whole line, so the marker can't be matched inside a sentence that mentions it

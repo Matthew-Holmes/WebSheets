@@ -50,10 +50,19 @@ namespace SyntheticPDFs.Tests
                 "% Answer-overlay helpers",
                 "% ================================================================",
                 @"\newcommand{\ablank}[1]{%",
-                @"  \alt<2>{\textcolor{red}{\underline{#1}}}{\underline{\phantom{#1}}}%",
+                @"  \alt<2>{\textcolor{red}{#1}}{\underline{\phantom{#1}}}%",
                 "}",
                 @"\newcommand{\ashow}[1]{\uncover<2->{\textcolor{red}{\small #1}}}",
-                @"\newcommand{\ashowq}[1]{\alt<2->{\textcolor{red}{\small #1}}{?}}");
+                @"\newcommand{\ashowq}[1]{\alt<2->{\textcolor{red}{\small #1}}{?}}",
+                "",
+                @"% Answers drawn straight on to a TikZ diagram, revealed on overlay 2 like \ashow.",
+                "% Space is reserved on overlay 1, so the diagram does not move between slides.",
+                @"\usetikzlibrary{overlay-beamer-styles}",
+                @"\tikzset{",
+                @"  ans/.style     = {red, thick, visible on=<2->},",
+                @"  ansfill/.style = {red!15, visible on=<2->},",
+                @"  anslab/.style  = {red, font=\tiny, visible on=<2->},",
+                "}");
 
             Assert.AreEqual(expected, AnswerMacros.Definitions);
         }
@@ -281,7 +290,9 @@ namespace SyntheticPDFs.Tests
         [TestMethod]
         [DataRow("commented out")]
         [DataRow("Only questions count")]
-        [DataRow("revealed by a drawing")]
+        [DataRow("drawn on to a diagram")]
+        [DataRow("where you would have chosen another")]
+        [DataRow("ans, ansfill or anslab")]
         [DataRow("several parts at once")]
         [DataRow("inside existing math mode")]
         [DataRow("Numbering questions by hand")]
@@ -293,6 +304,53 @@ namespace SyntheticPDFs.Tests
             await _orchestrator.DoOnePassAsync();
 
             StringAssert.Contains(_llm.QuestionsSeen.Single(), exclusion);
+        }
+
+        [TestMethod]
+        public void ADeckWithTheCommandsButNoDiagramStylesFailsTheCheapCheck()
+        {
+            // the diagram styles are part of the agreed set, so a deck that predates them has
+            // to be brought up to date like any other
+            String deck = TexFixtures.SlideDeckDefiningAnswerMacros()
+                .Replace(AnswerMacros.DiagramStyles, "");
+
+            Assert.IsFalse(AnswerMacros.AreDefined(deck));
+        }
+
+        [TestMethod]
+        public void TheEarlierAblankNoLongerCounts()
+        {
+            // it used to underline the revealed answer as well as the gap - a deck still on
+            // that version is out of date and gets rewritten
+            String deck = TexFixtures.SlideDeckDefiningAnswerMacros()
+                .Replace(@"\alt<2>{\textcolor{red}{#1}}", @"\alt<2>{\textcolor{red}{\underline{#1}}}");
+
+            Assert.IsFalse(AnswerMacros.AreDefined(deck));
+        }
+
+        [TestMethod]
+        public async Task ThePromptsExplainWhenToDrawAnAnswerOnADiagram()
+        {
+            _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckWithoutAnswerMacros());
+
+            await _orchestrator.DoOnePassAsync();
+
+            String rewrite = _llm.PromptsSeen.First(p => p.Contains(RewriteAsk));
+
+            StringAssert.Contains(rewrite, "ansfill for a shaded region");
+            StringAssert.Contains(rewrite, @"\usetikzlibrary{overlay-beamer-styles}", "the styles are handed over too");
+        }
+
+        [TestMethod]
+        public async Task ThePromptsSayTheAnswerJustHasToRevealOnOverlayTwo()
+        {
+            // no helper is the right one - whichever reads best on the slide wins
+            _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckDefiningAnswerMacros());
+
+            await _orchestrator.DoOnePassAsync();
+
+            StringAssert.Contains(_llm.QuestionsSeen.Single(), "reveal it on overlay 2");
+            StringAssert.Contains(_llm.PromptsSeen.Single(), "whichever of these makes the answer clearest");
         }
 
         // ---- splicing the note in ----
