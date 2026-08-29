@@ -459,6 +459,72 @@ namespace SyntheticPDFs.Tests
             StringAssert.Contains(question, @"\(x = \ablank{$5$}\)", "or opens maths inside maths");
         }
 
+        // ---- the compiler magic comment ----
+
+        // the hosting repo routes each file to pdflatex, xelatex or lualatex, and a
+        // "% !TeX program" comment in the first few lines overrides that. every file we
+        // derive from another has to carry it across or it gets built by a different engine
+        private const String DirectiveRule = @"% !TeX program = xelatex, copy that line across verbatim";
+
+        [TestMethod]
+        public async Task TheSlidesWorkedSolutionsPromptCarriesTheCompilerDirectiveAcross()
+        {
+            _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckDefiningAnswerMacros());
+
+            await _orchestrator.DoOnePassAsync();
+
+            StringAssert.Contains(_llm.PromptsSeen.Single(), DirectiveRule);
+        }
+
+        [TestMethod]
+        public async Task TheWorksheetWorkedSolutionsPromptCarriesItToo()
+        {
+            _git.AddFile("latex/worksheets/quadratics.tex", ageCommits: 1);
+
+            await _orchestrator.DoOnePassAsync();
+
+            StringAssert.Contains(_llm.PromptsSeen.Single(), DirectiveRule);
+        }
+
+        [TestMethod]
+        public async Task TheAnswerKeyPromptCarriesItToo()
+        {
+            _git.AddFile("latex/worksheets/quadratics.tex", ageCommits: 2);
+            _git.AddFile("latex/worksheets/quadratics_workedSolutions.tex", ageCommits: 1);
+
+            await _orchestrator.DoOnePassAsync();
+
+            StringAssert.Contains(_llm.PromptsSeen.Single(), DirectiveRule);
+        }
+
+        [TestMethod]
+        public async Task TheRewriteCarriesItToo()
+        {
+            // this one overwrites the deck itself, so losing the directive would change how
+            // the teacher's own file builds
+            _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckWithoutAnswerMacros());
+
+            await _orchestrator.DoOnePassAsync();
+
+            StringAssert.Contains(_llm.PromptsSeen.First(p => p.Contains(RewriteAsk)), DirectiveRule);
+        }
+
+        [TestMethod]
+        public void MarkingWorkedSolutionsLeavesAMagicCommentWhereItCanStillBeFound()
+        {
+            // the marker goes in above it, which is fine: the hosting repo scans the first
+            // 4096 bytes for the comment at any line start, not just line one
+            String directive = "% !TeX program = xelatex";
+
+            String marked = AnswerMacros.AddVerifiedMarker(directive + "\n" + TexFixtures.WorkedSolutions());
+
+            String[] lines = marked.Split('\n');
+
+            Assert.AreEqual(AnswerMacros.VerifiedMarker, lines[0]);
+            Assert.AreEqual(directive, lines[1], "the directive survives, one line further down");
+            Assert.IsTrue(marked.IndexOf(directive, StringComparison.Ordinal) < 4096);
+        }
+
         // ---- the house style for a set of worked solutions ----
 
         // modelled on introductoryFractionsStarters_workedSolutions.tex. these are what stops

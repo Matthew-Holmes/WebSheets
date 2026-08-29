@@ -4,6 +4,16 @@ namespace SyntheticPDFs.Logic
     {
         private static String Requirements => "Just provide the contents of the worked solutions .tex file, nothing else, it MUST compile first time. It must define a document class and include imports for all packages that will be used";
 
+        // the hosting repo picks a compiler per file, and a magic comment in the first few
+        // lines overrides that choice. a derived file that drops it gets built by a different
+        // engine to the source it came from - which is how a deck pinned back to pdflatex,
+        // or one whose non-Latin text is produced by a macro, quietly stops building
+        private static String CompilerDirectiveRule => String.Join(' ',
+            @"If the source below begins with a magic comment such as % !TeX program = xelatex, copy that",
+            "line across verbatim, at the very top of what you produce and above the document class.",
+            "It pins which compiler builds the file, so leaving it out would build this file with a",
+            "different engine to the source it came from.");
+
         private static String RewriteRequirements => "Just provide the contents of the rewritten .tex file, nothing else, it MUST compile first time. Keep the document class and add imports for any packages the helpers need";
 
 
@@ -51,16 +61,16 @@ namespace SyntheticPDFs.Logic
             switch (at)
             {
                 case SourceArchetype.QuestionSlides:
-                    return $"Below is the contents of a .tex file for slides of questions. Typeset worked solutions in LaTeX, showing clear workings with explanations. {QuestionSlidesWorkedSolutionRequirements} {WorkedSolutionFrameRules} {Requirements} Original source: \n\n {rootSourceContents}";
+                    return $"Below is the contents of a .tex file for slides of questions. Typeset worked solutions in LaTeX, showing clear workings with explanations. {QuestionSlidesWorkedSolutionRequirements} {WorkedSolutionFrameRules} {CompilerDirectiveRule} {Requirements} Original source: \n\n {rootSourceContents}";
                 default:
-                    return $"Below is the contents of a .tex file. Typeset worked solutions in LaTeX, showing clear workings with explanations. {Requirements} Original source: \n\n {rootSourceContents}";
+                    return $"Below is the contents of a .tex file. Typeset worked solutions in LaTeX, showing clear workings with explanations. {CompilerDirectiveRule} {Requirements} Original source: \n\n {rootSourceContents}";
             }
         }
 
         // for now only use the worked solutions, if results are not good, then use the root source too!
         private static string GenerateEnglishSolutionsPrompt(String rootSourceContents, String wsolSourceContents)
         {
-            return $"Below is the contents of a .tex file. It contains worked solutions, from these extract just the correct answers and produce a concise answer key for the questions. {Requirements} Original Source \n\n {wsolSourceContents}";
+            return $"Below is the contents of a .tex file. It contains worked solutions, from these extract just the correct answers and produce a concise answer key for the questions. {CompilerDirectiveRule} {Requirements} Original Source \n\n {wsolSourceContents}";
         }
 
 
@@ -193,6 +203,7 @@ namespace SyntheticPDFs.Logic
                 + "If a question already reveals its answer properly, leave it exactly as it is, whichever "
                 + "helper it uses. "
                 + $"{AnswerMacroUsageRules} "
+                + $"{CompilerDirectiveRule} "
                 + $"{RewriteRequirements} Original source: \n\n {rootSourceContents}";
         }
 
