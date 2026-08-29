@@ -254,15 +254,41 @@ namespace SyntheticPDFs.Tests
             StringAssert.Contains(_llm.PromptsSeen.First(p => p.Contains(RewriteAsk)), MathModeRule);
         }
 
+        // the worked solutions used to be handed the overlay rules wholesale, and the model
+        // applied them to the workings too - a second overlay on every solution with nothing
+        // new on it, and invented macros to go with it
         [TestMethod]
-        public async Task TheWorkedSolutionsPromptIsToldTheSameRules()
+        [DataRow("A worked solution frame is not a question slide", "the workings are the answer")]
+        [DataRow("Write these frames in ordinary LaTeX and beamer", "so they use plain tooling")]
+        [DataRow(@"Do not use \ablank, \ashow or \ashowq on them", "and none of the helpers")]
+        [DataRow("ans, ansfill or anslab TikZ", "nor the diagram styles")]
+        [DataRow(@"\pause, \uncover, \onslide, \alt", "nor any other overlay command")]
+        [DataRow("exactly one slide in the compiled pdf", "so one worked solution is one slide")]
+        [DataRow(@"there is no \blank, no \answer and no \soln", "and nothing may be invented")]
+        [DataRow("Copy each of them exactly as it is, keeping the helpers it already uses", "only the copied starters keep theirs")]
+        public async Task TheWorkedSolutionsPromptKeepsTheHelpersOffTheWorkings(String required, String why)
         {
-            // these reproduce the questions with the helpers, so they can hit the same bug
             _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckDefiningAnswerMacros());
 
             await _orchestrator.DoOnePassAsync();
 
-            StringAssert.Contains(_llm.PromptsSeen.Single(), MathModeRule);
+            StringAssert.Contains(_llm.PromptsSeen.Single(), required, why);
+        }
+
+        [TestMethod]
+        public async Task TheWorkedSolutionsPromptIsNotToldHowToUseTheHelpers()
+        {
+            // being told how to use them is what made it want to use them everywhere
+            _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckDefiningAnswerMacros());
+
+            await _orchestrator.DoOnePassAsync();
+
+            String prompt = _llm.PromptsSeen.Single();
+
+            Assert.IsFalse(prompt.Contains(MathModeRule, StringComparison.Ordinal));
+            Assert.IsFalse(
+                prompt.Contains("makes the answer clearest", StringComparison.Ordinal),
+                "choosing between helpers is a question for the deck, not for the workings");
         }
 
         [TestMethod]
@@ -345,15 +371,42 @@ namespace SyntheticPDFs.Tests
         }
 
         [TestMethod]
-        public async Task ThePromptsSayTheAnswerJustHasToRevealOnOverlayTwo()
+        public async Task TheReviewAsksOnlyThatAnswersRevealOnOverlayTwo()
         {
-            // no helper is the right one - whichever reads best on the slide wins
             _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckDefiningAnswerMacros());
 
             await _orchestrator.DoOnePassAsync();
 
             StringAssert.Contains(_llm.QuestionsSeen.Single(), "reveal it on overlay 2");
-            StringAssert.Contains(_llm.PromptsSeen.Single(), "whichever of these makes the answer clearest");
+        }
+
+        [TestMethod]
+        public async Task TheRewriteSaysToPickWhicheverHelperReadsBest()
+        {
+            // no helper is the right one - whichever reads best on the slide wins
+            _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckWithoutAnswerMacros());
+
+            await _orchestrator.DoOnePassAsync();
+
+            String rewrite = _llm.PromptsSeen.First(p => p.Contains(RewriteAsk));
+
+            StringAssert.Contains(rewrite, "whichever of these makes the answer clearest");
+        }
+
+        [TestMethod]
+        public async Task TheRewriteScopesTheOverlayRuleToQuestionSlides()
+        {
+            // it used to say every answer, full stop, which contradicted the instruction two
+            // sentences later to leave a dedicated answers slide alone
+            _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckWithoutAnswerMacros());
+
+            await _orchestrator.DoOnePassAsync();
+
+            String rewrite = _llm.PromptsSeen.First(p => p.Contains(RewriteAsk));
+
+            StringAssert.Contains(rewrite, "On a slide that asks questions, every answer must appear on overlay 2");
+            StringAssert.Contains(rewrite, "is not a question slide. Leave it showing");
+            StringAssert.Contains(rewrite, @"there is no \blank", "and it may not invent helpers either");
         }
 
         [TestMethod]
@@ -371,6 +424,39 @@ namespace SyntheticPDFs.Tests
             Assert.IsFalse(
                 question.Contains("already visible on overlay 1 in the part of the file", StringComparison.Ordinal),
                 "the old wording condemned a deliberate answers slide");
+        }
+
+        // a helper sitting inside \( ... \) whose argument opens math mode again closes the
+        // maths early and takes the build down with Missing $ inserted. the rule for this
+        // used to trail an unconditional "answers go in math mode", and lost to it
+        [TestMethod]
+        [DataRow("decide whether the macro itself is already inside math", "the decision comes first")]
+        [DataRow(@"\( ... \), \[ ... \], or an equation, align", "and says what counts as already in maths")]
+        [DataRow("put no math delimiters in the braces at all", "then one branch")]
+        [DataRow(@"never \(\frac{3}{8} = \ablank{$37.5\%$}\)", "with the failing case spelled out")]
+        [DataRow("Missing $", "and the error it causes")]
+        [DataRow("If instead the macro is in ordinary text", "then the other branch")]
+        [DataRow(@"write \ablank{$3x^2$}, never \ablank{3x^2}", "which still needs its delimiters")]
+        public async Task TheRewriteIsToldNotToNestMathMode(String required, String why)
+        {
+            _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckWithoutAnswerMacros());
+
+            await _orchestrator.DoOnePassAsync();
+
+            StringAssert.Contains(_llm.PromptsSeen.First(p => p.Contains(RewriteAsk)), required, why);
+        }
+
+        [TestMethod]
+        public async Task TheReviewFailsBothWaysOfGettingMathModeWrong()
+        {
+            _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckDefiningAnswerMacros());
+
+            await _orchestrator.DoOnePassAsync();
+
+            String question = _llm.QuestionsSeen.Single();
+
+            StringAssert.Contains(question, @"\ablank{3x^2} in ordinary text", "needs maths and has none");
+            StringAssert.Contains(question, @"\(x = \ablank{$5$}\)", "or opens maths inside maths");
         }
 
         // ---- the house style for a set of worked solutions ----

@@ -1,4 +1,5 @@
 ﻿using SyntheticPDFs.Services;
+using System.Text;
 using System.Text.RegularExpressions;
 
 
@@ -82,6 +83,117 @@ namespace SyntheticPDFs.Logic
         }
 
 
+        // nested math mode
+
+        // a $ inside \( ... \) or \[ ... \] closes the maths early, and LaTeX stops with
+        // "Missing $ inserted". it is always an error whatever put it there, and the answer
+        // helpers make it an easy one to write by accident: \(x = \ablank{$5$}\)
+
+        private enum MathToken { OpenInline, CloseInline, OpenDisplay, CloseDisplay, Dollar }
+
+        // one pass over the source, skipping comments and reading a backslash plus the
+        // character after it as a single unit, so \\ and \$ can't be mistaken for a delimiter
+        // and \% can't be mistaken for the start of a comment
+        private static List<(int Index, MathToken Token)> ScanMathTokens(String tex)
+        {
+            List<(int Index, MathToken Token)> tokens = new();
+
+            int i = 0;
+
+            while (i < tex.Length)
+            {
+                char c = tex[i];
+
+                if (c == '%')
+                {
+                    int newline = tex.IndexOf('\n', i);
+                    i = newline < 0 ? tex.Length : newline + 1;
+                    continue;
+                }
+
+                if (c == '\\' && i + 1 < tex.Length)
+                {
+                    switch (tex[i + 1])
+                    {
+                        case '(': tokens.Add((i, MathToken.OpenInline)); break;
+                        case ')': tokens.Add((i, MathToken.CloseInline)); break;
+                        case '[': tokens.Add((i, MathToken.OpenDisplay)); break;
+                        case ']': tokens.Add((i, MathToken.CloseDisplay)); break;
+                    }
+
+                    i += 2;
+                    continue;
+                }
+
+                if (c == '$') { tokens.Add((i, MathToken.Dollar)); }
+
+                i++;
+            }
+
+            return tokens;
+        }
+
+        // only dollars inside a span that actually closes count - an unclosed \( is broken
+        // for a different reason, and reporting it as this one would just be misleading
+        private static List<int> NestedMathDollars(String tex)
+        {
+            List<int> nested = new();
+
+            var tokens = ScanMathTokens(tex);
+
+            for (int i = 0; i < tokens.Count; i++)
+            {
+                MathToken open = tokens[i].Token;
+
+                if (open != MathToken.OpenInline && open != MathToken.OpenDisplay) { continue; }
+
+                MathToken wanted = open == MathToken.OpenInline
+                    ? MathToken.CloseInline
+                    : MathToken.CloseDisplay;
+
+                List<int> inside = new();
+
+                int j = i + 1;
+
+                for (; j < tokens.Count && tokens[j].Token != wanted; j++)
+                {
+                    if (tokens[j].Token == MathToken.Dollar) { inside.Add(tokens[j].Index); }
+                }
+
+                if (j < tokens.Count)
+                {
+                    nested.AddRange(inside);
+                    i = j;
+                }
+            }
+
+            return nested;
+        }
+
+        internal static bool HasNestedMathMode(String response)
+        {
+            return NestedMathDollars(response).Count > 0;
+        }
+
+        // dropping the inner delimiters is what a person would do by hand: \ablank{$37.5\%$}
+        // inside \( ... \) becomes \ablank{37.5\%}, which is valid maths either way
+        internal static String RemoveNestedMathDelimiters(String badTex)
+        {
+            HashSet<int> drop = NestedMathDollars(badTex).ToHashSet();
+
+            if (drop.Count == 0) { return badTex; }
+
+            StringBuilder sb = new StringBuilder(badTex.Length);
+
+            for (int i = 0; i < badTex.Length; i++)
+            {
+                if (!drop.Contains(i)) { sb.Append(badTex[i]); }
+            }
+
+            return sb.ToString();
+        }
+
+
         // As I see errors I can update these methods, or even find a library that will e.g. identify valid tex
         internal static bool IsValidTex(String response)
         {
@@ -91,7 +203,9 @@ namespace SyntheticPDFs.Logic
 
             bool noBadChars = !HasBadImplicationCharacter(response) && !HasBadEquivEqualCharacter(response);
 
-            return okFirstLast && allBeginsAreClosed && noBadChars;
+            bool noNestedMath = !HasNestedMathMode(response);
+
+            return okFirstLast && allBeginsAreClosed && noBadChars && noNestedMath;
         }
 
         internal static String TryFixupTex(String badTex, ILLMService LLM)
@@ -130,6 +244,12 @@ namespace SyntheticPDFs.Logic
             {
                 LLM.Log(LogLevel.Warning, "LLM returned response containig (U+2248), replacing with latex version");
                 badTex = badTex.Replace("≈", @"\( \approx \)");
+            }
+
+            if (HasNestedMathMode(badTex))
+            {
+                LLM.Log(LogLevel.Warning, @"found $ inside \( \), removing the inner delimiters");
+                badTex = RemoveNestedMathDelimiters(badTex);
             }
 
             return badTex;

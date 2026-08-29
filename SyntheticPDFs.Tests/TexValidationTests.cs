@@ -95,5 +95,95 @@ namespace SyntheticPDFs.Tests
             Assert.IsNotNull(result);
             Assert.AreEqual(1, llm.CallCount);
         }
+        // ---- math mode nested inside math mode ----
+
+        // a $ inside \( ... \) closes the maths early and LaTeX stops with Missing $ inserted.
+        // this came up for real: \(\frac{3}{8} = 3 \times 12.5\% = \ablank{$37.5\%$}\)
+        private static String Doc(String body) => FakeLLMService.ValidTex(body);
+
+        [TestMethod]
+        public void ADollarInsideInlineMathIsInvalid()
+        {
+            Assert.IsFalse(SourceGenerator.IsValidTex(
+                Doc(@"\(\frac{3}{8} = 3 \times 12.5\% = \ablank{$37.5\%$}\).")));
+        }
+
+        [TestMethod]
+        public void ADollarInsideDisplayMathIsInvalid()
+        {
+            Assert.IsFalse(SourceGenerator.IsValidTex(Doc(@"\[ x = \ashow{$5$} \]")));
+        }
+
+        [TestMethod]
+        public void FixupDropsTheInnerDelimitersAndKeepsTheAnswer()
+        {
+            String bad = Doc(@"\(\frac{3}{8} = 3 \times 12.5\% = \ablank{$37.5\%$}\).");
+
+            String fixedUp = SourceGenerator.TryFixupTex(bad, _llm);
+
+            Assert.IsTrue(SourceGenerator.IsValidTex(fixedUp), $"still invalid:\n{fixedUp}");
+            StringAssert.Contains(fixedUp, @"\ablank{37.5\%}", "the answer survives, only the $ go");
+            Assert.IsFalse(fixedUp.Contains("$"), "and nothing else is left behind");
+        }
+
+        [TestMethod]
+        public void PlainInlineMathIsFine()
+        {
+            Assert.IsTrue(SourceGenerator.IsValidTex(Doc(@"\(\frac{3}{8} = \ablank{37.5\%}\).")));
+        }
+
+        [TestMethod]
+        public void DollarMathOutsideAnyParensIsFine()
+        {
+            // the helpers are used this way in ordinary text and must not be flagged
+            Assert.IsTrue(SourceGenerator.IsValidTex(Doc(@"What is $2+2$? \ablank{$4$}")));
+        }
+
+        [TestMethod]
+        public void AnEscapedPercentIsNotAComment()
+        {
+            // a naive comment strip would cut the line at \% and never see the closing \)
+            Assert.IsFalse(SourceGenerator.IsValidTex(Doc(@"\(12.5\% = \ablank{$x$}\)")));
+        }
+
+        [TestMethod]
+        public void AnEscapedDollarIsNotADelimiter()
+        {
+            // \$ is a literal dollar sign and is legal inside maths
+            Assert.IsTrue(SourceGenerator.IsValidTex(Doc(@"\(\text{costs } \$5\)")));
+        }
+
+        [TestMethod]
+        public void ADollarInACommentInsideMathIsIgnored()
+        {
+            // the comment sits inside the span, so this only passes if comments are skipped
+            String tex = Doc("\\(x = 5 % a note about $money$\n + 2\\)");
+
+            // guard: the span really is inline maths, not a line break followed by a bracket
+            StringAssert.Contains(tex, @"\(x = 5");
+
+            Assert.IsFalse(SourceGenerator.HasNestedMathMode(tex));
+        }
+
+        [TestMethod]
+        public void AnUnclosedSpanIsLeftAlone()
+        {
+            // broken for a different reason, so reporting it as this one would mislead
+            Assert.IsFalse(SourceGenerator.HasNestedMathMode(Doc(@"\(x = 5 and later $2+2$")));
+        }
+
+        [TestMethod]
+        public void ALineBreakIsNotAnOpener()
+        {
+            // \\ followed by ( is a break then a bracket, not the start of inline maths
+            Assert.IsFalse(SourceGenerator.HasNestedMathMode(Doc(@"row one \\(a) then $2+2$")));
+        }
+
+        [TestMethod]
+        public void SeveralSpansAreAllChecked()
+        {
+            Assert.IsTrue(SourceGenerator.HasNestedMathMode(
+                Doc(@"\(a = 1\) then \(b = \ablank{$2$}\) then \(c = 3\)")));
+        }
     }
 }

@@ -51,7 +51,7 @@ namespace SyntheticPDFs.Logic
             switch (at)
             {
                 case SourceArchetype.QuestionSlides:
-                    return $"Below is the contents of a .tex file for slides of questions. Typeset worked solutions in LaTeX, showing clear workings with explanations. {QuestionSlidesWorkedSolutionRequirements}. {AnswerMacroUsageRules} {Requirements} Original source: \n\n {rootSourceContents}";
+                    return $"Below is the contents of a .tex file for slides of questions. Typeset worked solutions in LaTeX, showing clear workings with explanations. {QuestionSlidesWorkedSolutionRequirements} {WorkedSolutionFrameRules} {Requirements} Original source: \n\n {rootSourceContents}";
                 default:
                     return $"Below is the contents of a .tex file. Typeset worked solutions in LaTeX, showing clear workings with explanations. {Requirements} Original source: \n\n {rootSourceContents}";
             }
@@ -76,8 +76,11 @@ namespace SyntheticPDFs.Logic
         // what every prompt is told is the goal - the answer appears on overlay 2 - and then
         // which helper suits which kind of answer, plus the things that stop a deck compiling
         private static String AnswerMacroUsageRules => String.Join(' ',
-            "Every answer must appear on overlay 2 of its own slide, so that it reveals on the next slide",
-            "of the compiled pdf. Which helper does that is a matter of what reads best on the slide.",
+            "On a slide that asks questions, every answer must appear on overlay 2 of that slide, so that it",
+            "reveals on the next slide of the compiled pdf. Which helper does that is a matter of what reads",
+            "best on the slide.",
+            "A slide whose whole job is to list the answers is not a question slide. Leave it showing",
+            "everything at once and put no helpers on it.",
             @"Use \ablank for an answer that fills a gap in a sentence or an equation, \ashow for an answer",
             @"shown alongside its question, and \ashowq for an answer that replaces a question mark, including",
             "a short label on a diagram.",
@@ -88,16 +91,46 @@ namespace SyntheticPDFs.Logic
             "Pick whichever of these makes the answer clearest, and use different ones on the same slide if",
             "that reads better.",
             @"The answer always goes inside the braces of \ablank, \ashow or \ashowq, never beside the macro.",
-            @"An answer that is mathematical must be in inline math mode inside those braces: write \ablank{$3x^2$}, never \ablank{3x^2}.",
+            "Before writing an answer into a helper, decide whether the macro itself is already inside math",
+            @"mode. It is if it sits inside $ ... $, \( ... \), \[ ... \], or an equation, align or similar",
+            "environment.",
+            "If it is already inside math mode, put no math delimiters in the braces at all: write",
+            @"\(\frac{3}{8} = \ablank{37.5\%}\), never \(\frac{3}{8} = \ablank{$37.5\%$}\). A $ inside",
+            @"\( ... \) closes the maths early, and the file will not compile - it fails with Missing $",
+            "inserted or Extra }.",
+            @"Escapes such as \% and commands such as \frac work in both modes, so nothing is lost by leaving",
+            "the delimiters out.",
+            "If instead the macro is in ordinary text, a mathematical answer does need inline math inside the",
+            @"braces: write \ablank{$3x^2$}, never \ablank{3x^2}.",
             "Anything with a superscript, subscript, fraction, root, integral or Greek letter counts as mathematical.",
-            @"Inside the braces use inline math only, never \[ \], never $$ $$ and never a display environment, since the argument is measured to reserve its space.",
-            "If the macro is already inside math mode, do not open math mode again inside the braces.",
+            @"Either way, never use \[ \], never $$ $$ and never a display environment inside the braces, since",
+            "the argument is measured to reserve its space.",
             @"The argument must be a single balanced group: no blank lines, no \\, no & and nothing verbatim.",
             @"Outside math mode, escape %, &, # and _ in the answer.",
             @"Do not add size or colour commands, the helpers already apply \small and red.",
             @"Keep \ablank answers short, since it reserves the width of the answer in the question line.",
             @"Write mathematical symbols as LaTeX commands such as \implies and \approx, never as unicode characters.",
-            "Only use the helpers in the body of a frame, never in a frame title or a section heading.");
+            "Only use the helpers in the body of a frame, never in a frame title or a section heading.",
+            @"These four are the only helpers there are. Never invent another - there is no \blank, no",
+            @"\answer and no \soln - and never use one the preamble does not define.");
+
+        // worked solutions are the answers, so nothing on them is hidden. this exists because
+        // the overlay rules used to be handed to that prompt wholesale, and the model applied
+        // them to the workings too - giving every worked solution a second overlay with
+        // nothing new on it, and inventing macros no preamble defines
+        private static String WorkedSolutionFrameRules => String.Join(' ',
+            "A worked solution frame is not a question slide. It is the answer, so everything on it is",
+            "visible straight away.",
+            "Write these frames in ordinary LaTeX and beamer.",
+            @"Do not use \ablank, \ashow or \ashowq on them, do not use the ans, ansfill or anslab TikZ",
+            @"styles, and do not use \pause, \uncover, \onslide, \alt or an overlay specification such as",
+            "<2->.",
+            "Each worked solution frame must come out as exactly one slide in the compiled pdf.",
+            "Use only commands that the preamble defines or that LaTeX and beamer already provide. Never",
+            @"invent a macro - there is no \blank, no \answer and no \soln.",
+            "The starter slides you copy across from the original file are the one exception. Copy each of",
+            "them exactly as it is, keeping the helpers it already uses, and add no helpers of your own",
+            "anywhere else in the file.");
 
         // the things a reviewer must NOT fail a deck for. every one of these has been seen, or
         // is a plain misreading of the source, and each false rejection used to cost a full
@@ -140,8 +173,9 @@ namespace SyntheticPDFs.Logic
                 + "any of those means. "
                 + "Answer FAIL only if a question that plainly needs an answer has none, or a question "
                 + "slide gives its own answer away on overlay 1 instead of holding it back to overlay 2, or an "
-                + @"answer inside the braces would not compile, such as \ablank{3x^2} where the macro is not "
-                + "already inside math mode. "
+                + "answer inside the braces would not compile. That happens either when an answer needs "
+                + @"math mode and has none, as in \ablank{3x^2} in ordinary text, or when it opens math mode "
+                + @"again inside a macro that is already in maths, as in \(x = \ablank{$5$}\). "
                 + $"Source: \n\n {rootSourceContents}";
         }
 
