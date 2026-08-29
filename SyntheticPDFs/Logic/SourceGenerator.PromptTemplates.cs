@@ -8,7 +8,41 @@ namespace SyntheticPDFs.Logic
 
 
         #region Archetype specific requirements
-        private static String QuestionSlidesWorkedSolutionRequirements => "Put the worked solution for each distinct question in a slide on its own, there should be a contents slide that has links to the first worked solution for each of the question slides in the original file, so that the teacher can easily navigate to the start of the set of worked solutions that they need. That should link to a copy of the questions and short answers (using the ashow helpers) as per the original, after those two slides, proceed with adding the worked solution slides, one slide per question's worked solutions";
+
+        // modelled on introductoryFractionsStarters_workedSolutions.tex, so that every set of
+        // worked solutions in the repository is laid out the same way. the ordering matters:
+        // each starter is finished - questions, then its workings - before the next one
+        // begins, so a teacher can work down the deck in the order they teach it
+        private static String QuestionSlidesWorkedSolutionRequirements => String.Join(' ',
+            "Follow this structure exactly, so that every set of worked solutions in the repository looks",
+            "the same.",
+
+            "Reproduce the preamble of the original file, including its document class, its packages and the",
+            "answer overlay helpers, so that the question slides you copy across still behave as they did.",
+
+            @"Open the body with \frame{\titlepage} and then a single contents frame titled Contents.",
+            @"That frame uses \small and two equal columns opened with \begin{columns}[T]. The left column is",
+            @"headed \textbf{Questions and short answers} and the right column \textbf{Worked solutions}.",
+            "Each column holds one itemize with one item per starter slide in the original file, written as",
+            @"\item \hyperlink{q-st1}{\beamergotobutton{Starter 1}} on the left and",
+            @"\item \hyperlink{work-st1}{\beamergotobutton{Starter 1}} on the right, numbering up from 1.",
+
+            "After the contents frame, take the starters one at a time and finish each one completely before",
+            "starting the next.",
+            "For starter N, first reproduce that starter's slide from the original file exactly as it is,",
+            @"titled Starter N, with \hypertarget{q-stN}{} on the line after the frame title, so it still",
+            "shows the questions on its first overlay and the short answers on its second.",
+            "Then give every question on that starter a worked solution frame of its own, in the order the",
+            @"questions appear, titled Worked Solution: Starter N, Question M, with \hypertarget{work-stN}{}",
+            "on the line after the frame title of the first of them.",
+            "Only then move on to starter N+1.",
+            "Do not group all the question slides together and all the worked solutions together. They must",
+            "interleave, so that reading down the file gives starter 1, starter 1 worked solutions, starter 2,",
+            "starter 2 worked solutions, and so on to the end.",
+
+            @"Inside a worked solution frame, restate the question after \textbf{Question:}, then give the",
+            @"working after \textbf{Worked Solution:}, showing the steps and explaining them.",
+            "Keep to one question per frame however short its answer is.");
         #endregion
 
 

@@ -353,6 +353,66 @@ namespace SyntheticPDFs.Tests
             StringAssert.Contains(_llm.PromptsSeen.Single(), "whichever of these makes the answer clearest");
         }
 
+        // ---- the house style for a set of worked solutions ----
+
+        // modelled on introductoryFractionsStarters_workedSolutions.tex. these are what stops
+        // the layout drifting between decks, since nothing downstream checks the shape of
+        // what comes back
+        [TestMethod]
+        [DataRow(@"\frame{\titlepage}", "opens with a title page")]
+        [DataRow("contents frame titled Contents", "then one contents frame")]
+        [DataRow(@"\begin{columns}[T]", "laid out in two columns")]
+        [DataRow(@"\textbf{Questions and short answers}", "headed on the left")]
+        [DataRow(@"\textbf{Worked solutions}", "and on the right")]
+        [DataRow(@"\hyperlink{q-st1}{\beamergotobutton{Starter 1}}", "linking the questions")]
+        [DataRow(@"\hyperlink{work-st1}{\beamergotobutton{Starter 1}}", "and the workings")]
+        [DataRow(@"\hypertarget{q-stN}{}", "with matching targets on the question slides")]
+        [DataRow(@"\hypertarget{work-stN}{}", "and on the first worked solution of each starter")]
+        [DataRow("Worked Solution: Starter N, Question M", "and a title format for the workings")]
+        [DataRow(@"\textbf{Question:}", "restating the question")]
+        [DataRow(@"\textbf{Worked Solution:}", "before the working")]
+        public async Task TheWorkedSolutionsPromptSpecifiesTheHouseStyle(String required, String why)
+        {
+            _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckDefiningAnswerMacros());
+
+            await _orchestrator.DoOnePassAsync();
+
+            StringAssert.Contains(_llm.PromptsSeen.Single(), required, why);
+        }
+
+        [TestMethod]
+        public async Task TheWorkedSolutionsPromptAsksForStartersAndWorkingsInterleaved()
+        {
+            // a teacher works down the deck in the order they teach it, so each starter is
+            // finished before the next one begins
+            _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckDefiningAnswerMacros());
+
+            await _orchestrator.DoOnePassAsync();
+
+            String prompt = _llm.PromptsSeen.Single();
+
+            StringAssert.Contains(prompt, "finish each one completely before starting the next");
+            StringAssert.Contains(
+                prompt,
+                "starter 1, starter 1 worked solutions, starter 2, starter 2 worked solutions",
+                "the wanted reading order is spelled out");
+            StringAssert.Contains(
+                prompt,
+                "Do not group all the question slides together and all the worked solutions together",
+                "and the old layout is ruled out explicitly");
+        }
+
+        [TestMethod]
+        public async Task AWorksheetIsNotGivenTheSlideHouseStyle()
+        {
+            _git.AddFile("latex/worksheets/quadratics.tex", ageCommits: 1);
+
+            await _orchestrator.DoOnePassAsync();
+
+            Assert.IsFalse(
+                _llm.PromptsSeen.Single().Contains(@"\beamergotobutton", StringComparison.Ordinal));
+        }
+
         // ---- splicing the note in ----
 
         private const String Body = "What is $2 + 2$? \ashow{$4$}";

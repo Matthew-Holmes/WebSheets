@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
@@ -30,7 +30,7 @@ namespace SyntheticPDFs.Tests
         private static String NameOf(SyntheticPDFs.Models.TexSourceModel ts) => ts.FileNameFullPath;
 
         // a distinctive phrase from QuestionSlidesWorkedSolutionRequirements
-        private const String SlideOnlyInstruction = "contents slide";
+        private const String SlideOnlyInstruction = @"\beamergotobutton";
 
         // ---- parsing ----
 
