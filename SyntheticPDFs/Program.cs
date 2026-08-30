@@ -69,6 +69,15 @@ builder.Services
     .ValidateOnStart();
 
 
+// colours, shared definitions and the language table for the translated sheets.
+// an unusable language is warned about and skipped rather than stopping the
+// service, since the English pipeline does not depend on any of this
+builder.Services
+    .AddOptions<L2Options>()
+    .Bind(builder.Configuration.GetSection(L2Options.SectionName))
+    .ValidateOnStart();
+
+
 builder.Services.AddSingleton<Orchestrator>();
 builder.Services.AddSingleton<IGitRepoManager, GitRepoManager>();
 builder.Services.AddSingleton<ILLMService, LLMService>();

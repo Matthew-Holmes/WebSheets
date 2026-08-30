@@ -230,6 +230,18 @@ passes. `FakeGitRepoManager` and `FakeLLMService` in `SyntheticPDFs.Tests/Fakes/
 stand in for git and the LLM, so the suite touches no network and no repository
 and runs in well under a second.
 
+The suite checks the LaTeX the generator *writes*, not that it compiles. For the
+translated (EAL) sheets that second question is answered by hand, because most
+of the ways they fail produce a clean log and a wrong page. See
+[docs/translated-sheet-latex.md](docs/translated-sheet-latex.md) for the
+constraints, a probe document, and how to diagnose a language whose script will
+not build.
+
+Those sheets also need a one-off change to the content repository before any of
+them will compile — fonts for the scripts involved, which the build image does
+not carry. [docs/content-repo-translation-setup.md](docs/content-repo-translation-setup.md)
+has the steps.
+
 ## Running locally
 
 ```bash

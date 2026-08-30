@@ -1,6 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization.Infrastructure;
-using System.Reflection.Metadata.Ecma335;
-using System.Text;
+﻿using System.Text;
 
 namespace SyntheticPDFs.Logic
 {
@@ -11,9 +9,34 @@ namespace SyntheticPDFs.Logic
         Solutions,
     }
 
-    internal enum ISO639_3Code
+    // which version of a file this is. the type says whether it is the questions, the
+    // workings or the answers; the rendition says whether it is the English original,
+    // the vocabulary key derived from it, or one of the translated forms
+    internal enum SourceRendition
     {
-        eng,
+        Original,     // English only - the file as written or derived
+        VocabKey,     // English only, Root - the tier 3 key for the whole sheet
+        L2Key,        // translated only, Root - the translation of that key
+        ParallelText, // translated only - the whole text above the English
+        Tier3Only,    // translated only - only the tier 3 words glossed
+    }
+
+    // a three letter ISO 639-3 code. this used to be an enum, which cannot carry the
+    // 8000 codes the standard defines, nor the font and direction each one needs to
+    // be typeset - both of those come from LanguageNames and the configured language
+    // table instead
+    internal readonly record struct ISO639_3Code
+    {
+        internal static readonly ISO639_3Code eng = new("eng");
+
+        internal String Code { get; }
+
+        internal ISO639_3Code(String code)
+        {
+            Code = code;
+        }
+
+        public override String ToString() => Code;
     }
 
     internal enum SourceArchetype
@@ -24,35 +47,88 @@ namespace SyntheticPDFs.Logic
     }
 
 
-
     // format
     // camelCase.tex
-    // camelCase_fra.tex
     // camelCase_workedSolutions.tex
-    // camelCase_workedSolutions_fra.tex
     // camelCase_solutions.tex
-    // camelCase_solutions_fra.tex
+    // camelCase_vocab.tex
+    // camelCase/L2/pol/camelCase_polishKey.tex
+    // camelCase/L2/pol/camelCase_polishParallelText.tex
+    // camelCase/L2/pol/camelCase_workedSolutions_polishTier3Only.tex
+    //
+    // the language lives in a folder rather than in the name, so that a person
+    // reading a served pdf filename sees "polish" rather than an ISO code few
+    // people know, and so that a sheet's translations stay together on disk
 
     public partial class Orchestrator
     {
 
         private static String WorkedSolutionsIndicator = "workedSolutions";
         private static String SolutionsIndicator = "solutions";
+        private static String VocabIndicator = "vocab";
+
+        // the folder under a root that holds every translation of it
+        private static String L2DirectoryName = "L2";
 
         // must match ContentRepository:SourceDirectory in appsettings.json
         private static String SourceDirectoryName = "latex";
 
         internal static String GetFilenameFromMetadata(SourceMetadata sm)
         {
+            if (sm.Language != ISO639_3Code.eng)
+            {
+                return GetTranslatedFilename(sm);
+            }
+
             StringBuilder sb = new StringBuilder(sm.RootName);
 
-            switch (sm.Type) 
+            AppendTypeSuffix(sb, sm.Type);
+
+            if (sm.Rendition == SourceRendition.VocabKey)
+            {
+                sb.Append('_');
+                sb.Append(VocabIndicator);
+            }
+
+            sb.Append(".tex");
+
+            return sb.ToString();
+        }
+
+        // RootName/L2/<code>/<basename>[_type]_<languageName><Rendition>.tex
+        private static String GetTranslatedFilename(SourceMetadata sm)
+        {
+            String? languageName = LanguageNames.EnglishNameOf(sm.Language.Code);
+
+            if (languageName is null)
+            {
+                throw new ArgumentException(
+                    $"'{sm.Language.Code}' is not a language we can name - add it to LanguageNames");
+            }
+
+            String basename = sm.RootName.Split('/').Last();
+
+            StringBuilder sb = new StringBuilder(basename);
+
+            AppendTypeSuffix(sb, sm.Type);
+
+            sb.Append('_');
+            sb.Append(languageName);
+            sb.Append(RenditionSuffix(sm.Rendition));
+            sb.Append(".tex");
+
+            return String.Join('/', sm.RootName, L2DirectoryName, sm.Language.Code, sb.ToString());
+        }
+
+        private static void AppendTypeSuffix(StringBuilder sb, SourceType type)
+        {
+            switch (type)
             {
                 case SourceType.Root:
                     break;
                 case SourceType.WorkedSolutions:
-                    { 
-                        sb.Append('_' + WorkedSolutionsIndicator); 
+                    {
+                        sb.Append('_' + WorkedSolutionsIndicator);
                         break;
                     }
                 case SourceType.Solutions:
@@ -63,17 +139,19 @@ namespace SyntheticPDFs.Logic
                 default:
                     throw new NotImplementedException();
             }
+        }
 
-            if (sm.Language != ISO639_3Code.eng)
+        private static String RenditionSuffix(SourceRendition rendition)
+        {
+            switch (rendition)
             {
-                sb.Append('_');
-                sb.Append(Enum.GetName(typeof(ISO639_3Code), sm.Language));
+                case SourceRendition.L2Key:        return "Key";
+                case SourceRendition.ParallelText: return "ParallelText";
+                case SourceRendition.Tier3Only:    return "Tier3Only";
+                default:
+                    throw new ArgumentException(
+                        $"{rendition} is not a rendition a translated file can have");
             }
-
-            sb.Append(".tex");
-
-            return sb.ToString();
-
         }
 
         // logger is optional so the parse stays static and testable - callers that have
@@ -84,18 +162,22 @@ namespace SyntheticPDFs.Logic
             SourceArchetype at = ParseArchetype(filenameNoExt, logger);
 
             // english language defaults
-            SourceMetadata smet = new SourceMetadata 
-            { 
+            SourceMetadata smet = new SourceMetadata
+            {
                 Type      = SourceType.Root,
-                Archetype = at, 
-                Language  = ISO639_3Code.eng, 
-                RootName  = filenameNoExt 
+                Archetype = at,
+                Language  = ISO639_3Code.eng,
+                RootName  = filenameNoExt
             };
 
+            if (filenameNoExt.Contains('/' + L2DirectoryName + '/', StringComparison.Ordinal))
+            {
+                return ParseTranslatedMetadata(filenameNoExt, smet, logger);
+            }
 
             String[] parts = filenameNoExt.Split('_');
 
-            // no language code => english, so handle that here
+            // no suffix at all => an English root, so handle that here
 
             if (parts.Length == 1) /* short circuit */
             {
@@ -114,52 +196,125 @@ namespace SyntheticPDFs.Logic
                 return smet with { Type = SourceType.Solutions, RootName = rootName };
             }
 
+            if (parts.Last() == VocabIndicator)
+            {
+                return smet with { Rendition = SourceRendition.VocabKey, RootName = rootName };
+            }
+
             String isoCodeMaybe = parts.Last();
 
-            if (isoCodeMaybe.Length != 3)
+            if (isoCodeMaybe.Length != 3 || !LanguageNames.IsKnown(isoCodeMaybe))
             {
                 return smet;
             }
 
-            // foreign language variants
+            // a name ending in a language code we recognise. translations live in an L2
+            // folder now, so this is either an old-style name or a coincidence - either
+            // way the whole name is the root, but it is worth saying so
+            logger?.LogWarning(
+                "'{File}' ends in '_{Suffix}', which is a language code - translations live in "
+                + "an {L2}/<code>/ folder now, so this is being treated as an English root. "
+                + "Rename it if it was meant to be a translation.",
+                filenameNoExt, isoCodeMaybe, L2DirectoryName);
 
-            ISO639_3Code? isoCode = ParseIso639_3(isoCodeMaybe);
+            return smet;
+        }
 
-            if (isoCode is null)
+        // RootName/L2/<code>/<basename>[_type]_<languageName><Rendition>
+        private static SourceMetadata ParseTranslatedMetadata(
+            String filenameNoExt, SourceMetadata smet, ILogger? logger)
+        {
+            String marker = '/' + L2DirectoryName + '/';
+
+            int at = filenameNoExt.IndexOf(marker, StringComparison.Ordinal);
+
+            String rootName = filenameNoExt[..at];
+
+            String[] rest = filenameNoExt[(at + marker.Length)..].Split('/');
+
+            if (rest.Length != 2)
             {
-                // not a language we know, so it is just part of the name - a sheet called
-                // foo_abc.tex is a root, not a translation. treating this as an error would
-                // take the whole service down over an ordinary filename, but it is worth
-                // saying so: it is equally likely to be a translation we cannot handle yet
                 logger?.LogWarning(
-                    "'{File}' ends in '_{Suffix}', which is not a language code we recognise - "
-                    + "treating the whole name as an English root. Add {Suffix} to ISO639_3Code "
-                    + "if this was meant to be a translation.",
-                    filenameNoExt, isoCodeMaybe, isoCodeMaybe);
+                    "'{File}' has an {L2} folder but not the expected {L2}/<code>/<file> shape - "
+                    + "treating it as an English root.",
+                    filenameNoExt, L2DirectoryName, L2DirectoryName);
 
                 return smet;
             }
 
-            rootName = String.Join('_', parts.Take(parts.Count() - 2));
+            String code = rest[0];
+            String filename = rest[1];
 
-            SourceMetadata smetL2 = smet with { Language = (ISO639_3Code)isoCode};
+            String? languageName = LanguageNames.EnglishNameOf(code);
 
-
-            if (parts[parts.Count()-2] == WorkedSolutionsIndicator)
+            if (languageName is null)
             {
-                return smetL2 with { Type = SourceType.WorkedSolutions, RootName = rootName };
+                logger?.LogWarning(
+                    "'{File}' is under {L2}/{Code}/, which is not a language code we recognise - "
+                    + "treating it as an English root. Add {Code} to LanguageNames if it is one.",
+                    filenameNoExt, L2DirectoryName, code, code);
+
+                return smet;
             }
 
-            if (parts[parts.Count()-2] == SolutionsIndicator)
+            // the rendition is the tail after the language name, and the type is whatever
+            // suffix sits in front of it
+            int nameAt = filename.LastIndexOf('_' + languageName, StringComparison.Ordinal);
+
+            if (nameAt < 0)
             {
-                return smetL2 with { Type = SourceType.Solutions, RootName = rootName };
+                logger?.LogWarning(
+                    "'{File}' is under {L2}/{Code}/ but its name does not carry '{Language}' - "
+                    + "treating it as an English root.",
+                    filenameNoExt, L2DirectoryName, code, languageName);
+
+                return smet;
             }
 
-            rootName = String.Join('_', parts.Take(parts.Count() - 1));
+            String beforeName = filename[..nameAt];
+            String renditionPart = filename[(nameAt + 1 + languageName.Length)..];
 
+            SourceRendition? rendition = ParseRendition(renditionPart);
 
-            return smetL2 with { RootName = rootName };
+            if (rendition is null)
+            {
+                logger?.LogWarning(
+                    "'{File}' ends in '{Rendition}', which is not a translated form we produce - "
+                    + "treating it as an English root.",
+                    filenameNoExt, renditionPart);
 
+                return smet;
+            }
+
+            SourceType type = SourceType.Root;
+
+            if (beforeName.EndsWith('_' + WorkedSolutionsIndicator, StringComparison.Ordinal))
+            {
+                type = SourceType.WorkedSolutions;
+            }
+            else if (beforeName.EndsWith('_' + SolutionsIndicator, StringComparison.Ordinal))
+            {
+                type = SourceType.Solutions;
+            }
+
+            return smet with
+            {
+                RootName  = rootName,
+                Language  = new ISO639_3Code(code),
+                Type      = type,
+                Rendition = (SourceRendition)rendition,
+            };
+        }
+
+        private static SourceRendition? ParseRendition(String suffix)
+        {
+            switch (suffix)
+            {
+                case "Key":          return SourceRendition.L2Key;
+                case "ParallelText": return SourceRendition.ParallelText;
+                case "Tier3Only":    return SourceRendition.Tier3Only;
+                default:             return null;
+            }
         }
 
         // the archetype lives in the folder, not the filename - "latex/starters/..." is a deck
@@ -214,19 +369,5 @@ namespace SyntheticPDFs.Logic
 
             return at;
         }
-
-
-        private static ISO639_3Code? ParseIso639_3(String code)
-            {
-
-                if (Enum.TryParse<ISO639_3Code>(code, ignoreCase: true, out var result) &&
-                    Enum.IsDefined(typeof(ISO639_3Code), result))
-                {
-                    return result;
-                }
-
-                return null;
-            }
-
-        }
+    }
 }

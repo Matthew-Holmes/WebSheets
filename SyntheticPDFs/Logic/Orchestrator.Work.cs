@@ -25,6 +25,10 @@ namespace SyntheticPDFs.Logic
             internal required ISO639_3Code Language { get; init; }
 
             internal required RootName RootName { get; init; }
+
+            // defaulted rather than required, since all the English source the pipeline
+            // started out generating is the original of its type
+            internal SourceRendition Rendition { get; init; } = SourceRendition.Original;
         }
 
         // what a batch entry is asking for. most work synthesises a file that isn't there

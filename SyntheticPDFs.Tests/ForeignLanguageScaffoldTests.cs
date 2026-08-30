@@ -6,18 +6,23 @@ using SyntheticPDFs.Tests.Fakes;
 
 namespace SyntheticPDFs.Tests
 {
-    // the language axis is deliberately scaffolded but inert. these tests pin that:
-    // if one starts failing, someone has begun implementing it and should say so.
+    // the naming and staleness layers understand translated source now, but nothing
+    // generates it yet. these tests pin that boundary: if one starts failing, someone
+    // has begun implementing generation and should say so.
     [TestClass]
     public class ForeignLanguageScaffoldTests
     {
         [TestMethod]
-        public void OnlyEnglishIsDefined()
+        public void TheEagerlyGeneratedLanguagesAreAllNameable()
         {
-            CollectionAssert.AreEqual(
-                new[] { ISO639_3Code.eng },
-                Enum.GetValues<ISO639_3Code>(),
-                "adding a language means the foreign paths below need implementing first");
+            // a language that cannot be named cannot have a filename built for it, so
+            // this is the cheap check that the eager set is actually producible
+            foreach (String code in new[] { "pol", "urd", "pan", "ben", "ara" })
+            {
+                Assert.IsTrue(
+                    LanguageNames.IsKnown(code),
+                    $"{code} is eagerly generated, so it must be in LanguageNames");
+            }
         }
 
         [TestMethod]
@@ -36,8 +41,8 @@ namespace SyntheticPDFs.Tests
                     RootName = "latex/worksheets/sheet",
                     Type = SourceType.Root,
                     Archetype = SourceArchetype.Worksheet,
-                    // cast past the enum, since only eng exists to name
-                    Language = (ISO639_3Code)999,
+                    Language = new ISO639_3Code("pol"),
+                    Rendition = SourceRendition.ParallelText,
                 },
                 Job = Orchestrator.GenerationJob.CreateSource,
             };
