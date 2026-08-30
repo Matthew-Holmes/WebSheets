@@ -172,6 +172,176 @@ namespace SyntheticPDFs.Tests
             Assert.IsFalse(SourceGenerator.HasNestedMathMode(Doc(@"\(x = 5 and later $2+2$")));
         }
 
+        // ---- correct versions of the sequence line must survive untouched ----
+
+        // the reported line was \(3, 6, 9, 12, \_, \_, \_. with no closing \). these are the
+        // ways of writing it correctly, and the fixup machinery must not alter any of them.
+        // the \_ in particular is read as one unit by the scanner, so it is inert
+        [TestMethod]
+        [DataRow(@"Complete the sequence \(3, 6, 9, 12, \_, \_, \_\).", "closed before the full stop")]
+        [DataRow(@"Complete the sequence \(3, 6, 9, 12, \_, \_, \_.\)", "closed after it")]
+        [DataRow(@"Complete the sequence $3, 6, 9, 12, \_, \_, \_$.", "written in dollars instead")]
+        [DataRow(@"Complete the sequence \(3, 6, 9, \ablank{12}, \ablank{15}\).", "with the blanks filled by helpers")]
+        [DataRow(@"\(3, 6, 9\) then separately $12, 15$ and \(18\).", "several spans on one line")]
+        [DataRow(@"\(\_\)", "nothing but an escaped underscore")]
+        [DataRow(@"\_ \_ \_ with no maths at all", "underscores outside any span")]
+        [DataRow(@"\(a \_ b", "an underscore in a span that never closes")]
+        [DataRow(@"\[ 3, 6, 9, \_, \_ \]", "display maths")]
+        [DataRow(@"\(x = 1 % a note about \_ and $money$", "a comment after the maths opens")]
+        [DataRow(@"\(12.5\% + \_\)", "an escaped percent next to an underscore")]
+        [DataRow(@"\(\text{cost } \$5 \_\)", "an escaped dollar next to one")]
+        public void AValidSequenceLineIsLeftExactlyAsItIs(String line, String why)
+        {
+            String tex = FakeLLMService.ValidTex(line);
+
+            Assert.AreEqual(tex, SourceGenerator.TryFixupTex(tex, _llm), $"fixup altered it: {why}");
+            Assert.IsFalse(SourceGenerator.HasNestedMathMode(tex), why);
+        }
+
+        [TestMethod]
+        [DataRow(@"Complete the sequence \(3, 6, 9, 12, \_, \_, \_\).")]
+        [DataRow(@"Complete the sequence $3, 6, 9, 12, \_, \_, \_$.")]
+        [DataRow(@"\(3, 6, 9\) then separately $12, 15$ and \(18\).")]
+        [DataRow(@"\[ 3, 6, 9, \_, \_ \]")]
+        public void ACorrectlyClosedSequenceLineIsValid(String line)
+        {
+            Assert.IsTrue(SourceGenerator.IsValidTex(FakeLLMService.ValidTex(line)));
+            Assert.IsFalse(SourceGenerator.HasUnbalancedMathDelimiters(FakeLLMService.ValidTex(line)));
+        }
+
+        [TestMethod]
+        public void AMultiLineSpanWithUnderscoresIsLeftAlone()
+        {
+            // inline maths may run over a line break as long as there is no blank line
+            String tex = FakeLLMService.ValidTex(String.Join("\n",
+                @"Complete the sequence \(3, 6, 9,",
+                @"12, \_, \_, \_\).",
+                @"Then answer $2+2$."));
+
+            Assert.AreEqual(tex, SourceGenerator.TryFixupTex(tex, _llm));
+        }
+
+        // ---- the repair can only ever remove dollar signs ----
+
+        private static String WithoutDollars(String tex) =>
+            new String(tex.Where(c => c != '$').ToArray());
+
+        // the reported line lost its \), so the first question was whether this machinery
+        // could have taken it. it cannot: the only indices it drops are ones it recorded as a
+        // Dollar token, so every other character survives whatever the input
+        [TestMethod]
+        [DataRow(@"\(\frac{3}{8} = \ablank{$37.5\%$}\)")]
+        [DataRow(@"Complete the sequence \(3, 6, 9, 12, \_, \_, \_.")]
+        [DataRow(@"\(a\) $b$ \(c\) $d$")]
+        [DataRow(@"\[ x = \ashow{$5$} \]")]
+        [DataRow(@"\(x = 1 \_ \% \$ \) $2+2$")]
+        public void TheRepairNeverTouchesAnythingButDollars(String line)
+        {
+            String tex = FakeLLMService.ValidTex(line);
+
+            String repaired = SourceGenerator.RemoveNestedMathDelimiters(tex);
+
+            Assert.AreEqual(
+                WithoutDollars(tex),
+                WithoutDollars(repaired),
+                "a closing delimiter, an underscore or anything else must be impossible to lose");
+        }
+
+        [TestMethod]
+        public void AnEscapedDollarSurvivesTheRepair()
+        {
+            // \$ is a literal dollar sign, not a delimiter, so it is not a candidate either
+            String tex = FakeLLMService.ValidTex(@"\(\text{cost } \$5 = \ablank{$5$}\)");
+
+            String repaired = SourceGenerator.RemoveNestedMathDelimiters(tex);
+
+            StringAssert.Contains(repaired, @"\$5", "the escaped one stays");
+            StringAssert.Contains(repaired, @"\ablank{5}", "only the nested pair goes");
+        }
+
+        // ---- an unclosed \( must not reach across the file ----
+
+        // a real one: the model wrote \(3, 6, 9, 12, \_, \_, \_. and never closed it. the scan
+        // for the closing \) then ran on to the next one anywhere in the document, so every $
+        // in between was read as nested maths and stripped out - silently corrupting content
+        // that had nothing wrong with it
+        private static String UnclosedThenLaterMaths() => FakeLLMService.ValidTex(String.Join("\n",
+            @"\textbf{Question:} Complete the sequence \(3, 6, 9, 12, \_, \_, \_.",
+            @"\end{frame}",
+            @"\begin{frame}",
+            @"Later maths: $2+2=4$ and \(x = 1\)."));
+
+        [TestMethod]
+        public void AnUnclosedSpanDoesNotSwallowLaterMaths()
+        {
+            String tex = UnclosedThenLaterMaths();
+
+            Assert.IsFalse(
+                SourceGenerator.HasNestedMathMode(tex),
+                "the later $2+2=4$ is not inside anything");
+        }
+
+        [TestMethod]
+        public void FixupLeavesLaterMathsAloneWhenASpanIsUnclosed()
+        {
+            String tex = UnclosedThenLaterMaths();
+
+            String after = SourceGenerator.RemoveNestedMathDelimiters(tex);
+
+            Assert.AreEqual(tex, after, "not one character may be removed");
+            StringAssert.Contains(after, "$2+2=4$", "the dollars used to be deleted from here");
+        }
+
+        [TestMethod]
+        public void AnUnclosedSpanIsReportedAsUnbalanced()
+        {
+            // it is a hard LaTeX error, so the file is rejected and generated again rather
+            // than being patched up by guesswork
+            Assert.IsTrue(SourceGenerator.HasUnbalancedMathDelimiters(UnclosedThenLaterMaths()));
+            Assert.IsFalse(SourceGenerator.IsValidTex(UnclosedThenLaterMaths()));
+        }
+
+        [TestMethod]
+        [DataRow(@"\(x = 1\) and \(y = 2\)", false)]
+        [DataRow(@"\[ x = 1 \] then \(y\)", false)]
+        [DataRow(@"\(x = 1", true)]
+        [DataRow(@"x = 1\)", true)]
+        [DataRow(@"\[ x = 1", true)]
+        [DataRow(@"\(a\) \(b", true)]
+        public void BalanceIsCountedBothWays(String body, bool unbalanced)
+        {
+            Assert.AreEqual(unbalanced, SourceGenerator.HasUnbalancedMathDelimiters(FakeLLMService.ValidTex(body)));
+        }
+
+        [TestMethod]
+        public void ASpanIsNotCarriedAcrossAParagraphBreak()
+        {
+            // neither kind of maths may contain a blank line, so a $ after one is not nested
+            String tex = FakeLLMService.ValidTex(String.Join("\n",
+                @"open here \(x = 1",
+                "",
+                @"a later $2+2$ line \)"));
+
+            Assert.IsFalse(SourceGenerator.HasNestedMathMode(tex));
+        }
+
+        [TestMethod]
+        public void ASecondOpenerEndsTheSearchForACloser()
+        {
+            // \( twice with only one \) means the first never closed
+            String tex = FakeLLMService.ValidTex(@"\(a = 1 then $2+2$ then \(b = 2\) and \(c\)");
+
+            Assert.IsFalse(SourceGenerator.HasNestedMathMode(tex));
+        }
+
+        [TestMethod]
+        public void RealNestingIsStillCaughtWhenTheFileIsBalanced()
+        {
+            // the fix must not have blunted the original check
+            Assert.IsTrue(SourceGenerator.HasNestedMathMode(
+                FakeLLMService.ValidTex(@"\(\frac{3}{8} = \ablank{$37.5\%$}\)")));
+        }
+
         [TestMethod]
         public void ALineBreakIsNotAnOpener()
         {

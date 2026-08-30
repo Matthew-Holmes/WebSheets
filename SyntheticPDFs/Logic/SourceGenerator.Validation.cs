@@ -89,7 +89,7 @@ namespace SyntheticPDFs.Logic
         // "Missing $ inserted". it is always an error whatever put it there, and the answer
         // helpers make it an easy one to write by accident: \(x = \ablank{$5$}\)
 
-        private enum MathToken { OpenInline, CloseInline, OpenDisplay, CloseDisplay, Dollar }
+        private enum MathToken { OpenInline, CloseInline, OpenDisplay, CloseDisplay, Dollar, Break }
 
         // one pass over the source, skipping comments and reading a backslash plus the
         // character after it as a single unit, so \\ and \$ can't be mistaken for a delimiter
@@ -127,6 +127,15 @@ namespace SyntheticPDFs.Logic
 
                 if (c == '$') { tokens.Add((i, MathToken.Dollar)); }
 
+                if (c == '\n')
+                {
+                    int k = i + 1;
+
+                    while (k < tex.Length && (tex[k] == ' ' || tex[k] == '\t' || tex[k] == '\r')) { k++; }
+
+                    if (k < tex.Length && tex[k] == '\n') { tokens.Add((i, MathToken.Break)); }
+                }
+
                 i++;
             }
 
@@ -155,9 +164,23 @@ namespace SyntheticPDFs.Logic
 
                 int j = i + 1;
 
-                for (; j < tokens.Count && tokens[j].Token != wanted; j++)
+                for (; j < tokens.Count; j++)
                 {
-                    if (tokens[j].Token == MathToken.Dollar) { inside.Add(tokens[j].Index); }
+                    MathToken here = tokens[j].Token;
+
+                    if (here == wanted) { break; }
+
+                    // neither kind of maths may contain a paragraph break, and a second
+                    // opener means the first one never closed. either way this is not a span
+                    if (here == MathToken.Break
+                        || here == MathToken.OpenInline
+                        || here == MathToken.OpenDisplay)
+                    {
+                        j = tokens.Count;
+                        break;
+                    }
+
+                    if (here == MathToken.Dollar) { inside.Add(tokens[j].Index); }
                 }
 
                 if (j < tokens.Count)
@@ -168,6 +191,26 @@ namespace SyntheticPDFs.Logic
             }
 
             return nested;
+        }
+
+        private static bool Unbalanced(List<(int Index, MathToken Token)> tokens)
+        {
+            int inline = tokens.Count(t => t.Token == MathToken.OpenInline)
+                       - tokens.Count(t => t.Token == MathToken.CloseInline);
+
+            int display = tokens.Count(t => t.Token == MathToken.OpenDisplay)
+                        - tokens.Count(t => t.Token == MathToken.CloseDisplay);
+
+            return inline != 0 || display != 0;
+        }
+
+        // an unclosed \( is a hard LaTeX error, and there is no safe way to guess where the
+        // missing delimiter belonged, so this only reports it - the file gets generated again
+        // rather than patched up. what stops an unclosed opener reaching across the file and
+        // stripping unrelated maths is the bound in NestedMathDollars above, not this
+        internal static bool HasUnbalancedMathDelimiters(String response)
+        {
+            return Unbalanced(ScanMathTokens(response));
         }
 
         internal static bool HasNestedMathMode(String response)
@@ -205,7 +248,9 @@ namespace SyntheticPDFs.Logic
 
             bool noNestedMath = !HasNestedMathMode(response);
 
-            return okFirstLast && allBeginsAreClosed && noBadChars && noNestedMath;
+            bool mathDelimitersBalanced = !HasUnbalancedMathDelimiters(response);
+
+            return okFirstLast && allBeginsAreClosed && noBadChars && noNestedMath && mathDelimitersBalanced;
         }
 
         internal static String TryFixupTex(String badTex, ILLMService LLM)
