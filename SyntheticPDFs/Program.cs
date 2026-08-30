@@ -127,7 +127,63 @@ app.MapPost("/ping", (
     };
 });
 
-// TODO - ping a sheet and a language to kick off source generation for that!
-// Since we won't do that automatically (or a not least for every language!)
+// Ask for one translated file. Everything it is derived from is queued with it and
+// jumps ahead of the work the pipeline chose for itself, so a caller gets what they
+// asked for without having to know what it depends on, or wait for the whole
+// repository to be translated first.
+app.MapPost("/generate", (
+    GenerateRequest request,
+    Orchestrator orchestrator,
+    ILogger<Program> logger) =>
+{
+    logger.LogInformation(
+        "Received /generate request for {Root} in {Language}",
+        request.RootName, request.Language);
+
+    GenerateResult result;
+
+    try
+    {
+        result = orchestrator.RequestGeneration(request);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unhandled exception during RequestGeneration()");
+        return Results.Problem("Internal server error");
+    }
+
+    // a request we could not read is the caller's mistake, and the message says why
+    return result.Outcome == GenerateOutcome.NotUnderstood
+        ? Results.BadRequest(result)
+        : Results.Ok(result);
+});
+
+// Remove the generated translations so they are built again from the current settings.
+// The provenance block in each file means this is rarely needed - a colour change
+// rebuilds only what it affects - but a rework big enough to want the whole lot gone is
+// what this is for.
+app.MapPost("/l2/purge", async (
+    PurgeRequest request,
+    Orchestrator orchestrator,
+    ILogger<Program> logger) =>
+{
+    logger.LogWarning("Received /l2/purge request with scope {Scope}", request.Scope);
+
+    PurgeResult result;
+
+    try
+    {
+        result = await orchestrator.PurgeAsync(request.Scope);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Unhandled exception during PurgeAsync()");
+        return Results.Problem("Internal server error");
+    }
+
+    logger.LogInformation("Purge removed {Count} file(s)", result.Files.Count);
+
+    return Results.Ok(result);
+});
 
 app.Run();

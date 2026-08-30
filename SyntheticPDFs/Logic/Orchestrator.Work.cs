@@ -85,12 +85,15 @@ namespace SyntheticPDFs.Logic
 
             String texExtNoDot = "tex";
 
-            Dictionary<RootName, StalenessInformation> stalenessInformation = GetStalenessInformation(repoModel, texExtNoDot);
-          
-            List<TrackedFileWithMetadata> staleFiles = stalenessInformation.Values
-                .SelectMany(
-                    sfp => sfp.Values.Select(si => si.StaleFiles))
-                .SelectMany(x => x)
+            Dictionary<RootName, RootPlanState> planStates = GetPlanStates(repoModel, texExtNoDot);
+
+            // before anything else, and in particular before the early return below: a
+            // request is satisfied the moment its file exists, and forgetting it there is
+            // what stops the file being rebuilt when a later edit makes it stale
+            ForgetSatisfiedRequests(planStates);
+
+            List<TrackedFileWithMetadata> staleFiles = planStates.Values
+                .SelectMany(state => state.StaleFiles)
                 .ToList();
 
             if (staleFiles.Count > 0)
@@ -116,7 +119,7 @@ namespace SyntheticPDFs.Logic
             // get batch of files to create - since some will depend on these, not all the required files
             // will be in this batch
 
-            List<GenerationRequest> batchToCreate = GetCreationBatch(stalenessInformation, MaxFilesToGenerate);
+            List<GenerationRequest> batchToCreate = GetCreationBatch(planStates, MaxFilesToGenerate);
 
             if (batchToCreate.Count == 0)
             {
@@ -221,6 +224,11 @@ namespace SyntheticPDFs.Logic
                 String ext = tf.FullPath.Split('.').Last();
 
                 if (ext != extSubset) { continue; }
+
+                // the dictionary is a source of definitions, not a worksheet - nothing is
+                // derived from it, and treating it as a root would have the pipeline try
+                // to write worked solutions for a list of words
+                if (tf.FullPath == ContentRepository.DictionaryPath) { continue; }
 
                 //                                                                  extension       + "."
                 String withoutExt = tf.FullPath.Substring(0, tf.FullPath.Length - (extSubset.Length + 1));

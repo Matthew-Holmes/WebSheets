@@ -129,7 +129,47 @@ git push -u origin translated-sheet-fonts
 
 ---
 
-## 3. Check it worked
+## 3. Add the shared dictionary
+
+The definitions used across every worksheet live in the content repository rather
+than in the generator's settings, so a wording that reads badly to a teacher can
+be changed by a commit that can be discussed. The same file compiles to a
+dictionary worth having on its own.
+
+Copy it in from this repository:
+
+```bash
+mkdir -p latex/dictionary
+cp <path-to-WebSheets>/contentRepo/latex/dictionary/mathematicalDictionary.tex \
+   latex/dictionary/
+```
+
+It builds under pdfLaTeX like any other sheet, and the generator excludes it from
+the pipeline — nothing is derived from it, and it never gets worked solutions.
+
+### Editing it
+
+One entry per line:
+
+```latex
+\dictentry{numerator}{the number above the line in a fraction}
+\dictentry[vertices]{vertex}{a corner where two or more edges meet}
+```
+
+Write the definition as you would say it to a pupil who has not met the word:
+plain words, one sentence, no symbols, and never the word itself inside its own
+definition.
+
+Other forms are found automatically — `numerators`, `Numerator`, `simplifying`
+and `vertices` all reach their headword — so the optional argument is only for
+forms no rule would reach, such as an abbreviation.
+
+Changing a wording rebuilds the vocabulary keys that use **that word**, and only
+those, on the next run. A key whose words the edit did not touch is left alone,
+however large the edit was. If the file is absent the generator carries on and
+the model's own wording stands, so it can be added at any point.
+
+## 4. Check it worked
 
 The fonts change nothing until a translated sheet exists, so the first real
 check is the first build that compiles one. When that runs, open the LuaLaTeX

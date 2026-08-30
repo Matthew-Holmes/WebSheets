@@ -218,6 +218,95 @@ A single file that fails to generate is logged and skipped; the rest of the batc
 still commits, and the failed one is picked up on a later pass because the
 repository model still shows it missing.
 
+### What a pass chooses to do
+
+A pass does one kind of work: the most urgent kind there is anything of. English
+source is finished across the whole repository before any vocabulary key is
+written, and every vocabulary key before any translation.
+
+| Priority | Work |
+| --- | --- |
+| 1 | Anything asked for explicitly, oldest request first |
+| 2 | English worked solutions and answer keys |
+| 3 | English tier 3 vocabulary keys |
+| 4 | Translated vocabulary keys |
+| 5 | Translated sheets |
+
+This is a gate rather than a preference. A vocabulary key is derived from
+finished English source and a translation from a finished key, so doing a little
+of each would mean writing files from parents that are about to change.
+
+## Translated sheets for EAL learners
+
+Each sheet can have a **tier 3 vocabulary key** — the subject specific words it
+uses, with definitions — and from that, translations of the sheet itself into
+any configured language, either as parallel text or with only the tier 3 words
+glossed. These are configured under `L2` in `SyntheticPDFs/appsettings.json`.
+
+| Setting | Purpose |
+| --- | --- |
+| `L2:GenerateVocabularyKeys` | Whether to build vocabulary keys at all. Off unless set, since each one costs an API call. |
+| `L2:Colours` | Tier 3, English and translation colours, as RGB with a name. Recorded in every generated file. |
+| `L2:Languages` | Keyed by ISO 639-3 code; each needs a `Font`, a `BabelName` and `RightToLeft`. |
+| `L2:EagerLanguages` | Which of them are generated without being asked. Sheets only — worked solutions and answers are generated on request. |
+| `ContentRepository:DictionaryPath` | Where the shared definitions live *in the content repository*. |
+
+The shared definitions are deliberately not in settings. They live in the content
+repository as `latex/dictionary/mathematicalDictionary.tex`, one
+`\dictentry{word}{meaning}` per line, so a wording that reads badly to a teacher
+can be changed by a commit that can be discussed — and the same file compiles to
+a dictionary worth having on its own. Word forms are matched to their headword,
+so a sheet saying `numerators` or `Vertices` gets the agreed wording. Rewording
+an entry rebuilds the vocabulary keys that use **that word** and no others.
+
+Generated files carry a provenance comment naming what they were built from.
+The generator compares it against the current settings each pass and rebuilds
+the file when they differ, so editing a colour or a shared definition rebuilds
+only what it actually affects. Everything below that block is safe to edit by
+hand — an edit makes the file younger than its parents, so it is left alone.
+
+Two things to know before turning this on. The content repository needs fonts
+for the scripts involved before any of it will compile — see
+[docs/content-repo-translation-setup.md](docs/content-repo-translation-setup.md).
+And the eager set is large: 36 roots with five languages is around 576 files.
+
+### Asking for one file
+
+Most combinations are generated only when asked for. This queues the file and
+everything it is derived from, ahead of whatever the pipeline would have chosen:
+
+```bash
+curl -X POST https://matthewsmathematics.uk/api/public/syntheticPDFs/generate \
+  -H "Content-Type: application/json" \
+  -H "X-WebSheets-Trigger-Key: <key>" \
+  -d '{"rootName":"latex/worksheets/algebra/quadratics",
+       "language":"urd","type":"WorkedSolutions","rendition":"Tier3Only"}'
+```
+
+`type` is `Root`, `WorkedSolutions` or `Solutions`; `rendition` is
+`ParallelText` or `Tier3Only`. The response lists every file queued, in the
+order they will be made. A request naming a language with no entry in
+`L2:Languages`, or a file its archetype cannot have, comes back as `400` saying
+which.
+
+A file made this way is maintained only while it lasts: when its English parent
+is edited it goes stale, is removed, and is **not** rebuilt until asked for
+again.
+
+### Starting again after a settings rework
+
+```bash
+curl -X POST https://matthewsmathematics.uk/api/public/syntheticPDFs/l2/purge \
+  -H "Content-Type: application/json" \
+  -H "X-WebSheets-Trigger-Key: <key>" \
+  -d '{"scope":"TranslationsAndVocabulary"}'
+```
+
+`Translations` removes the translated files and leaves the English vocabulary
+keys; `TranslationsAndVocabulary` removes those too, which is what a change to
+the shared glossary wants. Either way the English source is untouched, and
+whatever was eager is rebuilt on the passes that follow.
+
 ## Tests
 
 ```bash

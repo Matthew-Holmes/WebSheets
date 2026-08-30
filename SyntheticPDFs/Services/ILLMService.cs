@@ -13,6 +13,11 @@ namespace SyntheticPDFs.Services
         // short prose that ends up in front of a person rather than in a .tex file
         Task<String> GetSummaryResponse(String prompt);
 
+        // a JSON object rather than a document. the vocabulary keys are rendered from
+        // data here, so what the model is asked for is the words and their meanings,
+        // not a table it may or may not close
+        Task<String> GetStructuredResponse(String prompt);
+
         void Log(LogLevel lvl, String message);
     }
 }

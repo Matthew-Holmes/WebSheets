@@ -43,6 +43,15 @@ namespace SyntheticPDFs.Configuration
     {
         public const string SectionName = "L2";
 
+        // Whether to build vocabulary keys at all. Worth having on its own even with no
+        // translations configured - isolating and defining the subject specific words is
+        // most of the value - but it costs an API call per sheet, so it is off unless
+        // asked for. The shipped appsettings.json turns it on.
+        //
+        // Turning it off makes the keys and everything derived from them stale, so they
+        // are removed on the next pass.
+        public bool GenerateVocabularyKeys { get; set; }
+
         public L2ColourOptions Colours { get; set; } = new();
 
         // keyed by ISO 639-3 code. a language absent from here cannot be generated,
@@ -53,9 +62,9 @@ namespace SyntheticPDFs.Configuration
         // worked solutions and answer keys are generated on request
         public List<string> EagerLanguages { get; set; } = new();
 
-        // definitions shared across worksheets, so that the same word is explained
-        // the same way everywhere. a vocabulary key whose definition of a shared term
-        // no longer matches this is stale, which is how an edit here propagates
-        public Dictionary<string, string> Glossary { get; set; } = new();
+        // The shared definitions are not here. They live in the content repository, at
+        // ContentRepository:DictionaryPath, so that a wording can be discussed and
+        // changed the way anything else in that repository is - and so that the same
+        // file compiles to a dictionary worth having on its own.
     }
 }

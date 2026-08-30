@@ -4,166 +4,107 @@ namespace SyntheticPDFs.Logic
 {
     using RootName = String;
 
-    using StratefiedFileProcessions = Dictionary<ISO639_3Code, StalenessInfo>;
     public partial class Orchestrator
     {
-
-        // Loop over roots
-        private List<GenerationRequest> GetCreationBatch(Dictionary<RootName, StratefiedFileProcessions> stratefiedFileProcessions, int maxBatch)
+        // Renditions the generator can actually produce. The plan describes the whole
+        // space so that staleness covers it, but asking for a file nothing knows how to
+        // write would fail the whole batch, so selection is held to what is implemented.
+        private static readonly HashSet<SourceRendition> ImplementedRenditions = new()
         {
-            List<GenerationRequest> ret = new();
+            SourceRendition.Original,
+            SourceRendition.VocabKey,
+            SourceRendition.L2Key,
+            SourceRendition.ParallelText,
+            SourceRendition.Tier3Only,
+        };
 
-            foreach (var kvp in stratefiedFileProcessions)
+        // Gathers everything the whole repository could generate now, then lets the
+        // priority gate decide which kind of work this pass does. Nothing is ready until
+        // everything it derives from is settled, so a root advances one step per pass on
+        // its own without needing to be told to.
+        private List<GenerationRequest> GetCreationBatch(
+            Dictionary<RootName, RootPlanState> states, int maxBatch)
+        {
+            List<Candidate> candidates = new();
+
+            int rootOrder = 0;
+
+            foreach (var kvp in states)
             {
-                List<GenerationRequest> toAdd = GetNextFilesToCreate(kvp.Value, kvp.Key, maxBatch - ret.Count);
+                candidates.AddRange(CandidatesFor(kvp.Value, rootOrder));
 
-                ret.AddRange(toAdd);
-
-                if (ret.Count >= maxBatch)
-                {
-                    return ret;
-                }
+                rootOrder++;
             }
 
-            return ret;
+            return Select(candidates, maxBatch);
         }
 
-        // loop of languages
-        private List<GenerationRequest> GetNextFilesToCreate(StratefiedFileProcessions sfp, RootName root, int maxCount /* maximum allowed left to create this run */)
+        private IEnumerable<Candidate> CandidatesFor(RootPlanState state, int rootOrder)
         {
-            if (maxCount < 1)
-            {
-                return new List<GenerationRequest>();
-            }
-
-            List<GenerationRequest> ret = new();
-
-            if (!sfp.ContainsKey(ISO639_3Code.eng) || sfp[ISO639_3Code.eng].NoRoot)
-            {
-                throw new ArgumentException("all files are stale - should not have called this!");
-            }
-
-            foreach (var kvp in sfp)
-            {
-                if (kvp.Key != ISO639_3Code.eng)
-                {
-                    throw new NotImplementedException("need to implement L2 file creation logic");
-                }
-
-                if (ret.Count >= maxCount)
-                {
-                    return ret;
-                }
-
-                List<GenerationRequest> toAdd = GetNextLanguageSpecificFilesToCreate(kvp.Value, root, kvp.Key, sfp[ISO639_3Code.eng], maxCount - ret.Count);
-
-                ret.AddRange(toAdd);
-            }
-
-            return ret;
-        }
-
-        // core creation logics
-        private List<GenerationRequest> GetNextLanguageSpecificFilesToCreate(StalenessInfo si, RootName root, ISO639_3Code lang, StalenessInfo englishState, int maxCount)
-        {
-            SourceArchetype at = si.fileProcession.Archetype;
-
-            if (maxCount <= 0) { return new List<GenerationRequest>(); }
-
-            if (si.StaleSolutions || si.StaleWorkedSolutions)
+            if (state.StaleFiles.Count > 0)
             {
                 // these should have been removed first!
                 throw new ArgumentException("can't generate files while stale files exist!");
             }
 
+            List<Candidate> ret = new();
 
-            if (lang != ISO639_3Code.eng)
-            {
-                throw new NotImplementedException("need to implement logic for L2 sheets!");
-                // use the english state too!
-            }
-            else
-            {
+            long order = 0;
 
-                if (si.NoRoot)
+            foreach (PlannedSource planned in state.Creatable())
+            {
+                if (!ImplementedRenditions.Contains(planned.Key.Rendition)) { continue; }
+
+                long? requestedAt = RequestedAt(state.Root, planned.Key);
+
+                // anything not eager is made only when it has been asked for, and once
+                // removed as stale is not rebuilt
+                if (!planned.Eager && requestedAt is null) { continue; }
+
+                ret.Add(new Candidate
                 {
-                    throw new Exception("can't generate English root for a file!");
-                }
-
-                switch (at)
-                {
-                    case SourceArchetype.Worksheet:
-                        return GetNextEnglishFilesToCreate_default(si, root, englishState, maxCount);
-                    case SourceArchetype.QuestionSlides:
-                        return GetNextEnglishFilesToCreate_slides( si, root, englishState, maxCount);
-                    case SourceArchetype.Poster:
-                        return GetNextEnglishFilesToCreate_poster( si, root, englishState, maxCount);
-                    default:
-                        // only fires if a new archetype is added without deciding its logic
-                        throw new NotImplementedException("need to decide on what the generation logic is like for this case!");
-                }
-            }
-        }
-
-        // every request is for one English file belonging to one root, so this saves
-        // spelling the metadata out at each of the call sites below
-        private static GenerationRequest Request(
-            RootName root,
-            SourceType type,
-            SourceArchetype at,
-            GenerationJob job = GenerationJob.CreateSource)
-        {
-            return new GenerationRequest
-            {
-                Target = new SourceMetadata
-                {
-                    RootName  = root,
-                    Language  = ISO639_3Code.eng,
-                    Type      = type,
-                    Archetype = at,
-                },
-                Job = job,
-            };
-        }
-
-
-        private List<GenerationRequest> GetNextEnglishFilesToCreate_default(StalenessInfo si, String root, StalenessInfo englishState, int maxCount)
-        {
-            SourceArchetype at = si.fileProcession.Archetype; // TODO this is getting a bit messy how to refactor??
-
-            if (si.NoWorkedSolutions)
-            {
-                return new List<GenerationRequest> { Request(root, SourceType.WorkedSolutions, at) };
+                    Request   = Request(state.Root, planned.Key, state.Archetype),
+                    Priority  = requestedAt is null
+                        ? PriorityOf(planned.Key)
+                        : GenerationPriority.Requested,
+                    RootOrder = rootOrder,
+                    Sequence  = requestedAt ?? order++,
+                });
             }
 
-            if (si.NoSolutions)
-            {
-                return new List<GenerationRequest> { Request(root, SourceType.Solutions, at) };
-            }
+            if (ret.Count > 0) { return ret; }
 
-            return new List<GenerationRequest>();
+            // work owed on a file that already exists counts as English work, since it is
+            // the English deck being settled
+            return OutstandingChecks(state).Select(request => new Candidate
+            {
+                Request   = request,
+                Priority  = GenerationPriority.English,
+                RootOrder = rootOrder,
+                Sequence  = 0,
+            });
         }
 
-
-        private List<GenerationRequest> GetNextEnglishFilesToCreate_poster(StalenessInfo si, String root, StalenessInfo englishState, int maxCount)
+        // Work owed on a file that already exists, which the plan has nothing to say
+        // about - it describes which files there should be, not what has been done to
+        // them. Only slides have any: a deck reveals its own answers, so its worked
+        // solutions carry a record that the deck was checked, and one without that
+        // record still owes the check.
+        private List<GenerationRequest> OutstandingChecks(RootPlanState state)
         {
-            return new List<GenerationRequest>(); // don't need any solutions or worked solutions for posters
-        }
-
-        private List<GenerationRequest> GetNextEnglishFilesToCreate_slides(StalenessInfo si, String root, StalenessInfo englishState, int maxCount)
-        {
-            // Slides show the solution using the Ashow macros, **in the latex**, so a deck
-            // never needs a separate answer key - just worked solutions, one worked solution
-            // per slide, with a title slide that links to the first solution for each slide
-            SourceArchetype at = si.fileProcession.Archetype;
-
-            if (si.NoWorkedSolutions)
+            if (state.Archetype != SourceArchetype.QuestionSlides)
             {
-                // making them checks the deck's macros first, so nothing extra is needed here
-                return new List<GenerationRequest> { Request(root, SourceType.WorkedSolutions, at) };
+                return new List<GenerationRequest>();
             }
 
-            if (WorkedSolutionsRecordAnAnswerMacroCheck(si))
+            SourceKey worked = new(
+                ISO639_3Code.eng, SourceType.WorkedSolutions, SourceRendition.Original);
+
+            TrackedFileWithMetadata? file = state.File(worked);
+
+            if (file is null) { return new List<GenerationRequest>(); }
+
+            if (WorkedSolutionsRecordAnAnswerMacroCheck(file))
             {
                 return new List<GenerationRequest>();
             }
@@ -172,15 +113,37 @@ namespace SyntheticPDFs.Logic
             // the macros were taken back out of the deck since, so go and look
             return new List<GenerationRequest>
             {
-                Request(root, SourceType.WorkedSolutions, at, GenerationJob.CheckAnswerMacros)
+                Request(state.Root, worked, state.Archetype, GenerationJob.CheckAnswerMacros)
+            };
+        }
+
+        // every request is for one file belonging to one root, so this saves spelling
+        // the metadata out at each of the call sites
+        private static GenerationRequest Request(
+            RootName root,
+            SourceKey key,
+            SourceArchetype at,
+            GenerationJob job = GenerationJob.CreateSource)
+        {
+            return new GenerationRequest
+            {
+                Target = new SourceMetadata
+                {
+                    RootName  = root,
+                    Language  = key.Language,
+                    Type      = key.Type,
+                    Rendition = key.Rendition,
+                    Archetype = at,
+                },
+                Job = job,
             };
         }
 
         // the record is a line inside the worked solutions, so this has to read the file.
         // that is disk, not network, and it stops the check being paid for every pass
-        private bool WorkedSolutionsRecordAnAnswerMacroCheck(StalenessInfo si)
+        private bool WorkedSolutionsRecordAnAnswerMacroCheck(TrackedFileWithMetadata worked)
         {
-            String filename = si.fileProcession.WorkedSolutions!.TrackedFile.FullPath;
+            String filename = worked.TrackedFile.FullPath;
 
             try
             {

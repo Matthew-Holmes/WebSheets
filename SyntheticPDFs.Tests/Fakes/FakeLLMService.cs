@@ -30,6 +30,14 @@ namespace SyntheticPDFs.Tests.Fakes
 
         public List<String> SummaryPromptsSeen { get; } = new();
 
+        // structured calls are recorded separately, so a test can tell a vocabulary list
+        // apart from a generated document without picking through one list
+        public List<(String PromptContains, String Response)> ScriptedStructured { get; } = new();
+
+        public String StructuredResponse { get; set; } = Vocabulary(("fraction", "a part of a whole"));
+
+        public List<String> StructuredPromptsSeen { get; } = new();
+
         // what the code chose to log, so a test can pin what does and does not reach the log
         public List<(LogLevel Level, String Message)> LogEntries { get; } = new();
 
@@ -97,6 +105,40 @@ namespace SyntheticPDFs.Tests.Fakes
 
             return Task.FromResult(SummaryResponse);
         }
+
+        public Task<String> GetStructuredResponse(String prompt)
+        {
+            lock (StructuredPromptsSeen)
+            {
+                StructuredPromptsSeen.Add(prompt);
+            }
+
+            foreach (var (contains, response) in ScriptedStructured)
+            {
+                if (prompt.Contains(contains, StringComparison.Ordinal))
+                {
+                    return Task.FromResult(response);
+                }
+            }
+
+            return Task.FromResult(StructuredResponse);
+        }
+
+        // a vocabulary list in the shape the generator asks for. the translated form
+        // carries tr/trdef as well, which is what a translation call comes back with
+        public static String Vocabulary(params (String English, String Definition)[] terms) =>
+            "{\"terms\":["
+            + String.Join(",", terms.Select(t =>
+                $"{{\"en\":\"{t.English}\",\"def\":\"{t.Definition}\"}}"))
+            + "]}";
+
+        public static String TranslatedVocabulary(
+            params (String English, String Definition, String Word, String Meaning)[] terms) =>
+            "{\"terms\":["
+            + String.Join(",", terms.Select(t =>
+                $"{{\"en\":\"{t.English}\",\"def\":\"{t.Definition}\","
+                + $"\"tr\":\"{t.Word}\",\"trdef\":\"{t.Meaning}\"}}"))
+            + "]}";
 
         public void Log(LogLevel lvl, String message)
         {

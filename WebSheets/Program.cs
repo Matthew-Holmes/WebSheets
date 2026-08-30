@@ -164,4 +164,89 @@ app.MapPost("/api/public/syntheticPDFs/ping", async (
 .WithName("PublicSyntheticPdfPing");
 
 
+// The generation service listens on loopback only, so these two forward to it the same
+// way the ping does, behind the same key. Everything is authorisation - a caller either
+// holds the key or does not.
+static async Task<IResult> Forward<TRequest, TResult>(
+    HttpContext context,
+    IHttpClientFactory factory,
+    IOptions<SyntheticPdfsTriggerOptions> trigger,
+    ILogger logger,
+    string route,
+    TRequest request,
+    CancellationToken ct)
+{
+    if (!IsAuthorisedTrigger(context.Request, trigger.Value.ApiKey))
+    {
+        logger.LogWarning(
+            "Rejected unauthorised {Route} from {RemoteIp}",
+            route, context.Connection.RemoteIpAddress);
+
+        return Results.Unauthorized();
+    }
+
+    var http = factory.CreateClient("SyntheticPDFsAPI");
+
+    HttpResponseMessage response;
+
+    try
+    {
+        response = await http.PostAsJsonAsync(route, request, ct);
+    }
+    catch (Exception e)
+    {
+        logger.LogError($"failed to post to Synthetic PDF API {e.Message}");
+        return Results.Problem("Calling internal API threw!");
+    }
+
+    // a rejected request is the caller's to fix, so pass the reason back rather than
+    // flattening it into a server error
+    if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+    {
+        return Results.BadRequest(await response.Content.ReadFromJsonAsync<TResult>(ct));
+    }
+
+    if (!response.IsSuccessStatusCode)
+    {
+        logger.LogWarning("Internal API failed with {Status}", response.StatusCode);
+
+        return Results.Problem("Internal API failed");
+    }
+
+    return Results.Ok(await response.Content.ReadFromJsonAsync<TResult>(ct));
+}
+
+app.MapPost("/api/public/syntheticPDFs/generate", async (
+    HttpContext context,
+    IHttpClientFactory factory,
+    IOptions<SyntheticPdfsTriggerOptions> trigger,
+    GenerateRequest request,
+    ILogger<Program> logger,
+    CancellationToken ct) =>
+{
+    logger.LogInformation(
+        "Forwarding generate request for {Root} in {Language}",
+        request.RootName, request.Language);
+
+    return await Forward<GenerateRequest, GenerateResult>(
+        context, factory, trigger, logger, "generate", request, ct);
+})
+.WithName("PublicSyntheticPdfGenerate");
+
+app.MapPost("/api/public/syntheticPDFs/l2/purge", async (
+    HttpContext context,
+    IHttpClientFactory factory,
+    IOptions<SyntheticPdfsTriggerOptions> trigger,
+    PurgeRequest request,
+    ILogger<Program> logger,
+    CancellationToken ct) =>
+{
+    logger.LogWarning("Forwarding purge request with scope {Scope}", request.Scope);
+
+    return await Forward<PurgeRequest, PurgeResult>(
+        context, factory, trigger, logger, "l2/purge", request, ct);
+})
+.WithName("PublicSyntheticPdfPurge");
+
+
 app.Run();

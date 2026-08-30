@@ -19,11 +19,24 @@ namespace SyntheticPDFs.Logic
 
         private readonly ILogger<Orchestrator> _logger;
 
+        // which languages may be generated, and what each needs to be typeset. optional
+        // so that the English pipeline runs with no translation settings at all
+        internal LanguageTable Languages { get; init; }
+
+        // colours, which end up recorded in the provenance block of every file built
+        // from them
+        internal L2Options L2Settings { get; init; }
+
+        // where the repository is and, within it, where the shared dictionary lives
+        internal ContentRepositoryOptions ContentRepository { get; init; }
+
         public Orchestrator(
             ILogger<Orchestrator> logger,
             IGitRepoManager repoManager,
             ILLMService lLMService,
-            IOptions<GenerationOptions> options)
+            IOptions<GenerationOptions> options,
+            IOptions<L2Options>? l2Options = null,
+            IOptions<ContentRepositoryOptions>? contentRepository = null)
         {
             _logger = logger;
 
@@ -32,6 +45,12 @@ namespace SyntheticPDFs.Logic
 
             MaxFilesToGenerateBase = options.Value.MaxFilesPerRun;
             MaxFilesToGenerate = options.Value.MaxFilesPerRun;
+
+            L2Settings = l2Options?.Value ?? new L2Options();
+
+            ContentRepository = contentRepository?.Value ?? new ContentRepositoryOptions();
+
+            Languages = new LanguageTable(L2Settings, logger);
         }
 
         public PingResult Ping()

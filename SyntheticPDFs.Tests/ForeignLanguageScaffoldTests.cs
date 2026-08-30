@@ -26,8 +26,11 @@ namespace SyntheticPDFs.Tests
         }
 
         [TestMethod]
-        public async Task GeneratingForeignSourceIsNotImplemented()
+        public async Task ALanguageWithNoConfiguredEntryIsRefusedClearly()
         {
+            // it can be named, so a filename could be built for it, but nothing says
+            // which font or script it needs - generating it would produce a file that
+            // cannot compile, so refuse rather than write one
             var orchestrator = new Orchestrator(
                 NullLogger<Orchestrator>.Instance,
                 new FakeGitRepoManager(),
@@ -47,8 +50,10 @@ namespace SyntheticPDFs.Tests
                 Job = Orchestrator.GenerationJob.CreateSource,
             };
 
-            await Assert.ThrowsExceptionAsync<NotImplementedException>(
+            var thrown = await Assert.ThrowsExceptionAsync<ArgumentException>(
                 () => orchestrator.GenerateSyntheticSource(request));
+
+            StringAssert.Contains(thrown.Message, "pol", "the error must name the language");
         }
 
         [TestMethod]

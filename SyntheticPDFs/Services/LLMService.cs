@@ -19,11 +19,17 @@ namespace SyntheticPDFs.Services
         // and again for prose, since notes for a person must not come back as .tex
         private static readonly String _summarySystemMessage = "You write short, plain notes for a teacher. Be concise and concrete, use ordinary prose, and never use LaTeX or markdown";
 
+        // and again for data. the vocabulary keys are typeset from what this returns, so
+        // it must be JSON and nothing else - no prose around it and no code fence
+        private static readonly String _structuredSystemMessage = "You return a single JSON object and nothing else. No prose before or after it, no markdown code fence, no explanation. Every string must be valid JSON with quotes and backslashes escaped";
+
         private AgentBase Agent { get; init; }
 
         private AgentBase ReviewAgent { get; init; }
 
         private AgentBase SummaryAgent { get; init; }
+
+        private AgentBase StructuredAgent { get; init; }
 
         public LLMService(IOptions<LLMOptions> options, ILogger<LLMService> logger)
         {
@@ -36,6 +42,10 @@ namespace SyntheticPDFs.Services
 
             SummaryAgent = AgentFactory.GenerateDeepSeekProcessingAgent(_summarySystemMessage, LLM.DeepSeek_chat, true, _options.DeepSeekAPIKey);
 
+            // temperature zero, since the same sheet should yield the same vocabulary
+            // twice running - a key that changed on every pass would churn the repository
+            StructuredAgent = AgentFactory.GenerateDeepSeekProcessingAgent(_structuredSystemMessage, LLM.DeepSeek_chat, true, _options.DeepSeekAPIKey);
+
             _logger = logger;
         }
 
@@ -47,6 +57,11 @@ namespace SyntheticPDFs.Services
         public async Task<String> GetSummaryResponse(String prompt)
         {
             return await SummaryAgent.GetResponse(prompt);
+        }
+
+        public async Task<String> GetStructuredResponse(String prompt)
+        {
+            return await StructuredAgent.GetResponse(prompt);
         }
 
         public async Task<ReviewVerdict?> GetReviewResponse(String question)

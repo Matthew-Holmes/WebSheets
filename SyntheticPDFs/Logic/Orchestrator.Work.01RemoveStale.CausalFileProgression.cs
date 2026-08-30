@@ -4,16 +4,6 @@ namespace SyntheticPDFs.Logic
 {
     public partial class Orchestrator
     {
-
-        private static bool IsYounger(TrackedFileWithMetadata A, TrackedFileWithMetadata ThanB)
-        {
-            // use leq since we may add in batches, and be optimistic that the adder
-            // has respected causality!
-
-            return A.TrackedFile.AgeCommits <= ThanB.TrackedFile.AgeCommits;
-        }
-
-
         internal record StalenessInfo
         {
             internal required bool StaleWorkedSolutions { get; init; }
@@ -26,11 +16,13 @@ namespace SyntheticPDFs.Logic
             internal required List<TrackedFileWithMetadata> StaleFiles { get; init; }
 
             internal required CausalFileProcession fileProcession { get; init; }
-
-
         }
 
 
+        // The chain of original files for one root in one language - the questions, the
+        // workings derived from them, and the answers derived from those. This is the
+        // English view of a root; translated files have more than one file per type and
+        // so are held by a RootPlanState instead.
         internal class CausalFileProcession
         {
 
@@ -39,6 +31,10 @@ namespace SyntheticPDFs.Logic
             internal TrackedFileWithMetadata? Solutions { get; set; }
 
             internal required SourceArchetype Archetype { get; init; }
+
+            private readonly List<TrackedFileWithMetadata> _files;
+
+            private ISO639_3Code _language;
 
 
             [SetsRequiredMembers]
@@ -73,6 +69,10 @@ namespace SyntheticPDFs.Logic
 
                 Archetype = distinctArchetypes.First();
 
+                _language = distinctLangs.First();
+
+                _files = files.ToList();
+
                 // populate properties
 
                 foreach (TrackedFileWithMetadata tfwm in files)
@@ -95,74 +95,33 @@ namespace SyntheticPDFs.Logic
             }
 
 
-            // ensures that the files follow a causal chain 
-            // a necessary condition for them to be correct and not stale
+            // ensures that the files follow a causal chain, a necessary condition for
+            // them to be correct and not stale.
+            //
+            // The rules themselves live in SourcePlan and are applied by BuildPlanState,
+            // so that an archetype's shape is stated once rather than here and again in
+            // batch selection. This maps that result back on to the three named slots.
             internal StalenessInfo GetStalenessInfo()
             {
-                var stale = new HashSet<TrackedFileWithMetadata>();
+                RootPlanState state = BuildPlanState(
+                    Root?.SourceMetadata.RootName ?? String.Empty,
+                    Archetype,
+                    _files,
+                    SourcePlan.OriginalChain(Archetype, _language));
 
-                bool staleWorkedSolutions = false, staleSolutions = false;
-
-                bool noRoot = Root is null;
-                bool noWorkedSolutions = WorkedSolutions is null;
-                bool noSolutions = Solutions is null;
-
-
-                // handle missing parents
-
-                if (Root is null)
-                {
-                    if (WorkedSolutions is not null) { staleWorkedSolutions = true; stale.Add(WorkedSolutions); }
-                    if (Solutions is not null) { staleSolutions = true; stale.Add(Solutions); }
-                }
-
-                if (WorkedSolutions is null)
-                {
-                    if (Solutions is not null) { staleSolutions = true; stale.Add(Solutions); }
-                }
-
-                // handle out of date
-                // require that worked solutions be younger than root
-                // and require that solutions be younger than worked solutions
-                if (Root is not null && WorkedSolutions is not null)
-                {
-                    if (!IsYounger(WorkedSolutions, Root))
-                    {
-                        staleWorkedSolutions = true; stale.Add(WorkedSolutions);
-
-                        if (Solutions is not null) { staleSolutions = true; stale.Add(Solutions); }
-                    }
-                }
-
-                if (Root is not null && Solutions is not null)
-                {
-                    if (!IsYounger(Solutions, Root))
-                    {
-                        staleSolutions = true;
-                        stale.Add(Solutions);
-                    }
-                }
-
-                if (WorkedSolutions is not null && Solutions is not null)
-                {
-                    if (!IsYounger(Solutions, WorkedSolutions))
-                    {
-                        staleSolutions = true;
-                        stale.Add(Solutions);
-                    }
-                }
+                bool IsStale(TrackedFileWithMetadata? file) =>
+                    file is not null && state.StaleFiles.Contains(file);
 
                 return new StalenessInfo
                 {
-                    NoRoot = noRoot,
-                    NoWorkedSolutions = noWorkedSolutions,
-                    NoSolutions = noSolutions,
-                    StaleWorkedSolutions = staleWorkedSolutions,
-                    StaleSolutions = staleSolutions,
-                    StaleFiles = stale.ToList(),
-                    fileProcession = this,
+                    NoRoot               = Root is null,
+                    NoWorkedSolutions    = WorkedSolutions is null,
+                    NoSolutions          = Solutions is null,
+                    StaleWorkedSolutions = IsStale(WorkedSolutions),
+                    StaleSolutions       = IsStale(Solutions),
+                    StaleFiles           = state.StaleFiles.ToList(),
+                    fileProcession       = this,
                 };
-
             }
         }
     }

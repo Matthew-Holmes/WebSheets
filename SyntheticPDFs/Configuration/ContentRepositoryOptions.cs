@@ -20,5 +20,11 @@ namespace SyntheticPDFs.Configuration
         // private half of the deploy key that may push to PushUrl
         // resolved by the shell, not .NET - WSL on Windows, so this takes a WSL path
         public string SshKeyPath { get; set; } = "";
+
+        // the shared definitions, held in the content repository so that a wording can be
+        // discussed and changed like anything else there. it is a .tex file under the
+        // source directory, so it also compiles to a dictionary worth having on its own,
+        // and the pipeline derives nothing from it
+        public string DictionaryPath { get; set; } = "latex/dictionary/mathematicalDictionary.tex";
     }
 }
