@@ -22,6 +22,7 @@ namespace WebSheets.Models
         LanguageKey,  // that key translated
         ParallelText, // the whole text translated above the English
         Tier3Only,    // only the tier 3 words glossed
+        Dictionary,   // the shared definitions in one language
     }
 
     public record WorksheetFile
@@ -158,6 +159,12 @@ namespace WebSheets.Models
                 "Key"          => SheetForm.LanguageKey,
                 "ParallelText" => SheetForm.ParallelText,
                 "Tier3Only"    => SheetForm.Tier3Only,
+
+                // nothing at all after the language name is the shared dictionary in
+                // that language - the one generated file that belongs to the whole
+                // repository rather than to a sheet, and so the one with no form to name
+                ""             => SheetForm.Dictionary,
+
                 _              => null,
             };
 
@@ -215,6 +222,12 @@ namespace WebSheets.Models
             return $"{rootName}{partSuffix}_{language.Name.ToLowerInvariant()}{formSuffix}";
         }
 
+        // What a dictionary is called in a listing. On disk it is named for the pipeline
+        // - "mathematicalDictionary_polish" - and nobody looking for the Polish
+        // definitions would think to look under an English word they cannot read.
+        public static string DictionaryTitle(LanguageInfo language) =>
+            $"{language.Name} Dictionary";
+
         // how a form reads in a menu
         public static string Describe(SheetPart part, SheetForm form)
         {
@@ -224,10 +237,14 @@ namespace WebSheets.Models
                 SheetForm.LanguageKey  => "glossary",
                 SheetForm.ParallelText => "parallel text",
                 SheetForm.Tier3Only    => "key words only",
+                SheetForm.Dictionary   => "dictionary",
                 _                      => "sheet",
             };
 
-            if (form is SheetForm.Glossary or SheetForm.LanguageKey) { return what; }
+            if (form is SheetForm.Glossary or SheetForm.LanguageKey or SheetForm.Dictionary)
+            {
+                return what;
+            }
 
             string of = part switch
             {

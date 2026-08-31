@@ -274,7 +274,7 @@ The default `os` is `alpine`, so these are `apk` names, not Debian ones:
       font-noto-gurmukhi font-noto-devanagari
 ```
 
-That covers Polish, Arabic, Bengali and Punjabi.
+That covers Polish, Romanian, Arabic, Bengali and Punjabi.
 
 ### `extra_fonts`, for anything Alpine does not package
 

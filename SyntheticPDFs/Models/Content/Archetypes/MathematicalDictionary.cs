@@ -4,9 +4,10 @@ namespace SyntheticPDFs.Models.Content.Archetypes
     //
     // Special in every way an archetype can be, which is why it has a class of its own.
     // There is one of it for the whole repository rather than one per sheet, so it is not
-    // named like a sheet; the English one is written by a person and never by the
-    // pipeline; it has no glossary because it is one; and its translations are derived
-    // from it alone rather than from a sheet's glossary.
+    // named like a sheet; the English one is owned by a person and only ever added to by
+    // the pipeline, never created or rewritten by it; it has no glossary because it is
+    // one; and its translations are derived from it alone rather than from a sheet's
+    // glossary.
     //
     //   latex/dictionary/mathematicalDictionary.tex          written by hand
     //   latex/dictionary/L2/pol/mathematicalDictionary_polish.tex   generated

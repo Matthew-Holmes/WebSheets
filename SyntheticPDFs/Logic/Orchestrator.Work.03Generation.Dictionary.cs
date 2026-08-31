@@ -88,6 +88,49 @@ namespace SyntheticPDFs.Logic
             };
         }
 
+        // Adds the words the sheets have met to the shared dictionary.
+        //
+        // Nothing is asked of a model here. Every word arrives with the definition the
+        // vocabulary key that met it was already written with, so this is only a matter
+        // of moving a definition from the one sheet that happens to carry it into the
+        // file the whole repository reads - after which it can be reworded in one place,
+        // it is translated once rather than once per sheet, and every key that uses it
+        // is brought into line with the new wording.
+        private Task<List<TexSourceModel>> ExtendDictionary(
+            SourceMetadata target, ContentModel model)
+        {
+            if (!model.Dictionaries.TryGetValue(target.RootName, out DictionaryState? state)
+                || state.English is null)
+            {
+                throw new Exception($"there is no shared dictionary at {target.RootName}");
+            }
+
+            IReadOnlyList<KeyValuePair<String, String>> adding = WordsToAdd(state);
+
+            if (adding.Count == 0)
+            {
+                // something added them between the batch being chosen and now, which is
+                // no reason to write the file again
+                return Task.FromResult(new List<TexSourceModel>());
+            }
+
+            String existing = RepoManager.GetContent(state.English.FullPath).TexSource;
+
+            _logger.LogInformation(
+                "adding {Count} word(s) met on a worksheet to {Path}: {Words}",
+                adding.Count, state.English.FullPath,
+                String.Join(", ", adding.Select(e => e.Key)));
+
+            return Task.FromResult(new List<TexSourceModel>
+            {
+                new TexSourceModel
+                {
+                    FileNameFullPath = state.English.FullPath,
+                    TexSource        = MathsDictionaryWriter.Add(existing, adding),
+                },
+            });
+        }
+
         private LanguageProfile Profile(ISO639_3Code language) =>
             Languages.Get(language)
             ?? throw new ArgumentException(

@@ -21,25 +21,29 @@ namespace SyntheticPDFs.Logic
                 // there is nothing to translate until somebody has written the English one
                 if (!state.Exists) { continue; }
 
+                if (WordsToAdd(state).Count > 0)
+                {
+                    candidates.Add(new Candidate
+                    {
+                        Request   = DictionaryJob(
+                            state.RootName, ISO639_3Code.eng,
+                            SheetForm.Original, GenerationJob.ExtendDictionary),
+                        Priority  = GenerationPriority.SharedDictionary,
+                        RootOrder = rootOrder,
+                        Sequence  = candidates.Count,
+                    });
+                }
+
                 foreach (ISO639_3Code language in LanguagesWantingADictionary(model, state))
                 {
                     if (!NeedsRefreshing(state, language)) { continue; }
 
                     candidates.Add(new Candidate
                     {
-                        Request = new GenerationRequest
-                        {
-                            Target = new SourceMetadata
-                            {
-                                RootName  = state.RootName,
-                                Archetype = SheetArchetypes.SharedDictionary,
-                                Language  = language,
-                                Part      = SheetPart.Root,
-                                Form      = SheetForm.ParallelText,
-                            },
-                            Job = GenerationJob.RefreshDictionary,
-                        },
-                        Priority  = GenerationPriority.Dictionary,
+                        Request   = DictionaryJob(
+                            state.RootName, language,
+                            SheetForm.ParallelText, GenerationJob.RefreshDictionary),
+                        Priority  = GenerationPriority.TranslatedDictionary,
                         RootOrder = rootOrder,
                         Sequence  = candidates.Count,
                     });
@@ -48,6 +52,41 @@ namespace SyntheticPDFs.Logic
 
             return candidates;
         }
+
+        private static GenerationRequest DictionaryJob(
+            String rootName, ISO639_3Code language, SheetForm form, GenerationJob job) =>
+            new GenerationRequest
+            {
+                Target = new SourceMetadata
+                {
+                    RootName  = rootName,
+                    Archetype = SheetArchetypes.SharedDictionary,
+                    Language  = language,
+                    Part      = SheetPart.Root,
+                    Form      = form,
+                },
+                Job = job,
+            };
+
+        // How many words are added to the shared dictionary in one pass.
+        //
+        // Not a cost - adding a word is string work and costs nothing - but a commit of
+        // three hundred entries to a file somebody curates by hand is one nobody can
+        // read. Translating them is capped at the same number a pass, so letting them in
+        // faster than this would not get any of them onto a sheet any sooner.
+        private const int WordsPerAddition = 40;
+
+        // Words a vocabulary key defined that the shared dictionary does not, in the
+        // order they will be written. Alphabetical rather than in the order they were
+        // met, so that a pass adds a readable slice of the alphabet rather than a
+        // scattering, and so that two runs over the same repository agree.
+        internal IReadOnlyList<KeyValuePair<String, String>> WordsToAdd(DictionaryState state) =>
+            _newWords
+                .Where(w => !state.Definitions.Defines(w.Key))
+                .OrderBy(w => w.Key, StringComparer.Ordinal)
+                .Take(WordsPerAddition)
+                .Select(w => new KeyValuePair<String, String>(w.Key, w.Value.Definition))
+                .ToList();
 
         // A dictionary is worth having in a language the repository is actually producing
         // content in, and in every language that already has one.

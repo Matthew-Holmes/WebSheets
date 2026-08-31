@@ -127,6 +127,13 @@ corrected and because it is what stops each sheet paying to translate the same
 words over again — see
 [content-repo-translation-setup.md](../content-repo-translation-setup.md).
 
+Once it has been compiled it shows on the site under `/browse/dictionary`, one
+line per language, named "Polish Dictionary" rather than by its filename.
+
+The English dictionary is not entirely hand-written either, though it is
+hand-owned: the generator adds any word a vocabulary key defined that the file
+did not, at the end and under a heading of its own, and changes nothing else.
+
 ## What is not here yet
 
 The generator will still fill in what is missing here — the other three eager

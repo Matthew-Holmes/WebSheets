@@ -22,6 +22,18 @@ namespace SyntheticPDFs.Logic
         internal IReadOnlyList<String> DictionaryProblems =>
             _dictionaryProblems.Select(p => p.ToString()).ToList();
 
+        // Words a vocabulary key uses that the shared dictionary has no definition for,
+        // gathered as the keys are read below and emptied at the start of every pass.
+        //
+        // It rides along with the staleness check rather than making a sweep of its own
+        // because that check already opens every key, and reading them all twice to ask
+        // two questions of the same text would double the work for nothing.
+        private readonly Dictionary<String, NewWord> _newWords = new(StringComparer.Ordinal);
+
+        // the definition, and the sheet it was met on - the sheet only so that a word
+        // met twice is settled the same way whatever order the repository is walked in
+        private readonly record struct NewWord(String Definition, String Root);
+
         // Read fresh each pass, since they live in the content repository and may have
         // been changed by anyone. A repository without a dictionary is not an error - it
         // simply has no shared definitions yet, and the model's own wording stands.
@@ -116,6 +128,43 @@ namespace SyntheticPDFs.Logic
             }
         }
 
+        // What a vocabulary key knows that the shared dictionary does not.
+        //
+        // A key is written by a model, which defines every tier 3 word it picks out
+        // whether or not the repository has an agreed wording for it. Those definitions
+        // would otherwise stay on the one sheet that happened to prompt them, where
+        // nobody would think to look and nothing else could reuse them. Collected here,
+        // they are added to the dictionary and become the repository's own - editable in
+        // one place, and translated once instead of once per sheet.
+        private void NoteWordsTheDictionaryHasNot(
+            String contents, DictionaryState dictionary, String rootName)
+        {
+            List<VocabTerm>? terms = L2VocabData.ReadBlock(contents);
+
+            if (terms is null) { return; }
+
+            foreach (VocabTerm term in terms)
+            {
+                if (dictionary.Definitions.Defines(term.English)) { continue; }
+
+                String headword = WordForms.Normalise(term.English);
+
+                if (headword.Length == 0 || term.Definition.Length == 0) { continue; }
+
+                // the same word turns up on two sheets with two wordings often enough to
+                // matter. the sheet that comes first alphabetically wins, so that what
+                // the dictionary ends up saying does not depend on the order the
+                // repository happened to be walked in
+                if (_newWords.TryGetValue(headword, out NewWord seen)
+                    && String.CompareOrdinal(seen.Root, rootName) <= 0)
+                {
+                    continue;
+                }
+
+                _newWords[headword] = new NewWord(term.Definition, rootName);
+            }
+        }
+
         // Files that exist and are correctly ordered but were built from something that
         // has since changed. Only the derived ones are worth opening: an original is not
         // built from anything the generator records.
@@ -134,6 +183,11 @@ namespace SyntheticPDFs.Logic
                 // leaving an unreadable file alone is the cheap answer: rebuilding it
                 // would cost an API call on a guess
                 if (contents is null) { continue; }
+
+                if (form == SheetForm.Glossary)
+                {
+                    NoteWordsTheDictionaryHasNot(contents, dictionary, sheet.RootName);
+                }
 
                 if (form == SheetForm.Glossary
                     && !L2VocabData.MatchesDictionary(contents, dictionary.Definitions))

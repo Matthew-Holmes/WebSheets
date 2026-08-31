@@ -16,13 +16,18 @@ namespace SyntheticPDFs.Logic
             English            = 1,
             EnglishGlossary    = 2,
 
+            // after the keys, because it is the keys this reads the new words out of,
+            // and before the translated dictionary, so that a word met this pass is
+            // translated in the same sweep rather than in the one after it
+            SharedDictionary   = 3,
+
             // before anything translated, since a translated glossary is assembled from
             // it - a sheet translated against a stale dictionary would disagree with the
             // next sheet translated against the current one
-            Dictionary         = 3,
+            TranslatedDictionary = 4,
 
-            TranslatedGlossary = 4,
-            Translated         = 5,
+            TranslatedGlossary = 5,
+            Translated         = 6,
         }
 
         internal static GenerationPriority PriorityOf(ContentKey key)

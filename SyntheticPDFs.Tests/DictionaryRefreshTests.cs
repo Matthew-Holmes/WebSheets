@@ -284,7 +284,10 @@ namespace SyntheticPDFs.Tests
                 ("hypotenuse", "the longest side of a right angled triangle",
                  "przeciwprostokatna", "najdluzszy bok trojkata prostokatnego"));
 
-            await Build().DoOnePassAsync();
+            // it takes the repository a few passes to settle: the word the dictionary
+            // has never heard of goes into the English one, then into the Polish one,
+            // and only then onto the sheet's own glossary
+            await Settle(Build());
 
             String prompt = _llm.StructuredPromptsSeen.Single();
 
@@ -292,6 +295,52 @@ namespace SyntheticPDFs.Tests
             Assert.IsFalse(
                 prompt.Contains("- numerator:", StringComparison.Ordinal),
                 "only the words the dictionary could not answer are sent");
+        }
+
+        [TestMethod]
+        public async Task AWordMetOnASheetIsTranslatedOnceAndThenBelongsToTheRepository()
+        {
+            GiveTheRepoADictionary(OneWord);
+            GiveTheRepoASettledSheet();
+            GiveTheRepoAnEnglishGlossary(
+                ("numerator", "the number above the line in a fraction"),
+                ("hypotenuse", "the longest side of a right angled triangle"));
+
+            GiveTheRepoAPolishDictionary(
+                Entry("numerator", "the number above the line in a fraction",
+                    "licznik", "liczba nad kreska ulamka"));
+
+            _llm.StructuredResponse = FakeLLMService.TranslatedVocabulary(
+                ("hypotenuse", "the longest side of a right angled triangle",
+                 "przeciwprostokatna", "najdluzszy bok trojkata prostokatnego"));
+
+            await Settle(Build());
+
+            StringAssert.Contains(
+                _git.Contents[DictionaryPath], @"\dictentry{hypotenuse}",
+                "the English definition is the repository's now, not one sheet's");
+
+            StringAssert.Contains(
+                _git.Contents[PolishDictionary], "przeciwprostokatna",
+                "and so is its translation, so the next sheet to use the word pays nothing");
+
+            Assert.AreEqual(1, _llm.StructuredPromptsSeen.Count,
+                "which took exactly one call to a model, in the dictionary rather than "
+                + "on the sheet");
+        }
+
+        // the repository settles over several passes, one commit at a time, and a test
+        // that only ran the first would be testing the order rather than the outcome
+        private static async Task Settle(Orchestrator orchestrator, int passes = 8)
+        {
+            for (int pass = 0; pass < passes; pass++)
+            {
+                if (await orchestrator.DoOnePassAsync()
+                    == Orchestrator.PassOutcome.NothingToDo)
+                {
+                    return;
+                }
+            }
         }
 
         [TestMethod]

@@ -28,6 +28,18 @@ else
             </li>
         }
 
+        @foreach (var dictionary in Dictionaries)
+        {
+            <li class="sheet">
+                <div class="sheet-row">
+                    <a class="sheet-link" href="@FileLink(dictionary)" target="_blank">
+                        📖 @DictionaryTitle(dictionary)
+                    </a>
+                    <span class="source-after"> - <a href="@SourceLink(dictionary)" target="_blank">source</a></span>
+                </div>
+            </li>
+        }
+
         @foreach (var group in Groups)
         {
             <li class="sheet">
@@ -108,7 +120,7 @@ else
         }
     </ul>
 
-    @if (Folders.Count == 0 && Groups.Count == 0)
+    @if (Folders.Count == 0 && Groups.Count == 0 && Dictionaries.Count == 0)
     {
         <p>Nothing here.</p>
     }

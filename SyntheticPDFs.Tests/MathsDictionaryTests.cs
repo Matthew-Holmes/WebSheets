@@ -306,8 +306,198 @@ namespace SyntheticPDFs.Tests
         {
             Repo(@"\dictentry{numerator}{the settled wording}", "the settled wording");
 
-            Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await Build().DoOnePassAsync());
+            Orchestrator orchestrator = Build();
+
+            // there is one thing to do first: b's key uses a word the dictionary has
+            // never heard of, and that word is taken into it
+            Assert.AreEqual(
+                Orchestrator.PassOutcome.Generated, await orchestrator.DoOnePassAsync());
+
+            Assert.AreEqual(
+                Orchestrator.PassOutcome.NothingToDo, await orchestrator.DoOnePassAsync());
+
+            Assert.AreEqual(0, _git.RemoveFilesCalls.Count, "and no key was rebuilt to do it");
+        }
+
+        // ---- words the sheets know that the dictionary does not ----
+
+        [TestMethod]
+        public async Task AWordAKeyDefinesThatTheDictionaryHasNotIsAddedToIt()
+        {
+            Repo(@"\dictentry{numerator}{the settled wording}", "the settled wording");
+
+            await Build().DoOnePassAsync();
+
+            String dictionary = _git.Contents[DictionaryPath];
+
+            StringAssert.Contains(dictionary, @"\dictentry{hypotenuse}{the long side}",
+                "with the wording the key that met it was written with");
+
+            StringAssert.Contains(dictionary, MathsDictionaryWriter.SectionMarker,
+                "under a heading saying nobody has checked it yet");
+
+            StringAssert.Contains(dictionary, @"\dictentry{numerator}{the settled wording}",
+                "and what was already there is untouched");
+        }
+
+        [TestMethod]
+        public async Task AddingAWordDoesNotMakeTheKeyThatSuppliedItStale()
+        {
+            // the definition that goes into the dictionary is the one the key already
+            // shows, so the key still agrees with it and costs nothing to keep
+            Repo(@"\dictentry{numerator}{the settled wording}", "the settled wording");
+
+            Orchestrator orchestrator = Build();
+
+            await orchestrator.DoOnePassAsync();
+
+            Assert.AreEqual(
+                Orchestrator.PassOutcome.NothingToDo, await orchestrator.DoOnePassAsync());
+
             Assert.AreEqual(0, _git.RemoveFilesCalls.Count);
+        }
+
+        [TestMethod]
+        public async Task AWordTwoSheetsDefineDifferentlyIsSettledTheSameWayEveryTime()
+        {
+            // a word can arrive with two wordings, and which one the repository ends up
+            // agreeing on must not depend on the order it happened to be walked in
+            _git = new FakeGitRepoManager();
+            _llm = new FakeLLMService();
+
+            _git.AddFile(DictionaryPath, 9, String.Empty);
+
+            foreach (String root in new[] { "latex/worksheets/b", "latex/worksheets/a" })
+            {
+                _git.AddFile(root + ".tex", 4);
+                _git.AddFile(root + "_workedSolutions.tex", 3);
+                _git.AddFile(root + "_solutions.tex", 2);
+
+                _git.AddFile(root + "_vocab.tex", 1, TexFixtures.VocabularyKey(
+                    root,
+                    new[] { new VocabTerm { English = "vertex", Definition = "as " + root } }));
+            }
+
+            await Build().DoOnePassAsync();
+
+            StringAssert.Contains(
+                _git.Contents[DictionaryPath],
+                @"\dictentry{vertex}{as latex/worksheets/a}",
+                "the sheet that comes first alphabetically supplies the wording");
+        }
+
+        // ---- writing them into the file ----
+
+        private const String HandWritten =
+            "% a comment somebody wrote\n"
+            + "\\documentclass{article}\n"
+            + "\\begin{document}\n"
+            + "\\dictentry{numerator}{the number above the line}\n"
+            + "\\end{document}\n";
+
+        [TestMethod]
+        public void AWordGoesInsideTheDocumentRatherThanAfterIt()
+        {
+            String written = MathsDictionaryWriter.Add(HandWritten, Words(("vertex", "a corner")));
+
+            int entry = written.IndexOf(@"\dictentry{vertex}", StringComparison.Ordinal);
+            int end = written.IndexOf(@"\end{document}", StringComparison.Ordinal);
+
+            Assert.IsTrue(entry > 0 && entry < end, "or the file would stop compiling");
+
+            StringAssert.Contains(written, "% a comment somebody wrote",
+                "and nothing already in the file is disturbed");
+        }
+
+        [TestMethod]
+        public void TheHeadingIsWrittenOnceHoweverManyWordsArriveLater()
+        {
+            String once = MathsDictionaryWriter.Add(HandWritten, Words(("vertex", "a corner")));
+            String twice = MathsDictionaryWriter.Add(once, Words(("edge", "a side")));
+
+            Assert.AreEqual(1, Occurrences(twice, MathsDictionaryWriter.SectionMarker));
+
+            StringAssert.Contains(twice, @"\dictentry{vertex}");
+            StringAssert.Contains(twice, @"\dictentry{edge}");
+        }
+
+        [TestMethod]
+        public void AWordJoinsTheOtherEntriesRatherThanTrailingTheFile()
+        {
+            // the shipped dictionary sets its entries in three columns. a word added
+            // after \end{multicols} would compile, and would come out across the whole
+            // width of the page looking like a mistake
+            String shipped = File.ReadAllText(Path.Combine(
+                RepositoryRoot(), "docs", "contentRepo",
+                "latex", "dictionary", "mathematicalDictionary.tex"));
+
+            String written = MathsDictionaryWriter.Add(shipped, Words(("googol", "a big number")));
+
+            int entry = written.IndexOf(@"\dictentry{googol}", StringComparison.Ordinal);
+            int columns = written.IndexOf(@"\end{multicols}", StringComparison.Ordinal);
+
+            Assert.IsTrue(entry > 0, "the word was written");
+            Assert.IsTrue(entry < columns, "and it is inside the columns the rest are in");
+
+            StringAssert.Contains(written, @"\dicttopic{Words not yet checked}",
+                "under a heading a reader of the pdf can see, since this file has them");
+        }
+
+        [TestMethod]
+        public void AHeadingIsOnlyUsedWhereTheFileAlreadyHasThem()
+        {
+            // inventing a macro the file has not defined would stop it compiling
+            String written = MathsDictionaryWriter.Add(HandWritten, Words(("vertex", "a corner")));
+
+            Assert.IsFalse(written.Contains(@"\dicttopic", StringComparison.Ordinal));
+            StringAssert.Contains(written, MathsDictionaryWriter.SectionMarker);
+        }
+
+        [TestMethod]
+        public void AddingNothingLeavesTheFileExactlyAsItWas()
+        {
+            Assert.AreEqual(
+                HandWritten,
+                MathsDictionaryWriter.Add(
+                    HandWritten, Array.Empty<KeyValuePair<String, String>>()));
+        }
+
+        [TestMethod]
+        public void ADefinitionSurvivesBeingWrittenAndReadBack()
+        {
+            // a model writes prose, and prose contains characters LaTeX reads as markup.
+            // a stray per cent sign would comment out the rest of its own entry
+            const String awkward = "50% of a whole, & the # of parts it is cut into";
+
+            String written = MathsDictionaryWriter.Add(HandWritten, Words(("share", awkward)));
+
+            MathsDictionary read = MathsDictionary.Parse(written);
+
+            Assert.AreEqual(awkward, read.Define("share"));
+
+            // and again, so that a rewritten entry does not collect another backslash
+            String rewritten = MathsDictionaryWriter.Add(written, Words(("part", awkward)));
+
+            Assert.AreEqual(awkward, MathsDictionary.Parse(rewritten).Define("share"));
+        }
+
+        private static IReadOnlyList<KeyValuePair<String, String>> Words(
+            params (String Word, String Meaning)[] words) =>
+            words
+                .Select(w => new KeyValuePair<String, String>(w.Word, w.Meaning))
+                .ToList();
+
+        private static int Occurrences(String haystack, String needle)
+        {
+            int count = 0, at = 0;
+
+            while ((at = haystack.IndexOf(needle, at, StringComparison.Ordinal)) >= 0)
+            {
+                count++;
+                at += needle.Length;
+            }
+
+            return count;
         }
 
         [TestMethod]

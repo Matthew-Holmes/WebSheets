@@ -207,6 +207,35 @@ those, on the next run. A key whose words the edit did not touch is left alone,
 however large the edit was. If the file is absent the generator carries on and
 the model's own wording stands, so it can be added at any point.
 
+### Words the generator adds to it
+
+The file grows on its own. Every vocabulary key defines the tier 3 words its
+sheet uses, whether or not this file has an agreed wording for them, and a
+definition left sitting on the one sheet that happened to prompt it is a
+definition nobody will ever find, edit or reuse. So the generator copies each
+such word in here, with the wording the key that met it was written with, under
+a heading of its own at the end of the file:
+
+```latex
+% ---- Words met on a worksheet, not yet checked by anybody ----
+\dictentry{counterexample}{an example that proves a general statement is false.}
+```
+
+Nothing else in the file is touched — no entry is reworded, reordered or moved,
+and the topic groups are left exactly as they are. Forty words are added at a
+time, so a commit stays small enough to read.
+
+Those entries are the ones most worth your attention, because nobody has read
+them yet. Reword one and it changes everywhere: every key that uses the word is
+rebuilt to match, in English and in every language. Move it up into the topic it
+belongs to whenever you like — the generator only reads the word and the
+definition, and does not care where in the file they sit.
+
+Two sheets sometimes arrive with two wordings for the same word. The one from
+the sheet whose path comes first alphabetically is the one taken, so the file
+does not depend on the order the repository happened to be walked in; the keys
+that said something different are then rebuilt to agree with it.
+
 ## 4. The dictionary in each language
 
 Once the English dictionary is there, the generator writes a translation of it

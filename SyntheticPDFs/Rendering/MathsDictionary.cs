@@ -123,7 +123,14 @@ namespace SyntheticPDFs.Rendering
                     continue;
                 }
 
-                dictionary.Add(headword.Trim(), definition.Trim(), variants, logger);
+                // read back out of LaTeX, so that a definition the generator escaped on
+                // the way in is the definition that goes onto a sheet - and so that a
+                // rewritten entry does not collect another backslash each time
+                dictionary.Add(
+                    TexArguments.Unescape(headword.Trim()),
+                    TexArguments.Unescape(definition.Trim()),
+                    variants,
+                    logger);
 
                 at = cursor;
             }

@@ -20,6 +20,7 @@ namespace SyntheticPDFs.Logic
             CreateSource,
             CheckAnswerMacros,
             RefreshDictionary,
+            ExtendDictionary,
         }
 
         internal record GenerationRequest
@@ -60,6 +61,10 @@ namespace SyntheticPDFs.Logic
             model = WithDictionaries(model);
 
             DictionaryState dictionary = model.DictionaryAt(ContentRepository.DictionaryPath);
+
+            // read fresh from the keys as they are judged below, since a word added to
+            // the dictionary last pass is not a new word this pass
+            _newWords.Clear();
 
             model = model.Judged(
                 Languages,

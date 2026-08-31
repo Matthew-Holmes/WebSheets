@@ -268,7 +268,7 @@ hand — an edit makes the file younger than its parents, so it is left alone.
 Two things to know before turning this on. The content repository needs fonts
 for the scripts involved before any of it will compile — see
 [docs/content-repo-translation-setup.md](docs/content-repo-translation-setup.md).
-And the eager set is large: 36 roots with five languages is around 576 files.
+And the eager set is large: 36 roots with six languages is around 680 files.
 
 ### Finding them on the site
 
@@ -285,6 +285,11 @@ as well as hover, so they can be reached by keyboard.
 A sheet's translations live in a folder named after the sheet, which is hidden
 from the listing — those files belong to the sheet beside it and are reached
 through its menu.
+
+The shared dictionary is the exception: it belongs to the repository rather than
+to any sheet, so each language's copy gets a line of its own in `/browse/dictionary`,
+named for whoever is looking for it — **Polish Dictionary**, not
+`mathematicalDictionary_polish`.
 
 `/eal/<path to sheet>` lists every translated form for a chosen language, with the
 ones that have not been written yet greyed out rather than left out — an absence

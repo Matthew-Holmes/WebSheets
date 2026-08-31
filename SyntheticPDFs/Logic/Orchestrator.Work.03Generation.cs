@@ -21,6 +21,11 @@ namespace SyntheticPDFs.Logic
                 return await RefreshDictionary(sm, model);
             }
 
+            if (request.Job == GenerationJob.ExtendDictionary)
+            {
+                return await ExtendDictionary(sm, model);
+            }
+
             // the form decides this before the language does. an English file can be the
             // original or the glossary, and those are made in quite different ways - one
             // is written by a model, the other rendered here from data
