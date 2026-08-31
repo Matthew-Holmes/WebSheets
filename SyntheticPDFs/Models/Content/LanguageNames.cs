@@ -35,6 +35,7 @@ namespace SyntheticPDFs.Models.Content
                 ["pan"] = "punjabi",
                 ["ben"] = "bengali",
                 ["ara"] = "arabic",
+                ["ron"] = "romanian",
 
                 // ---- available on request ----
 
