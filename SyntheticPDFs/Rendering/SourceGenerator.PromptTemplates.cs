@@ -53,8 +53,9 @@ namespace SyntheticPDFs.Rendering
             "starter 2 worked solutions, and so on to the end.",
 
             @"Inside a worked solution frame, restate the question after \textbf{Question:}, then put the",
-            @"whole of the working inside a single \awork{...}, after \textbf{Worked Solution:}, showing",
-            "the steps and explaining them.",
+            @"whole of the working inside a single \awork{Solution: ...}, showing",
+            @"the steps and explaining them. Note that the indication that it is the solution is inside the \awork macro",
+            @"Thus the first slide of the pair only shows the question, and nothing else",
             @"\awork is what makes the frame come out as two slides: the first shows the question with the",
             "room the working will take left blank, so it can be worked through on the board, and the",
             "second shows the working itself.",
