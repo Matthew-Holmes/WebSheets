@@ -178,6 +178,26 @@ typeset directly instead, so it breaks across pages rather than overflowing one.
 The body is therefore typeset twice — once to be measured and thrown away — so
 nothing in it may have a side effect that would differ between copies.
 
+**A word is measured before it is placed.** The word column is a fixed 40mm and
+a `\makebox` does not clip what it cannot fit, so "highest common factor" simply
+ran on out of its column and printed over the meaning beside it — silently, with
+no overfull warning, because nothing was overfull. `\ealentry` now boxes the
+word first and compares `\wd` against `\ealwordfit`; anything wider goes into a
+`\parbox[t]{\ealwordcol}` and takes as many lines as it needs. A wrapped word
+gets no leader, since the dots exist to cross a gap it has not left.
+
+**Neither place a word can wrap may hyphenate it.** A key exists to put a word
+in front of somebody learning it, and "common denomina-tor" is a poor way to do
+that. Both the wrapped entry and the match-up grid set `\hyphenpenalty=9999` —
+9999 and not 10000, so a single word wider than the whole column is still
+hyphenated rather than left to run over the edge, which is the failure this is
+fixing.
+
+In the grid it has to be set from `execute at begin node` rather than from
+inside the cell. A cell's own braces are a group, and `\hyphenpenalty` is read
+when the paragraph is broken into lines: set inside the braces it is restored
+before that happens, and the word hyphenates anyway with nothing to show why.
+
 **The match-up is a TikZ matrix, not a `tabular`.** The answer page has to draw
 a line from each word to its meaning, and both pages have to agree on where the
 rows are. Nothing uses `remember picture`, so the grid is placed in one pass and

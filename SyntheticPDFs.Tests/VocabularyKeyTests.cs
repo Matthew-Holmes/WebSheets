@@ -487,6 +487,81 @@ namespace SyntheticPDFs.Tests
             StringAssert.Contains(tex, @"50\% of something \& more");
         }
 
+        // ---- words too long for the column they are given ----
+
+        // "highest common factor" is wider than the 40mm the key allows a word, and a
+        // \makebox does not clip what it cannot fit - so it ran on out of its column
+        // and into the meaning printed beside it. Which way round an entry ends up is
+        // decided by TeX when the file is compiled, so what is pinned here is that the
+        // file asks the question at all rather than assuming the word fits.
+        [TestMethod]
+        [DataRow(false, DisplayName = "left to right")]
+        [DataRow(true, DisplayName = "right to left")]
+        public void AWordTooLongForItsColumnIsSetOverAsManyLinesAsItNeeds(bool rightToLeft)
+        {
+            String tex = LongWordKey(rightToLeft);
+
+            StringAssert.Contains(tex, @"\sbox{\ealwordbox}{\textbf{\ealkey{#1}}}",
+                "the word is measured before it is placed");
+
+            StringAssert.Contains(tex, @"\ifdim\wd\ealwordbox>\ealwordfit",
+                "against the width its column leaves it");
+
+            StringAssert.Contains(
+                tex,
+                rightToLeft
+                    ? @"\ealwordlines{\raggedleft}{#1}"
+                    : @"\ealwordlines{\raggedright}{#1}",
+                "and one that does not fit is set over lines, reading from its own margin");
+
+            StringAssert.Contains(tex, @"\parbox[t]{\ealwordcol}",
+                "in a box no wider than the column, so it cannot reach the meaning");
+        }
+
+        // a hyphenated word is a poor thing to put in front of somebody learning it,
+        // so both places a word can wrap break at a space instead
+        [TestMethod]
+        [DataRow(false, DisplayName = "left to right")]
+        [DataRow(true, DisplayName = "right to left")]
+        public void AWordBreaksAtItsSpacesRatherThanBeingHyphenated(bool rightToLeft)
+        {
+            String tex = LongWordKey(rightToLeft);
+
+            Assert.AreEqual(2, Occurrences(tex, @"\hyphenpenalty=9999"),
+                "once on the key page and once in the match-up grid");
+
+            Assert.AreEqual(0, Occurrences(tex, @"\hyphenpenalty=10000"),
+                "never absolutely, so a single word wider than the column still breaks");
+
+            StringAssert.Contains(
+                tex,
+                @"execute at begin node={\hyphenpenalty=9999\relax}",
+                "in the grid it is set from the node rather than from inside the cell, "
+                + "whose braces would restore it before the paragraph was broken");
+        }
+
+        private static String LongWordKey(bool rightToLeft)
+        {
+            var terms = new List<VocabTerm>
+            {
+                new()
+                {
+                    English    = "highest common factor",
+                    Definition = "the largest whole number that divides into both",
+                },
+            };
+
+            LanguageProfile? language = rightToLeft ? Urdu : null;
+
+            return L2VocabKeyRenderer.Render(
+                terms,
+                new L2Macros.SourceMetadataTitle(
+                    Root,
+                    SheetPart.Root,
+                    rightToLeft ? SheetForm.TranslatedGlossary : SheetForm.Glossary),
+                new L2ColourOptions(), language, RootEx, null);
+        }
+
         private static int Occurrences(String haystack, String needle)
         {
             int count = 0, at = 0;

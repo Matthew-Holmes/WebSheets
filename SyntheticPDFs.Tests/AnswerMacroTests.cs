@@ -554,7 +554,7 @@ namespace SyntheticPDFs.Tests
         [DataRow(@"\hypertarget{work-stN}{}", "and on the first worked solution of each starter")]
         [DataRow("Worked Solution: Starter N, Question M", "and a title format for the workings")]
         [DataRow(@"\textbf{Question:}", "restating the question")]
-        [DataRow(@"\textbf{Worked Solution:}", "before the working")]
+        [DataRow(@"\awork{Solution: ...}", "with the working labelled inside the reveal")]
         public async Task TheWorkedSolutionsPromptSpecifiesTheHouseStyle(String required, String why)
         {
             _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckDefiningAnswerMacros());

@@ -14,7 +14,7 @@
 %   English text        black   RGB 0 0 0
 %   Urdu text           purple  RGB 112 48 160
 %   layout macros       version 2
-%   key layout          version 3
+%   key layout          version 4
 %
 % Please don't edit any information in this comment block - the server
 % compares it against the current settings and rebuilds this file when
@@ -111,13 +111,31 @@
 \newlength{\ealmeaningcol}
 \setlength{\ealmeaningcol}{\dimexpr\textwidth-\ealwordcol-3mm\relax}
 
+% the gap between a word and the dots that lead away from it, and the
+% widest a word can be and still leave that gap
+\newlength{\ealwordgap}
+\setlength{\ealwordgap}{2mm}
+\newlength{\ealwordfit}
+\setlength{\ealwordfit}{\dimexpr\ealwordcol-\ealwordgap\relax}
+\newsavebox{\ealwordbox}
+
+\newcommand{\ealwordlines}[2]{%
+  \parbox[t]{\ealwordcol}{#1\hyphenpenalty=9999\relax
+    \strut\textbf{\ealkey{#2}}}%
+}
+
 \newcommand{\ealentry}[2]{%
   \par\addvspace{1.6mm}%
   \noindent
   \parbox[t]{\ealmeaningcol}{\raggedleft\strut #2}%
   \hspace{3mm}%
-  \makebox[\ealwordcol][l]{\textcolor{ealrulecolour}{\dotfill}%
-    \hspace{2mm}\textbf{\ealkey{#1}}}%
+  \sbox{\ealwordbox}{\textbf{\ealkey{#1}}}%
+  \ifdim\wd\ealwordbox>\ealwordfit
+    \ealwordlines{\raggedleft}{#1}%
+  \else
+    \makebox[\ealwordcol][l]{\textcolor{ealrulecolour}{\dotfill}%
+      \hspace{\ealwordgap}\usebox{\ealwordbox}}%
+  \fi
   \par
 }
 
@@ -179,7 +197,7 @@
     row sep=4mm, column sep=24mm,
     nodes={anchor=west, inner sep=1pt},
     column 1/.style={nodes={text width=82mm, align=right}},
-    column 2/.style={nodes={text width=38mm, align=left}},
+    column 2/.style={nodes={text width=38mm, align=left, execute at begin node={\hyphenpenalty=9999\relax}}},
   },
   ealanswerline/.style={ealkeycolour!70!white, line width=0.7pt},
 }

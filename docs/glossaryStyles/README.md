@@ -28,6 +28,13 @@ meaning, then the meaning in a box of its own so a wrapped second line lines up
 under the first rather than under the word. Ordered alphabetically by the
 English word, which is what a key is looked up by.
 
+**A word too long for its column takes a second line instead of the leader.**
+The column is 40mm, and a term like "highest common factor" is wider than that.
+It is measured first: one that fits is placed as before, and one that does not
+is set over as many lines as it needs, breaking at its spaces. There is no
+leader on a wrapped word — the dots are there to carry the eye across a gap, and
+a word filling its column has not left one.
+
 **In a translated key the left column is still only the English word.** The
 translated word starts the meaning, an em dash between them — `ułamek — liczba
 zapisana...` — so every translation begins at the same place down the page. Both

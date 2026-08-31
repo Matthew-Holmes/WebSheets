@@ -98,6 +98,14 @@ namespace SyntheticPDFs.Rendering
                 @"\newlength{\ealmeaningcol}",
                 @"\setlength{\ealmeaningcol}{\dimexpr\textwidth-\ealwordcol-3mm\relax}",
                 "",
+                "% the gap between a word and the dots that lead away from it, and the",
+                "% widest a word can be and still leave that gap",
+                @"\newlength{\ealwordgap}",
+                @"\setlength{\ealwordgap}{2mm}",
+                @"\newlength{\ealwordfit}",
+                @"\setlength{\ealwordfit}{\dimexpr\ealwordcol-\ealwordgap\relax}",
+                @"\newsavebox{\ealwordbox}",
+                "",
                 Entry(rightToLeft),
                 "",
                 "% The translated word and then its meaning, all inside one \\ealtext",
@@ -127,33 +135,67 @@ namespace SyntheticPDFs.Rendering
         // starts where the leader ends. Laid out the other way round the leader points
         // into a gap, because the meaning is set flush right whatever else happens.
         //
+        // The word is measured first, because a \makebox does not clip what it cannot
+        // fit: a term as long as "highest common factor" simply ran on out of its
+        // column and into the meaning beside it. One that does not fit is set over as
+        // many lines as it needs instead, and gets no leader - the dots are there to
+        // carry the eye across a gap, and a word filling its column has not left one.
+        //
         // The \strut is not decoration. A translated meaning opens with a language
         // switch and a colour, both of which put a whatsit into the box before its
         // first line - and a \parbox[t] whose first item is not a box takes its height
         // as zero, which drops the whole meaning half a line below the word it belongs
         // to. Starting the paragraph in horizontal mode puts them where they belong.
         private static String Entry(bool rightToLeft) =>
-            rightToLeft
-                ? String.Join('\n',
-                    @"\newcommand{\ealentry}[2]{%",
-                    @"  \par\addvspace{1.6mm}%",
-                    @"  \noindent",
-                    @"  \parbox[t]{\ealmeaningcol}{\raggedleft\strut #2}%",
-                    @"  \hspace{3mm}%",
-                    @"  \makebox[\ealwordcol][l]{\textcolor{ealrulecolour}{\dotfill}%",
-                    @"    \hspace{2mm}\textbf{\ealkey{#1}}}%",
-                    @"  \par",
-                    @"}")
-                : String.Join('\n',
-                    @"\newcommand{\ealentry}[2]{%",
-                    @"  \par\addvspace{1.6mm}%",
-                    @"  \noindent",
-                    @"  \makebox[\ealwordcol][l]{\textbf{\ealkey{#1}}\hspace{2mm}%",
-                    @"    \textcolor{ealrulecolour}{\dotfill}}%",
-                    @"  \hspace{3mm}%",
-                    @"  \parbox[t]{\ealmeaningcol}{\raggedright\strut #2}%",
-                    @"  \par",
-                    @"}");
+            String.Join('\n',
+                WordLines(),
+                "",
+                rightToLeft
+                    ? String.Join('\n',
+                        @"\newcommand{\ealentry}[2]{%",
+                        @"  \par\addvspace{1.6mm}%",
+                        @"  \noindent",
+                        @"  \parbox[t]{\ealmeaningcol}{\raggedleft\strut #2}%",
+                        @"  \hspace{3mm}%",
+                        @"  \sbox{\ealwordbox}{\textbf{\ealkey{#1}}}%",
+                        @"  \ifdim\wd\ealwordbox>\ealwordfit",
+                        @"    \ealwordlines{\raggedleft}{#1}%",
+                        @"  \else",
+                        @"    \makebox[\ealwordcol][l]{\textcolor{ealrulecolour}{\dotfill}%",
+                        @"      \hspace{\ealwordgap}\usebox{\ealwordbox}}%",
+                        @"  \fi",
+                        @"  \par",
+                        @"}")
+                    : String.Join('\n',
+                        @"\newcommand{\ealentry}[2]{%",
+                        @"  \par\addvspace{1.6mm}%",
+                        @"  \noindent",
+                        @"  \sbox{\ealwordbox}{\textbf{\ealkey{#1}}}%",
+                        @"  \ifdim\wd\ealwordbox>\ealwordfit",
+                        @"    \ealwordlines{\raggedright}{#1}%",
+                        @"  \else",
+                        @"    \makebox[\ealwordcol][l]{\usebox{\ealwordbox}%",
+                        @"      \hspace{\ealwordgap}\textcolor{ealrulecolour}{\dotfill}}%",
+                        @"  \fi",
+                        @"  \hspace{3mm}%",
+                        @"  \parbox[t]{\ealmeaningcol}{\raggedright\strut #2}%",
+                        @"  \par",
+                        @"}"));
+
+        // A word too long for one line, set over as many as it needs and aligned to
+        // whichever margin its language reads from.
+        //
+        // Hyphenation is all but forbidden inside it, so "common denominator" breaks
+        // at its space rather than as "common denomina-tor" - a hyphenated word is a
+        // poor thing to put in front of somebody learning it. 9999 rather than 10000,
+        // so a single word wider than the whole column is still hyphenated rather than
+        // left to run over the edge.
+        private static String WordLines() =>
+            String.Join('\n',
+                @"\newcommand{\ealwordlines}[2]{%",
+                @"  \parbox[t]{\ealwordcol}{#1\hyphenpenalty=9999\relax",
+                @"    \strut\textbf{\ealkey{#2}}}%",
+                @"}");
 
         // The measure-and-repeat that fills a page with copies. Written with kernel
         // primitives because the height has to be known before anything is placed:
@@ -213,9 +255,16 @@ namespace SyntheticPDFs.Rendering
         // column to their left, so that each meaning ends against the gutter the
         // answer lines cross. Left as it is for English, a line would stop at the far
         // side of the column and leave a gap before the text it points at.
+        // A word too long for its column wraps here rather than overflowing, since a
+        // node with a text width is a paragraph. What it must not do is hyphenate, for
+        // the same reason as on the key page - so the words are given the same near
+        // ban on it. It has to be set from execute at begin node rather than from
+        // inside the cell: a cell's own braces are a group, and the setting would be
+        // restored before the node's paragraph was ever broken into lines.
         private static String MatchGrid(bool rightToLeft)
         {
-            String words = @"nodes={text width=38mm, align=left}";
+            String words = "nodes={text width=38mm, align=left, "
+                + @"execute at begin node={\hyphenpenalty=9999\relax}}";
             String meanings = "nodes={text width=82mm, align="
                 + (rightToLeft ? "right" : "left") + "}";
 

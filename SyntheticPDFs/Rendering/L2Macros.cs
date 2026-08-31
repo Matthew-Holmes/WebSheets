@@ -24,7 +24,9 @@ namespace SyntheticPDFs.Rendering
         // only the keys that use it. Restyling the key would otherwise rebuild every
         // parallel text sheet as well, each of which costs an API call to remake and
         // would come back identical.
-        internal const int KeyLayoutVersion = 3;
+        // 4 stopped a headword too long for its column running into its own meaning,
+        // and stopped one being hyphenated in the match-up
+        internal const int KeyLayoutVersion = 4;
 
         // Always lualatex, never inherited from the English source. The CI classifier
         // reads this before anything else, so a sheet pinned to pdflatex would take its
