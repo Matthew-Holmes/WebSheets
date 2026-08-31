@@ -1,4 +1,6 @@
 using SyntheticPDFs.Logic;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 using SyntheticPDFs.Tests.Fakes;
 
 namespace SyntheticPDFs.Tests
@@ -10,19 +12,19 @@ namespace SyntheticPDFs.Tests
     {
         private const String Root = "latex/worksheets/algebra/quadratics";
 
-        private static Orchestrator.SourceMetadata Meta(
-            String code, String typeName, String renditionName, String root = Root) =>
-            new Orchestrator.SourceMetadata
+        private static SourceMetadata Meta(
+            String code, String typeName, String formName, String root = Root) =>
+            new SourceMetadata
             {
                 RootName  = root,
-                Type      = Enum.Parse<SourceType>(typeName),
-                Archetype = SourceArchetype.Worksheet,
+                Part      = Enum.Parse<SheetPart>(typeName),
+                Archetype = SheetArchetypes.Worksheet,
                 Language  = new ISO639_3Code(code),
-                Rendition = Enum.Parse<SourceRendition>(renditionName),
+                Form      = Enum.Parse<SheetForm>(formName),
             };
 
         [TestMethod]
-        [DataRow("pol", "Root", "L2Key",
+        [DataRow("pol", "Root", "TranslatedGlossary",
             "latex/worksheets/algebra/quadratics/L2/pol/quadratics_polishKey.tex")]
         [DataRow("pol", "Root", "ParallelText",
             "latex/worksheets/algebra/quadratics/L2/pol/quadratics_polishParallelText.tex")]
@@ -33,31 +35,31 @@ namespace SyntheticPDFs.Tests
         [DataRow("ara", "Solutions", "Tier3Only",
             "latex/worksheets/algebra/quadratics/L2/ara/quadratics_solutions_arabicTier3Only.tex")]
         public void TranslatedFilesAreNamedByFolderAndLanguageName(
-            String code, String typeName, String renditionName, String expected)
+            String code, String typeName, String formName, String expected)
         {
-            Assert.AreEqual(expected, Orchestrator.GetFilenameFromMetadata(Meta(code, typeName, renditionName)));
+            Assert.AreEqual(expected, (Meta(code, typeName, formName)).FilePath);
         }
 
         [TestMethod]
-        [DataRow("pol", "Root", "L2Key")]
+        [DataRow("pol", "Root", "TranslatedGlossary")]
         [DataRow("pol", "Root", "ParallelText")]
         [DataRow("pol", "Root", "Tier3Only")]
         [DataRow("urd", "WorkedSolutions", "ParallelText")]
         [DataRow("ben", "WorkedSolutions", "Tier3Only")]
         [DataRow("ara", "Solutions", "ParallelText")]
         [DataRow("pan", "Solutions", "Tier3Only")]
-        public void TranslatedNamesRoundTrip(String code, String typeName, String renditionName)
+        public void TranslatedNamesRoundTrip(String code, String typeName, String formName)
         {
-            var original = Meta(code, typeName, renditionName);
+            var original = Meta(code, typeName, formName);
 
-            String filename = Orchestrator.GetFilenameFromMetadata(original);
+            String filename = original.FilePath;
 
-            var parsed = Orchestrator.ParseMetadataFromFilename(filename[..^".tex".Length]);
+            var parsed = SheetArchetypes.Parse(filename[..^".tex".Length]);
 
             Assert.AreEqual(original.RootName,  parsed.RootName,  "root name changed");
-            Assert.AreEqual(original.Type,      parsed.Type,      "source type changed");
+            Assert.AreEqual(original.Part,      parsed.Part,      "source type changed");
             Assert.AreEqual(original.Language,  parsed.Language,  "language changed");
-            Assert.AreEqual(original.Rendition, parsed.Rendition, "rendition changed");
+            Assert.AreEqual(original.Form, parsed.Form, "form changed");
         }
 
         [TestMethod]
@@ -65,52 +67,52 @@ namespace SyntheticPDFs.Tests
         {
             // the archetype is read off the folder after "latex", which the L2 nesting
             // sits well below, so a translated slide deck is still a slide deck
-            var parsed = Orchestrator.ParseMetadataFromFilename(
+            var parsed = SheetArchetypes.Parse(
                 "latex/starters/KS3/circlesArea/L2/pol/circlesArea_polishParallelText");
 
-            Assert.AreEqual(SourceArchetype.QuestionSlides, parsed.Archetype);
+            Assert.AreEqual(SheetArchetypes.QuestionSlides, parsed.Archetype);
             Assert.AreEqual("latex/starters/KS3/circlesArea", parsed.RootName);
         }
 
         [TestMethod]
         public void VocabKeyRoundTrips()
         {
-            var original = new Orchestrator.SourceMetadata
+            var original = new SourceMetadata
             {
                 RootName  = Root,
-                Type      = SourceType.Root,
-                Archetype = SourceArchetype.Worksheet,
+                Part      = SheetPart.Root,
+                Archetype = SheetArchetypes.Worksheet,
                 Language  = ISO639_3Code.eng,
-                Rendition = SourceRendition.VocabKey,
+                Form      = SheetForm.Glossary,
             };
 
-            String filename = Orchestrator.GetFilenameFromMetadata(original);
+            String filename = original.FilePath;
 
             Assert.AreEqual("latex/worksheets/algebra/quadratics_vocab.tex", filename);
 
-            var parsed = Orchestrator.ParseMetadataFromFilename(filename[..^".tex".Length]);
+            var parsed = SheetArchetypes.Parse(filename[..^".tex".Length]);
 
             Assert.AreEqual(Root, parsed.RootName);
-            Assert.AreEqual(SourceRendition.VocabKey, parsed.Rendition);
+            Assert.AreEqual(SheetForm.Glossary, parsed.Form);
             Assert.AreEqual(ISO639_3Code.eng, parsed.Language);
         }
 
         [TestMethod]
-        public void EnglishOriginalsAreUnchangedByTheRenditionAxis()
+        public void EnglishOriginalsAreUnchangedByTheFormAxis()
         {
-            // the rendition defaults to Original, so every name the pipeline already
+            // the form defaults to Original, so every name the pipeline already
             // produced has to come out byte for byte the same
-            var metadata = new Orchestrator.SourceMetadata
+            var metadata = new SourceMetadata
             {
                 RootName  = Root,
-                Type      = SourceType.WorkedSolutions,
-                Archetype = SourceArchetype.Worksheet,
+                Part      = SheetPart.WorkedSolutions,
+                Archetype = SheetArchetypes.Worksheet,
                 Language  = ISO639_3Code.eng,
             };
 
             Assert.AreEqual(
                 "latex/worksheets/algebra/quadratics_workedSolutions.tex",
-                Orchestrator.GetFilenameFromMetadata(metadata));
+                metadata.FilePath);
         }
 
         [TestMethod]
@@ -119,7 +121,7 @@ namespace SyntheticPDFs.Tests
             var metadata = Meta("zzz", "Root", "ParallelText");
 
             Assert.ThrowsException<ArgumentException>(
-                () => Orchestrator.GetFilenameFromMetadata(metadata));
+                () => metadata.FilePath);
         }
 
         // ---- paths that are not ours ----
@@ -132,7 +134,7 @@ namespace SyntheticPDFs.Tests
         {
             var logger = new RecordingLogger();
 
-            var parsed = Orchestrator.ParseMetadataFromFilename(path, logger);
+            var parsed = SheetArchetypes.Parse(path, logger);
 
             Assert.AreEqual(ISO639_3Code.eng, parsed.Language, "an unreadable name must not claim a language");
             StringAssert.Contains(logger.Warnings.Single(), mentioned);
@@ -143,11 +145,11 @@ namespace SyntheticPDFs.Tests
         {
             var logger = new RecordingLogger();
 
-            Orchestrator.ParseMetadataFromFilename(
+            SheetArchetypes.Parse(
                 "latex/worksheets/quadratics/L2/pol/quadratics_polishKey", logger);
-            Orchestrator.ParseMetadataFromFilename(
+            SheetArchetypes.Parse(
                 "latex/worksheets/quadratics/L2/urd/quadratics_workedSolutions_urduParallelText", logger);
-            Orchestrator.ParseMetadataFromFilename(
+            SheetArchetypes.Parse(
                 "latex/worksheets/quadratics_vocab", logger);
 
             CollectionAssert.AreEqual(
@@ -164,7 +166,7 @@ namespace SyntheticPDFs.Tests
             // the folder is what decides, and this is a root
             var logger = new RecordingLogger();
 
-            var parsed = Orchestrator.ParseMetadataFromFilename("latex/worksheets/sheet_fra", logger);
+            var parsed = SheetArchetypes.Parse("latex/worksheets/sheet_fra", logger);
 
             Assert.AreEqual(ISO639_3Code.eng, parsed.Language);
             Assert.AreEqual("latex/worksheets/sheet_fra", parsed.RootName);

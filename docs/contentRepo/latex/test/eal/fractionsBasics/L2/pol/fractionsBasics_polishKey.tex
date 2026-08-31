@@ -7,12 +7,13 @@
 %   language            Polish (pol)
 %   text direction      left to right
 %   font                Noto Serif
+%   fallback font       Noto Serif
 %   built from          latex/test/eal/fractionsBasics.tex
 %   vocabulary key      latex/test/eal/fractionsBasics_vocab.tex
 %   tier 3 vocabulary   green   RGB 0 128 0
 %   English text        black   RGB 0 0 0
 %   Polish text         purple  RGB 112 48 160
-%   layout macros       version 1
+%   layout macros       version 2
 %   key layout          version 3
 %
 % Please don't edit any information in this comment block - the server
@@ -30,10 +31,20 @@
 
 \documentclass[11pt]{article}
 \usepackage[a4paper,margin=18mm]{geometry}
+% Characters this language's font has not got are borrowed from another,
+% rather than being silently dropped - see docs/translated-sheet-latex.md
+\directlua{%
+  if luaotfload and luaotfload.add_fallback then
+    luaotfload.add_fallback("eallatinfallback",
+      { "Noto Serif:mode=harf;" })
+  else
+    tex.error("this luaotfload is too old to register a fallback font")
+  end
+}
 \usepackage[english]{babel}
 \babelprovide[import]{polish}
-\babelfont[polish]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}
-\babelfont[polish]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}
+\babelfont[polish]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}
+\babelfont[polish]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}
 \newcommand{\ealtext}[1]{\foreignlanguage{polish}{#1}}
 \newcommand{\ealtextblock}[1]{{\raggedright\foreignlanguage{polish}{#1}\par}}
 % ================================================================

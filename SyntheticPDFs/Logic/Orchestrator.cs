@@ -1,8 +1,10 @@
-﻿using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Options;
+using Shared;
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Git;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 using SyntheticPDFs.Services;
-using Shared;
 
 namespace SyntheticPDFs.Logic
 {
@@ -66,7 +68,8 @@ namespace SyntheticPDFs.Logic
                     return new PingResult(
                         PingOutcome.Started,
                         IsRunning: true,
-                        IsQueued: false
+                        IsQueued: false,
+                        Problems: DictionaryProblems
                     );
                 }
 
@@ -77,14 +80,16 @@ namespace SyntheticPDFs.Logic
                     return new PingResult(
                         PingOutcome.Queued,
                         IsRunning: true,
-                        IsQueued: true
+                        IsQueued: true,
+                        Problems: DictionaryProblems
                     );
                 }
 
                 return new PingResult(
                     PingOutcome.Ignored,
                     IsRunning: true,
-                    IsQueued: true
+                    IsQueued: true,
+                    Problems: DictionaryProblems
                 );
             }
             finally

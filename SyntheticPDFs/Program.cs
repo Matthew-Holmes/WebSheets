@@ -1,9 +1,9 @@
-using SyntheticPDFs.Configuration;
-using SyntheticPDFs.Logic;
 using Microsoft.Extensions.Logging;
-using SyntheticPDFs.Git;
-using SyntheticPDFs.Services;
 using Shared;
+using SyntheticPDFs.Configuration;
+using SyntheticPDFs.Git;
+using SyntheticPDFs.Logic;
+using SyntheticPDFs.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -118,13 +118,21 @@ app.MapPost("/ping", (
         "Ping outcome: {Outcome}",
         result.Outcome);
 
-    return result.Outcome switch
+    if (result.Problems.Count > 0)
     {
-        PingOutcome.Started => Results.Ok(result),
-        PingOutcome.Queued => Results.Ok(result),
-        PingOutcome.Ignored => Results.Ok(result),
-        _ => Results.Ok(result)
-    };
+        // The work has been queued either way - a dictionary that will not parse is a
+        // reason to tell somebody, not a reason to stop. Answering with an error status
+        // is how it gets told: the workflow that pings after a push fails, and whoever
+        // pushed sees which file and what is wrong with it, rather than the edit quietly
+        // ceasing to be applied.
+        logger.LogError(
+            "reporting {Count} unreadable file(s) in the content repository",
+            result.Problems.Count);
+
+        return Results.Json(result, statusCode: StatusCodes.Status422UnprocessableEntity);
+    }
+
+    return Results.Ok(result);
 });
 
 // Which languages this instance can produce. The website reads this rather than

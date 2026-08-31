@@ -54,6 +54,20 @@ namespace SyntheticPDFs.Configuration
 
         public L2ColourOptions Colours { get; set; } = new();
 
+        // The font a translated sheet borrows from when its own font has not got the
+        // character.
+        //
+        // Several of the Noto script families carry their script and essentially no Latin
+        // - no full stop, no digits, no em dash - and LuaTeX drops a character a font has
+        // not got rather than substituting one, so a sheet in one of those languages
+        // would otherwise compile green with holes where its punctuation should be.
+        // Naming a fallback here fills them in from a font that does have them.
+        //
+        // It has to be a family the build container actually has: it is loaded by every
+        // translated file, so a name that does not resolve breaks all of them rather than
+        // one. latex/test/eal/fontProbe.tex is what proves it resolves.
+        public string FallbackFont { get; set; } = "Noto Serif";
+
         // keyed by ISO 639-3 code. a language absent from here cannot be generated,
         // whatever LanguageNames says about naming it
         public Dictionary<string, LanguageOptions> Languages { get; set; } = new();

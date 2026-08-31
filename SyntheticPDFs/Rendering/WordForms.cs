@@ -1,4 +1,6 @@
-namespace SyntheticPDFs.Logic
+using SyntheticPDFs.Models.Content;
+
+namespace SyntheticPDFs.Rendering
 {
     // Reduces a word as it appears in a sheet to the headword it belongs under, so that
     // "Numerators", "numerator" and "NUMERATOR" all find the same definition.

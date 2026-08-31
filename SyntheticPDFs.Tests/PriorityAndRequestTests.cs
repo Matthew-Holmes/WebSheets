@@ -3,6 +3,8 @@ using Microsoft.Extensions.Options;
 using Shared;
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 using SyntheticPDFs.Tests.Fakes;
 
 namespace SyntheticPDFs.Tests
@@ -122,10 +124,10 @@ namespace SyntheticPDFs.Tests
 
         // ---- requests ----
 
-        private GenerateResult Ask(String root, String language, String type, String rendition) =>
+        private GenerateResult Ask(String root, String language, String type, String form) =>
             _orchestrator.RequestGeneration(new GenerateRequest
             {
-                RootName = root, Language = language, Type = type, Rendition = rendition,
+                RootName = root, Language = language, Part = type, Form = form,
             });
 
         [TestMethod]
@@ -245,9 +247,9 @@ namespace SyntheticPDFs.Tests
         [DataRow(A, "pol", "Root", "Original", "Original")]
         [DataRow(A, "pol", "Root", "Nonsense", "Nonsense")]
         public void ARequestWeCannotHonourSaysWhy(
-            String root, String language, String type, String rendition, String mentioned)
+            String root, String language, String type, String form, String mentioned)
         {
-            var result = Ask(root, language, type, rendition);
+            var result = Ask(root, language, type, form);
 
             Assert.AreEqual(GenerateOutcome.NotUnderstood, result.Outcome);
             StringAssert.Contains(result.Message, mentioned);

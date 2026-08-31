@@ -1,34 +1,42 @@
-﻿using SyntheticPDFs.Git;
 using SyntheticPDFs.Models;
+using SyntheticPDFs.Models.Content;
 
 namespace SyntheticPDFs.Logic
 {
-    using RootName = String;
-
     public partial class Orchestrator
     {
-        // one request can settle more than one file - a slide deck that needed fixing comes
-        // back alongside the worked solutions derived from it
-        internal async Task<List<TexSourceModel>> GenerateSyntheticSource(GenerationRequest request)
+        // One request can settle more than one file - a slide deck that needed fixing
+        // comes back alongside the worked solutions derived from it.
+        //
+        // The model is passed in because some work reads the state of the repository
+        // rather than only the file it is making: a translated glossary is assembled from
+        // the dictionary in that language before anything is asked of a model.
+        internal async Task<List<TexSourceModel>> GenerateSyntheticSource(
+            GenerationRequest request, ContentModel model)
         {
             SourceMetadata sm = request.Target;
 
-            // the rendition decides this before the language does. an English file can be
-            // the original or the vocabulary key, and those are made in quite different
-            // ways - one is written by a model, the other rendered here from data
-            switch (sm.Rendition)
+            if (request.Job == GenerationJob.RefreshDictionary)
             {
-                case SourceRendition.Original:
+                return await RefreshDictionary(sm, model);
+            }
+
+            // the form decides this before the language does. an English file can be the
+            // original or the glossary, and those are made in quite different ways - one
+            // is written by a model, the other rendered here from data
+            switch (sm.Form)
+            {
+                case SheetForm.Original:
                     return sm.Language == ISO639_3Code.eng
                         ? await GenerateEnglishSyntheticSource(request)
                         : throw new ArgumentException(
                             "there is no such thing as an original in another language");
 
-                case SourceRendition.VocabKey:
-                    return await GenerateVocabularyKey(sm);
+                case SheetForm.Glossary:
+                    return await GenerateGlossary(sm, model);
 
-                case SourceRendition.L2Key:
-                    return await GenerateTranslatedKey(sm);
+                case SheetForm.TranslatedGlossary:
+                    return await GenerateTranslatedGlossary(sm, model);
 
                 default:
                     return await GenerateForeignLanguageSyntheticSource(request);

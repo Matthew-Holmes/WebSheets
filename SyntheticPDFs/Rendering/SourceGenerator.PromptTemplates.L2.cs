@@ -1,6 +1,7 @@
 using SyntheticPDFs.Configuration;
+using SyntheticPDFs.Models.Content;
 
-namespace SyntheticPDFs.Logic
+namespace SyntheticPDFs.Rendering
 {
     public static partial class SourceGenerator
     {

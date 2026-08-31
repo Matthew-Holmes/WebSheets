@@ -1,4 +1,6 @@
-namespace SyntheticPDFs.Logic
+using SyntheticPDFs.Models.Content;
+
+namespace SyntheticPDFs.Rendering
 {
     public static partial class SourceGenerator
     {
@@ -23,7 +25,7 @@ namespace SyntheticPDFs.Logic
         // worked solutions in the repository is laid out the same way. the ordering matters:
         // each starter is finished - questions, then its workings - before the next one
         // begins, so a teacher can work down the deck in the order they teach it
-        private static String QuestionSlidesWorkedSolutionRequirements => String.Join(' ',
+        internal static String QuestionSlidesWorkedSolutionRequirements => String.Join(' ',
             "Follow this structure exactly, so that every set of worked solutions in the repository looks",
             "the same.",
 
@@ -50,21 +52,29 @@ namespace SyntheticPDFs.Logic
             "interleave, so that reading down the file gives starter 1, starter 1 worked solutions, starter 2,",
             "starter 2 worked solutions, and so on to the end.",
 
-            @"Inside a worked solution frame, restate the question after \textbf{Question:}, then give the",
-            @"working after \textbf{Worked Solution:}, showing the steps and explaining them.",
+            @"Inside a worked solution frame, restate the question after \textbf{Question:}, then put the",
+            @"whole of the working inside a single \awork{...}, after \textbf{Worked Solution:}, showing",
+            "the steps and explaining them.",
+            @"\awork is what makes the frame come out as two slides: the first shows the question with the",
+            "room the working will take left blank, so it can be worked through on the board, and the",
+            "second shows the working itself.",
+            @"Everything that is the answer goes inside that one \awork - the steps, the explanation and",
+            @"the final result. Only the restated question stays outside it. Never use more than one \awork",
+            @"on a frame, and never nest anything else that reveals inside it.",
             "Keep to one question per frame however short its answer is.");
         #endregion
 
 
-        private static String GenerateEnglishWorkedSolutionsPrompt(String rootSourceContents, SourceArchetype at)
+        // The archetype says what its worked solutions have to look like, so adding a kind
+        // of source does not mean finding this switch and remembering to extend it.
+        private static String GenerateEnglishWorkedSolutionsPrompt(
+            String rootSourceContents, SheetArchetype at)
         {
-            switch (at)
-            {
-                case SourceArchetype.QuestionSlides:
-                    return $"Below is the contents of a .tex file for slides of questions. Typeset worked solutions in LaTeX, showing clear workings with explanations. {QuestionSlidesWorkedSolutionRequirements} {WorkedSolutionFrameRules} {CompilerDirectiveRule} {Requirements} Original source: \n\n {rootSourceContents}";
-                default:
-                    return $"Below is the contents of a .tex file. Typeset worked solutions in LaTeX, showing clear workings with explanations. {CompilerDirectiveRule} {Requirements} Original source: \n\n {rootSourceContents}";
-            }
+            String layout = at.WorkedSolutionsInstructions is String instructions
+                ? $"{instructions} {WorkedSolutionFrameRules} "
+                : String.Empty;
+
+            return $"Below is the contents of a .tex file for {at.Description}. Typeset worked solutions in LaTeX, showing clear workings with explanations. {layout}{CompilerDirectiveRule} {Requirements} Original source: \n\n {rootSourceContents}";
         }
 
         // for now only use the worked solutions, if results are not good, then use the root source too!
@@ -121,26 +131,29 @@ namespace SyntheticPDFs.Logic
             @"Keep \ablank answers short, since it reserves the width of the answer in the question line.",
             @"Write mathematical symbols as LaTeX commands such as \implies and \approx, never as unicode characters.",
             "Only use the helpers in the body of a frame, never in a frame title or a section heading.",
-            @"These four are the only helpers there are. Never invent another - there is no \blank, no",
-            @"\answer and no \soln - and never use one the preamble does not define.");
+            @"The preamble also defines \awork, which belongs to the worked solutions rather than to this",
+            "deck. Never put it on a question slide.",
+            @"Apart from that, these four are the only helpers there are. Never invent another - there is",
+            @"no \blank, no \answer and no \soln - and never use one the preamble does not define.");
 
         // worked solutions are the answers, so nothing on them is hidden. this exists because
         // the overlay rules used to be handed to that prompt wholesale, and the model applied
         // them to the workings too - giving every worked solution a second overlay with
         // nothing new on it, and inventing macros no preamble defines
         private static String WorkedSolutionFrameRules => String.Join(' ',
-            "A worked solution frame is not a question slide. It is the answer, so everything on it is",
-            "visible straight away.",
-            "Write these frames in ordinary LaTeX and beamer.",
-            @"Do not use \ablank, \ashow or \ashowq on them, do not use the ans, ansfill or anslab TikZ",
-            @"styles, and do not use \pause, \uncover, \onslide, \alt or an overlay specification such as",
-            "<2->.",
-            "Each worked solution frame must come out as exactly one slide in the compiled pdf.",
+            "A worked solution frame is not a question slide, and it reveals its content differently.",
+            @"It uses \awork and nothing else: the question is visible from the start, and the working",
+            "appears on the next slide.",
+            @"Do not use \ablank, \ashow or \ashowq on a worked solution frame, do not use the ans,",
+            @"ansfill or anslab TikZ styles, and do not use \pause, \onslide, \alt or an overlay",
+            @"specification such as <2-> of your own. \awork already does all of it.",
+            "Each worked solution frame must come out as exactly two slides in the compiled pdf - the",
+            "question with space to write in, then the working.",
             "Use only commands that the preamble defines or that LaTeX and beamer already provide. Never",
             @"invent a macro - there is no \blank, no \answer and no \soln.",
             "The starter slides you copy across from the original file are the one exception. Copy each of",
-            "them exactly as it is, keeping the helpers it already uses, and add no helpers of your own",
-            "anywhere else in the file.");
+            @"them exactly as it is, keeping the helpers it already uses, and never put \awork on one of",
+            "them - it belongs only to the worked solution frames you write.");
 
         // the things a reviewer must NOT fail a deck for. every one of these has been seen, or
         // is a plain misreading of the source, and each false rejection used to cost a full
@@ -166,6 +179,8 @@ namespace SyntheticPDFs.Logic
             @"A helper used inside existing math mode, such as $x = \ablank{52}$, is correct, and the braces do",
             "not need dollar signs of their own there.",
             "Numbering questions by hand, rather than with an enumerate, is fine.",
+            @"The preamble defines \awork as well, which is used by the worked solutions rather than by",
+            "this deck. Never fail a deck because it does not use it.",
             "Do not fail a deck over style, wording, spacing, layout, slide order, consistency between slides,",
             "or anything you would merely prefer done differently.");
 

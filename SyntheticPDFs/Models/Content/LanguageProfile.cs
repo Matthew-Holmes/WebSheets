@@ -1,6 +1,6 @@
 using SyntheticPDFs.Configuration;
 
-namespace SyntheticPDFs.Logic
+namespace SyntheticPDFs.Models.Content
 {
     // everything needed to name a translated file and to typeset it: the code and
     // English name from LanguageNames, the font and direction from configuration.

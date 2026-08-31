@@ -93,13 +93,17 @@ every family it could not find — a line in the log per language, then one erro
 listing each family once. Without it, a missing script stays hidden until the
 first person asks for a sheet in that language, and then breaks the whole build.
 
-The same run also reports, **without** failing, any font that has no full stop,
-no digits or no em dash of its own. Several Noto script packages carry their
-script and nothing else, and LuaTeX drops a character the font has not got
-rather than substituting one — so a sheet in one of those languages compiles
-green with holes where its punctuation should be. That list is worth reading
-even when the build passes; see
-[contentRepo/README.md](contentRepo/README.md) for what it means.
+Each language also prints a full stop, a digit and an em dash. Six of the Noto
+script packages carry their script and no Latin at all, and LuaTeX drops a
+character a font has not got rather than substituting one, so those three come
+from a fallback font instead — and printing them here is what proves the
+fallback is working. A `Missing character` line naming one of them means it is
+not, and that every translated sheet in that language is losing its punctuation.
+
+The same run also reports, **without** failing, which fonts have none of those
+three of their own. That list is which languages are relying on the fallback,
+rather than a sign that anything is wrong; see
+[contentRepo/README.md](contentRepo/README.md).
 
 ---
 
@@ -176,8 +180,10 @@ generator reads and what people edit to change a wording. The copy under
 `docs/contentRepo` is a starting point, kept so the format stays pinned by the
 test suite; see [contentRepo/README.md](contentRepo/README.md).
 
-It builds under pdfLaTeX like any other sheet, and the generator excludes it from
-the pipeline — nothing is derived from it, and it never gets worked solutions.
+It builds under pdfLaTeX like any other sheet, and the generator never derives a
+worksheet's worth of files from it — no worked solutions, no answer key. What it
+does derive is a translation of the dictionary itself, in each language; see the
+next section.
 
 ### Editing it
 
@@ -201,7 +207,71 @@ those, on the next run. A key whose words the edit did not touch is left alone,
 however large the edit was. If the file is absent the generator carries on and
 the model's own wording stands, so it can be added at any point.
 
-## 4. Check it worked
+## 4. The dictionary in each language
+
+Once the English dictionary is there, the generator writes a translation of it
+for each language it is producing sheets in:
+
+```
+latex/dictionary/mathematicalDictionary.tex          written by you
+latex/dictionary/L2/pol/mathematicalDictionary_polish.tex   written by the server
+latex/dictionary/L2/urd/mathematicalDictionary_urdu.tex
+```
+
+Nothing needs setting up for this. It is worth understanding, though, because it
+is where most of the cost of translation goes and where a bad translation is
+best corrected.
+
+### Why it exists
+
+A word is translated **once**, in this file, and every vocabulary key in that
+language then takes the translation from here rather than asking the model
+again. A repository whose dictionary covers its vocabulary produces its
+translated keys for nothing at all.
+
+It also means the same word reads the same way on every sheet a pupil is given,
+which is the part that matters in a classroom.
+
+### Correcting a translation
+
+If a translation reads wrongly to somebody who speaks the language, fix it in
+this file. The next run rebuilds the keys that use that word — and only those —
+and does it **without asking a model anything**, because the corrected wording is
+read straight out of the dictionary.
+
+Each entry has four arguments:
+
+```latex
+\dictentrytr{numerator}{the number above the line in a fraction}%
+            {licznik}{liczba nad kreską ułamka}
+```
+
+The last two are yours to correct. The first two are the English word and the
+English wording the translation was made from, and are how the server knows the
+translation is still current — change the English **in the shared dictionary**,
+not here. The file says all of this in a comment at the top of itself, which is
+where somebody editing it will actually look.
+
+### Keeping it in step
+
+Rewording an English definition retranslates that one word. Removing a word from
+the shared dictionary removes its translation, and costs nothing. Adding words
+is done a few dozen at a time, so a first run against a full dictionary takes
+several passes rather than one enormous request.
+
+### If somebody breaks one
+
+An entry the parser cannot read — a missing brace, usually — is reported rather
+than guessed at. The entries either side of it keep working, and the whole
+dictionary does not stop being applied.
+
+`/ping` answers **422** rather than 200 while any such problem stands, and names
+the file and what is wrong with it, so the workflow that pings after a push
+fails instead of leaving the breakage to be noticed months later. It describes
+the last completed pass, so a problem introduced by one push is surfaced by the
+next announcement.
+
+## 5. Check it worked
 
 The fonts change nothing until a translated sheet exists, so the first real
 check is the first build that compiles one. When that runs, open the LuaLaTeX

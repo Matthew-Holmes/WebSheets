@@ -2,6 +2,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 using SyntheticPDFs.Services;
 using SyntheticPDFs.Tests.Fakes;
 
@@ -62,6 +64,16 @@ namespace SyntheticPDFs.Tests
                 @"  ans/.style     = {red, thick, visible on=<2->},",
                 @"  ansfill/.style = {red!15, visible on=<2->},",
                 @"  anslab/.style  = {red, font=\tiny, visible on=<2->},",
+                "}",
+                "",
+                "% Used by the worked solutions rather than by this deck, so that each worked",
+                "% solution is first a question with room to write in and then the answer.",
+                @"\newlength{\aworkpad}",
+                @"\setlength{\aworkpad}{8mm}",
+                @"\newcommand{\awork}[1]{%",
+                @"  \par\vspace{\aworkpad}%",
+                @"  \uncover<2->{#1}%",
+                @"  \par\vspace{\aworkpad}%",
                 "}");
 
             Assert.AreEqual(expected, AnswerMacros.Definitions);
@@ -259,11 +271,11 @@ namespace SyntheticPDFs.Tests
         // new on it, and invented macros to go with it
         [TestMethod]
         [DataRow("A worked solution frame is not a question slide", "the workings are the answer")]
-        [DataRow("Write these frames in ordinary LaTeX and beamer", "so they use plain tooling")]
-        [DataRow(@"Do not use \ablank, \ashow or \ashowq on them", "and none of the helpers")]
+        [DataRow(@"It uses \awork and nothing else", "and it has one way of revealing them")]
+        [DataRow(@"Do not use \ablank, \ashow or \ashowq on a worked solution frame", "and none of the deck's helpers")]
         [DataRow("ans, ansfill or anslab TikZ", "nor the diagram styles")]
-        [DataRow(@"\pause, \uncover, \onslide, \alt", "nor any other overlay command")]
-        [DataRow("exactly one slide in the compiled pdf", "so one worked solution is one slide")]
+        [DataRow(@"\pause, \onslide, \alt", "nor any other overlay command")]
+        [DataRow("exactly two slides in the compiled pdf", "the blank one to write on, then the working")]
         [DataRow(@"there is no \blank, no \answer and no \soln", "and nothing may be invented")]
         [DataRow("Copy each of them exactly as it is, keeping the helpers it already uses", "only the copied starters keep theirs")]
         public async Task TheWorkedSolutionsPromptKeepsTheHelpersOffTheWorkings(String required, String why)

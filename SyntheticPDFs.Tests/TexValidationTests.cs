@@ -1,4 +1,6 @@
 using SyntheticPDFs.Logic;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 using SyntheticPDFs.Tests.Fakes;
 
 namespace SyntheticPDFs.Tests

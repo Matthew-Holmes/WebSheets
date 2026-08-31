@@ -1,4 +1,6 @@
-namespace SyntheticPDFs.Logic
+using SyntheticPDFs.Models.Content;
+
+namespace SyntheticPDFs.Rendering
 {
     // The shared definitions, read from a file in the content repository rather than
     // from settings.
@@ -67,7 +69,7 @@ namespace SyntheticPDFs.Logic
 
             int at = 0;
 
-            String source = StripComments(texSource);
+            String source = TexArguments.StripComments(texSource);
 
             while ((at = source.IndexOf(EntryMacro, at, StringComparison.Ordinal)) >= 0)
             {
@@ -80,9 +82,17 @@ namespace SyntheticPDFs.Logic
                     continue;
                 }
 
+                // the file defines the macro before it uses it, and that occurrence has no
+                // arguments of its own - it is the macro being named, not an entry
+                if (!TexArguments.OpensAGroup(source, cursor))
+                {
+                    at = cursor;
+                    continue;
+                }
+
                 List<String> variants = new();
 
-                cursor = SkipSpace(source, cursor);
+                cursor = TexArguments.SkipSpace(source, cursor);
 
                 if (cursor < source.Length && source[cursor] == '[')
                 {
@@ -96,14 +106,12 @@ namespace SyntheticPDFs.Logic
                         .Where(v => v.Length > 0)
                         .ToList();
 
-                    cursor = SkipSpace(source, close + 1);
+                    cursor = TexArguments.SkipSpace(source, close + 1);
                 }
 
-                String? headword = ReadGroup(source, ref cursor);
+                String? headword = TexArguments.ReadGroup(source, ref cursor);
 
-                cursor = SkipSpace(source, cursor);
-
-                String? definition = ReadGroup(source, ref cursor);
+                String? definition = TexArguments.ReadGroup(source, ref cursor);
 
                 if (headword is null || definition is null)
                 {
@@ -160,62 +168,6 @@ namespace SyntheticPDFs.Logic
 
                 _formsToHeadword[form] = key;
             }
-        }
-
-        private static int SkipSpace(String source, int at)
-        {
-            while (at < source.Length && Char.IsWhiteSpace(source[at])) { at++; }
-
-            return at;
-        }
-
-        // reads a balanced {...} group, so a definition may contain braces of its own
-        private static String? ReadGroup(String source, ref int at)
-        {
-            if (at >= source.Length || source[at] != '{') { return null; }
-
-            int depth = 0;
-            int start = at + 1;
-
-            for (int i = at; i < source.Length; i++)
-            {
-                char c = source[i];
-
-                if (c == '\\') { i++; continue; }
-
-                if (c == '{') { depth++; }
-                else if (c == '}')
-                {
-                    depth--;
-
-                    if (depth == 0)
-                    {
-                        String value = source[start..i];
-                        at = i + 1;
-                        return value;
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        private static String StripComments(String source)
-        {
-            return String.Join('\n', source
-                .Replace("\r\n", "\n")
-                .Split('\n')
-                .Select(line =>
-                {
-                    int at = line.IndexOf('%');
-
-                    while (at > 0 && line[at - 1] == '\\')
-                    {
-                        at = line.IndexOf('%', at + 1);
-                    }
-
-                    return at < 0 ? line : line[..at];
-                }));
         }
 
         #endregion

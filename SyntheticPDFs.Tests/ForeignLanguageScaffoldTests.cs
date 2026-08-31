@@ -1,7 +1,9 @@
-﻿using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 using SyntheticPDFs.Tests.Fakes;
 
 namespace SyntheticPDFs.Tests
@@ -39,19 +41,19 @@ namespace SyntheticPDFs.Tests
 
             var request = new Orchestrator.GenerationRequest
             {
-                Target = new Orchestrator.SourceMetadata
+                Target = new SourceMetadata
                 {
                     RootName = "latex/worksheets/sheet",
-                    Type = SourceType.Root,
-                    Archetype = SourceArchetype.Worksheet,
+                    Part = SheetPart.Root,
+                    Archetype = SheetArchetypes.Worksheet,
                     Language = new ISO639_3Code("pol"),
-                    Rendition = SourceRendition.ParallelText,
+                    Form = SheetForm.ParallelText,
                 },
                 Job = Orchestrator.GenerationJob.CreateSource,
             };
 
             var thrown = await Assert.ThrowsExceptionAsync<ArgumentException>(
-                () => orchestrator.GenerateSyntheticSource(request));
+                () => orchestrator.GenerateSyntheticSource(request, ContentModel.Empty));
 
             StringAssert.Contains(thrown.Message, "pol", "the error must name the language");
         }
@@ -68,18 +70,18 @@ namespace SyntheticPDFs.Tests
 
             var request = new Orchestrator.GenerationRequest
             {
-                Target = new Orchestrator.SourceMetadata
+                Target = new SourceMetadata
                 {
                     RootName = "latex/worksheets/sheet",
-                    Type = SourceType.Root,
-                    Archetype = SourceArchetype.Worksheet,
+                    Part = SheetPart.Root,
+                    Archetype = SheetArchetypes.Worksheet,
                     Language = ISO639_3Code.eng,
                 },
                 Job = Orchestrator.GenerationJob.CreateSource,
             };
 
             Assert.ThrowsExceptionAsync<ArgumentException>(
-                () => orchestrator.GenerateSyntheticSource(request)).Wait();
+                () => orchestrator.GenerateSyntheticSource(request, ContentModel.Empty)).Wait();
         }
     }
 }

@@ -41,12 +41,22 @@ The language-specific half is built from the language profile in configuration
 and is never written by the model:
 
 ```latex
+\directlua{%
+  if luaotfload and luaotfload.add_fallback then
+    luaotfload.add_fallback("eallatinfallback",
+      { "Noto Serif:mode=harf;" })
+  else
+    tex.error("this luaotfload is too old to register a fallback font")
+  end
+}
 \usepackage[english,bidi=basic]{babel}   % bidi=basic only when the language is RTL
 \babelprovide[import]{urdu}
 \babelfont[urdu]{rm}[Renderer=Harfbuzz,
-  BoldFont={Arial}, ItalicFont={Arial}, BoldItalicFont={Arial}]{Arial}
+  BoldFont={Arial}, ItalicFont={Arial}, BoldItalicFont={Arial},
+  RawFeature={fallback=eallatinfallback}]{Arial}
 \babelfont[urdu]{sf}[Renderer=Harfbuzz,
-  BoldFont={Arial}, ItalicFont={Arial}, BoldItalicFont={Arial}]{Arial}
+  BoldFont={Arial}, ItalicFont={Arial}, BoldItalicFont={Arial},
+  RawFeature={fallback=eallatinfallback}]{Arial}
 \newcommand{\ealtext}[1]{\foreignlanguage{urdu}{#1}}
 \newcommand{\ealtextblock}[1]{{\raggedleft\foreignlanguage{urdu}{#1}\par}}
 ```
@@ -55,7 +65,7 @@ and is never written by the model:
 `\raggedright` for a left-to-right one. That is the only difference between an
 RTL and an LTR profile, besides the `bidi=basic` option.
 
-### Five rules this preamble encodes
+### Six rules this preamble encodes
 
 Each one is a real failure that was hit and fixed.
 
@@ -82,6 +92,37 @@ preamble only ever *adds* a font for the new language.
 otherwise left-to-right paragraph sets the run correctly but leaves the
 paragraph flush left. Urdu and Arabic want flush right, which is what
 `\ealtextblock` is for.
+
+**A script font needs somewhere to borrow Latin from.** Several of the Noto
+script families carry their script and essentially nothing else. Noto Sans
+Bengali, Noto Sans Hebrew, Noto Sans Thai, Noto Sans Gujarati, Noto Sans
+Ethiopic and Noto Naskh Arabic have **no full stop, no digits and no em dash**.
+LuaTeX drops a character a font has not got rather than substituting one, and
+the build stays green while it does it — so a Bengali sheet came out with holes
+where every full stop, every digit and the em dash between a word and its
+meaning should have been.
+
+`luaotfload.add_fallback` registers a second font to be asked for anything the
+first has not got, and `RawFeature={fallback=...}` attaches it. The script font
+is still asked first, so nothing about how the script itself is shaped changes.
+The family is `L2:FallbackFont` in configuration, and defaults to Noto Serif —
+the same family the English half of a parallel text is set in.
+
+Two things about it are worth knowing:
+
+- **It works with `Renderer=Harfbuzz`.** That is not obvious, and was checked
+  rather than assumed: a base font with no CJK, a fallback that has it, and the
+  glyph appears with no `Missing character` line.
+- **A fallback that was never registered is fatal, not a no-op.** Naming one
+  that does not exist makes the *font itself* unloadable — fontspec reports
+  *"metric data not found or bad"* and every translated file in the build dies.
+  So the declaration stops with a readable `tex.error` on a luaotfload too old
+  to have `add_fallback` (before 3.13, so before TeX Live 2021), rather than
+  carrying on and failing later as a font error nobody can trace back to here.
+
+`\iffontchar` still reports what a font has **of its own** — it does not see
+what the fallback lends it — which is what `fontProbe.tex` uses to list the
+languages that are relying on the fallback.
 
 ## The macros
 

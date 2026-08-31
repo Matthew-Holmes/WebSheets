@@ -51,6 +51,10 @@ has to be present in the build container. A family that is not there is a hard
 fontspec error that takes the whole build down — and it would otherwise surface
 one language at a time, whenever somebody first asked for a sheet in it.
 
+It also loads one more font that every translated file loads: the fallback the
+script fonts borrow their Latin from. A name that does not resolve there breaks
+every translation rather than one, so the probe fails on it outright.
+
 The probe asks for every one of them by name before loading it, and prints one
 letter of each language's own script in the font that language would be set in.
 Push it once with the `extra_system_packages` change from
@@ -72,19 +76,29 @@ the run then died — a font that is selected and then prints nothing leaves
 LuaTeX subsetting an empty font, which is a fatal backend error rather than a
 warning. A letter the font is certain to have avoids both.
 
+### The Latin characters beside each script letter
+
+Each language also prints a full stop, a digit and an em dash — the three Latin
+characters a translated sheet mixes into its own script. Those are there because
+six of the Noto script families (Bengali, Hebrew, Thai, Gujarati, Ethiopic and
+the naskh Arabic) carry their script and **no Latin at all**, and LuaTeX drops a
+character a font has not got rather than substituting one. A Bengali sheet came
+out with holes where every full stop and every digit should have been, and the
+build was green throughout.
+
+Those three now come from a fallback font, declared at the top of the probe and
+in every translated sheet. So on this page they are a live test of it: a line
+that is missing one of them, or a `Missing character` line in the log naming
+one, means the fallback is not reaching that language and its sheets are losing
+their punctuation.
+
 ### The note at the foot of the page
 
-That discovery is worth more than the bug that produced it, so each font is now
-also asked whether it has the characters a translated sheet mixes into its own
-script: a full stop to close a definition, digits for a fraction, and the em
-dash the vocabulary key sets between a word and its meaning. Anything missing is
-named at the foot of the page and in the log, and does **not** fail the build —
-it is a fact about the font, not about the container.
-
-It matters because LuaTeX drops a character the font has not got rather than
-substituting one, so a sheet in such a language compiles green with holes where
-its punctuation should be. A language named in that note needs a Latin fallback
-configured before a sheet in it reads properly.
+Separately, each font is asked — silently, so it produces no warning — whether it
+has those three characters **of its own**. The ones that do not are named at the
+foot of the page and in the log. That does **not** fail the build: it is a fact
+about the font, and the list is simply which languages are relying on the
+fallback rather than a sign that anything is wrong.
 
 ### Regenerating it
 
@@ -103,6 +117,15 @@ be used, which is what stops the empty-subset crash coming back.
 It is worth keeping in the content repository afterwards rather than deleting: it
 is a few seconds of compile, and it turns a change to the build image into a
 failure with a name on it rather than a mystery months later.
+
+## The dictionary in each language is not here
+
+`latex/dictionary/L2/<code>/mathematicalDictionary_<language>.tex` is written by
+the generator once the English dictionary is committed, so there is nothing to
+copy. It is worth knowing it exists, because it is where a bad translation is
+corrected and because it is what stops each sheet paying to translate the same
+words over again — see
+[content-repo-translation-setup.md](../content-repo-translation-setup.md).
 
 ## What is not here yet
 

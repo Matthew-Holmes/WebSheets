@@ -1,7 +1,8 @@
 using SyntheticPDFs.Configuration;
+using SyntheticPDFs.Models.Content;
 using System.Text.RegularExpressions;
 
-namespace SyntheticPDFs.Logic
+namespace SyntheticPDFs.Rendering
 {
     // The LaTeX every translated file is built from: the compiler directive, the
     // language's own preamble, the layout macros, and the provenance block that records
@@ -14,7 +15,10 @@ namespace SyntheticPDFs.Logic
     {
         // bumped when the macros below change in a way that alters the output, which
         // makes every file built from the old ones stale
-        internal const int MacroVersion = 1;
+        // 2 added the Latin fallback, without which a sheet in one of the fonts that
+        // carries no Latin loses its full stops, its digits and the em dash the glossary
+        // sets between a word and its meaning.
+        internal const int MacroVersion = 2;
 
         // The same idea for the layout of a vocabulary key, kept separate because it is
         // only the keys that use it. Restyling the key would otherwise rebuild every
@@ -35,26 +39,75 @@ namespace SyntheticPDFs.Logic
         // article sets roman), every face named (a font with no bold italic otherwise
         // fails to resolve for the whole family), and nothing touching the sheet's own
         // English font.
-        internal static String LanguagePreamble(LanguageProfile language)
+        //
+        // The fifth is the fallback below, which is what stops a font that carries only
+        // its own script losing every full stop on the page.
+        internal static String LanguagePreamble(LanguageProfile language, String? fallbackFont = null)
         {
             String bidi = language.RightToLeft ? ",bidi=basic" : "";
+
+            String fallback = String.IsNullOrWhiteSpace(fallbackFont)
+                ? String.Empty
+                : $", RawFeature={{fallback={FallbackName}}}";
 
             String faces = String.Join(", ",
                 "Renderer=Harfbuzz",
                 $"BoldFont={{{language.Font}}}",
                 $"ItalicFont={{{language.Font}}}",
-                $"BoldItalicFont={{{language.Font}}}");
+                $"BoldItalicFont={{{language.Font}}}")
+                + fallback;
 
             // a right to left language sets flush right; everything else flush left
             String alignment = language.RightToLeft ? @"\raggedleft" : @"\raggedright";
 
             return String.Join('\n',
+                FallbackDeclaration(fallbackFont),
                 $@"\usepackage[english{bidi}]{{babel}}",
                 $@"\babelprovide[import]{{{language.BabelName}}}",
                 $@"\babelfont[{language.BabelName}]{{rm}}[{faces}]{{{language.Font}}}",
                 $@"\babelfont[{language.BabelName}]{{sf}}[{faces}]{{{language.Font}}}",
                 $@"\newcommand{{\ealtext}}[1]{{\foreignlanguage{{{language.BabelName}}}{{#1}}}}",
                 $@"\newcommand{{\ealtextblock}}[1]{{{{{alignment}\foreignlanguage{{{language.BabelName}}}{{#1}}\par}}}}");
+        }
+
+        // Where a character the language's own font has not got is borrowed from.
+        //
+        // Several of the Noto script families carry their script and essentially nothing
+        // else - Bengali, Hebrew, Thai, Gujarati, Ethiopic and the naskh Arabic have no
+        // full stop, no digits and no em dash of their own. LuaTeX drops a character a
+        // font has not got rather than substituting one, and drops it silently as far as
+        // the exit code is concerned, so without this a translated sheet compiles green
+        // with holes where its punctuation should be.
+        //
+        // The base font is still the language's own, and is still asked first: a fallback
+        // is only ever reached for a character the script font does not have, so nothing
+        // about how the script itself is shaped changes.
+        //
+        // add_fallback needs luaotfload 3.13 or newer, and the check below stops rather
+        // than carrying on without it. That is deliberate: naming a fallback that was
+        // never registered does not degrade to no fallback, it makes the font itself
+        // unloadable, so a build without the support has to say so in words rather than
+        // fail later as "metric data not found".
+        //
+        // The name it is registered under is prefixed like every other macro here, so it
+        // cannot collide with something the sheet does for itself.
+        private const String FallbackName = "eallatinfallback";
+
+        private static String FallbackDeclaration(String? fallbackFont)
+        {
+            if (String.IsNullOrWhiteSpace(fallbackFont)) { return String.Empty; }
+
+            return String.Join('\n',
+                @"% Characters this language's font has not got are borrowed from another,",
+                @"% rather than being silently dropped - see docs/translated-sheet-latex.md",
+                @"\directlua{%",
+                @"  if luaotfload and luaotfload.add_fallback then",
+                $@"    luaotfload.add_fallback(""{FallbackName}"",",
+                $@"      {{ ""{fallbackFont}:mode=harf;"" }})",
+                @"  else",
+                @"    tex.error(""this luaotfload is too old to register a fallback font"")",
+                @"  end",
+                @"}");
         }
 
         #endregion
@@ -161,7 +214,8 @@ namespace SyntheticPDFs.Logic
             LanguageProfile? language,
             String builtFrom,
             String? vocabularyKey,
-            bool isKey = false)
+            bool isKey = false,
+            String? fallbackFont = null)
         {
             List<String> lines = new()
             {
@@ -177,6 +231,7 @@ namespace SyntheticPDFs.Logic
                 lines.Add(Setting("language", $"{language.TitleName} ({language.Code.Code})"));
                 lines.Add(Setting("text direction", language.DirectionDescription));
                 lines.Add(Setting("font", language.Font));
+                lines.Add(Setting("fallback font", fallbackFont ?? "none"));
             }
 
             lines.Add(Setting("built from", builtFrom));
@@ -227,25 +282,25 @@ namespace SyntheticPDFs.Logic
         {
             String sheet = Capitalise(metadata.RootName.Split('/').Last());
 
-            String what = metadata.Rendition switch
+            String what = metadata.Form switch
             {
-                SourceRendition.VocabKey     => "Tier 3 Vocabulary Key",
-                SourceRendition.L2Key        => "Tier 3 Vocabulary Key",
-                SourceRendition.ParallelText => "Parallel Text Version",
-                SourceRendition.Tier3Only    => "Tier 3 Vocabulary Version",
+                SheetForm.Glossary     => "Tier 3 Vocabulary Key",
+                SheetForm.TranslatedGlossary        => "Tier 3 Vocabulary Key",
+                SheetForm.ParallelText => "Parallel Text Version",
+                SheetForm.Tier3Only    => "Tier 3 Vocabulary Version",
                 _ => "Version",
             };
 
-            String of = metadata.Type switch
+            String of = metadata.Part switch
             {
-                SourceType.WorkedSolutions => $"the Worked Solutions for {sheet}",
-                SourceType.Solutions       => $"the Answers for {sheet}",
+                SheetPart.WorkedSolutions => $"the Worked Solutions for {sheet}",
+                SheetPart.Solutions       => $"the Answers for {sheet}",
                 _                          => sheet,
             };
 
             String prefix = language is null ? "" : language.TitleName + " ";
 
-            return metadata.Rendition is SourceRendition.VocabKey or SourceRendition.L2Key
+            return metadata.Form is SheetForm.Glossary or SheetForm.TranslatedGlossary
                 ? $"{prefix}{what} for {of}"
                 : $"{prefix}{what} of {of}";
         }
@@ -253,7 +308,7 @@ namespace SyntheticPDFs.Logic
         // just the parts of the metadata a title needs, so the renderer does not have to
         // reach into the orchestrator's types
         internal readonly record struct SourceMetadataTitle(
-            String RootName, SourceType Type, SourceRendition Rendition);
+            String RootName, SheetPart Part, SheetForm Form);
 
         private static String Capitalise(String name) =>
             name.Length == 0 ? name : Char.ToUpperInvariant(name[0]) + name[1..];
@@ -264,6 +319,10 @@ namespace SyntheticPDFs.Logic
         {
             internal required IReadOnlyList<(int R, int G, int B)> Colours { get; init; }
             internal required int MacroVersion { get; init; }
+
+            // "none" in a file written before a fallback was configured, and null in one
+            // with no language - an English glossary borrows nothing from anywhere
+            internal String? FallbackFont { get; init; }
 
             // null in anything that is not a vocabulary key, and in a key written
             // before the layout was versioned
@@ -278,6 +337,9 @@ namespace SyntheticPDFs.Logic
 
         private static readonly Regex KeyLayoutLine =
             new(@"key layout\s+version\s+(\d+)", RegexOptions.Compiled);
+
+        private static readonly Regex FallbackLine =
+            new(@"fallback font\s+(.+)", RegexOptions.Compiled);
 
         // null when the file carries no block we can read, which counts as out of date -
         // a file with no record of what it was made from cannot be shown to be current
@@ -300,6 +362,8 @@ namespace SyntheticPDFs.Logic
 
             var keyLayout = KeyLayoutLine.Match(normalised);
 
+            var fallback = FallbackLine.Match(normalised);
+
             return new Provenance
             {
                 Colours          = colours,
@@ -307,19 +371,31 @@ namespace SyntheticPDFs.Logic
                 KeyLayoutVersion = keyLayout.Success
                     ? int.Parse(keyLayout.Groups[1].Value)
                     : null,
+                FallbackFont     = fallback.Success ? fallback.Groups[1].Value.Trim() : null,
             };
         }
 
         // whether a file already in the repository was built from the settings in force
         // now. this is what makes a settings change rebuild only what it actually affects
         internal static bool MatchesSettings(
-            String texSource, L2ColourOptions colours, bool isKey = false)
+            String texSource,
+            L2ColourOptions colours,
+            bool isKey = false,
+            String? fallbackFont = null)
         {
             Provenance? provenance = ParseProvenance(texSource);
 
             if (provenance is null) { return false; }
 
             if (provenance.MacroVersion != MacroVersion) { return false; }
+
+            // Only a translated file records one - an English glossary borrows from
+            // nowhere, so it has no line to compare and none is expected.
+            if (provenance.FallbackFont is String recorded
+                && recorded != (fallbackFont ?? "none"))
+            {
+                return false;
+            }
 
             // a key written before the layout was versioned records nothing, which
             // cannot be shown to be current and so is not

@@ -1,10 +1,9 @@
 using Shared;
-using static SyntheticPDFs.Logic.Orchestrator;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 
 namespace SyntheticPDFs.Logic
 {
-    using RootName = String;
-
     public partial class Orchestrator
     {
         // One file someone has asked for, with the order they asked in. Held in memory
@@ -12,8 +11,8 @@ namespace SyntheticPDFs.Logic
         // exists the repository is the record of it.
         internal record PendingRequest
         {
-            internal required RootName Root { get; init; }
-            internal required SourceKey Key { get; init; }
+            internal required String Root { get; init; }
+            internal required ContentKey Key { get; init; }
             internal required long Sequence { get; init; }
         }
 
@@ -38,16 +37,16 @@ namespace SyntheticPDFs.Logic
                 return new GenerateResult(GenerateOutcome.NotUnderstood, why, Array.Empty<String>());
             }
 
-            IReadOnlyList<PlannedSource> plan =
-                SourcePlan.For(target.Archetype, Languages, L2Settings.GenerateVocabularyKeys);
+            IReadOnlyList<PlannedFile> plan =
+                target.Archetype.Plan(Languages, L2Settings.GenerateVocabularyKeys);
 
-            SourceKey wanted = KeyOf(target);
+            ContentKey wanted = target.Key;
 
-            List<SourceKey> closure = Closure(plan, wanted);
+            List<ContentKey> closure = Closure(plan, wanted);
 
             if (closure.Count == 0)
             {
-                why = $"{request.Rendition} in {request.Language} is not something "
+                why = $"{request.Form} in {request.Language} is not something "
                     + $"{target.RootName} can have";
 
                 return new GenerateResult(GenerateOutcome.NotUnderstood, why, Array.Empty<String>());
@@ -60,7 +59,7 @@ namespace SyntheticPDFs.Logic
             {
                 long sequence = _nextSequence++;
 
-                foreach (SourceKey key in closure)
+                foreach (ContentKey key in closure)
                 {
                     // a file already asked for keeps its original place in the queue
                     if (_requests.Any(r => r.Root == target.RootName && r.Key.Equals(key)))
@@ -77,12 +76,7 @@ namespace SyntheticPDFs.Logic
                 }
 
                 queued = closure
-                    .Select(k => GetFilenameFromMetadata(target with
-                    {
-                        Language  = k.Language,
-                        Type      = k.Type,
-                        Rendition = k.Rendition,
-                    }))
+                    .Select(k => (target with { Language = k.Language, Part = k.Part, Form = k.Form, }).FilePath)
                     .ToList();
             }
             finally
@@ -114,16 +108,16 @@ namespace SyntheticPDFs.Logic
                 return null;
             }
 
-            if (!Enum.TryParse(request.Type, ignoreCase: true, out SourceType type))
+            if (!Enum.TryParse(request.Part, ignoreCase: true, out SheetPart type))
             {
-                why = $"'{request.Type}' is not a part of a sheet - use Root, WorkedSolutions or Solutions";
+                why = $"'{request.Part}' is not a part of a sheet - use Root, WorkedSolutions or Solutions";
                 return null;
             }
 
-            if (!Enum.TryParse(request.Rendition, ignoreCase: true, out SourceRendition rendition)
-                || rendition is not (SourceRendition.ParallelText or SourceRendition.Tier3Only))
+            if (!Enum.TryParse(request.Form, ignoreCase: true, out SheetForm form)
+                || form is not (SheetForm.ParallelText or SheetForm.Tier3Only))
             {
-                why = $"'{request.Rendition}' is not a translated form - use ParallelText or Tier3Only";
+                why = $"'{request.Form}' is not a translated form - use ParallelText or Tier3Only";
                 return null;
             }
 
@@ -137,37 +131,37 @@ namespace SyntheticPDFs.Logic
             }
 
             // the archetype comes from the folder the root lives in, as it does everywhere
-            SourceMetadata parsed = ParseMetadataFromFilename(request.RootName, _logger);
+            SourceMetadata parsed = SheetArchetypes.Parse(request.RootName, _logger);
 
             return new SourceMetadata
             {
                 RootName  = request.RootName,
                 Archetype = parsed.Archetype,
                 Language  = language,
-                Type      = type,
-                Rendition = rendition,
+                Part      = type,
+                Form      = form,
             };
         }
 
         // everything that has to exist before the wanted file can be made, deepest first,
         // with the wanted file last
-        private static List<SourceKey> Closure(
-            IReadOnlyList<PlannedSource> plan, SourceKey wanted)
+        private static List<ContentKey> Closure(
+            IReadOnlyList<PlannedFile> plan, ContentKey wanted)
         {
             var byKey = plan.ToDictionary(p => p.Key);
 
-            if (!byKey.ContainsKey(wanted)) { return new List<SourceKey>(); }
+            if (!byKey.ContainsKey(wanted)) { return new List<ContentKey>(); }
 
-            List<SourceKey> ordered = new();
-            HashSet<SourceKey> seen = new();
+            List<ContentKey> ordered = new();
+            HashSet<ContentKey> seen = new();
 
-            void Visit(SourceKey key)
+            void Visit(ContentKey key)
             {
                 if (!seen.Add(key)) { return; }
 
-                if (!byKey.TryGetValue(key, out PlannedSource? planned)) { return; }
+                if (!byKey.TryGetValue(key, out PlannedFile? planned)) { return; }
 
-                foreach (SourceKey dependency in planned.DependsOn) { Visit(dependency); }
+                foreach (ContentKey dependency in planned.DependsOn) { Visit(dependency); }
 
                 // the English root is written by a person, so it is never queued - if it
                 // is missing the request simply waits, which is the honest outcome
@@ -182,7 +176,7 @@ namespace SyntheticPDFs.Logic
         #region What the batch selector asks
 
         // whether this file has been asked for, and if so how long ago
-        internal long? RequestedAt(RootName root, SourceKey key)
+        internal long? RequestedAt(String root, ContentKey key)
         {
             _requestLock.Wait();
             try
@@ -201,13 +195,13 @@ namespace SyntheticPDFs.Logic
         // A request is satisfied once the file is there. It is dropped rather than kept,
         // so that a later edit to the English sheet removes the file without it being
         // silently rebuilt - a file made on request is maintained only while it lasts.
-        internal void ForgetSatisfiedRequests(Dictionary<RootName, RootPlanState> states)
+        internal void ForgetSatisfiedRequests(ContentModel model)
         {
             _requestLock.Wait();
             try
             {
                 _requests.RemoveAll(r =>
-                    !states.TryGetValue(r.Root, out RootPlanState? state)
+                    !model.Sheets.TryGetValue(r.Root, out SheetState? state)
                     || !state.IsMissing(r.Key));
             }
             finally
@@ -245,7 +239,7 @@ namespace SyntheticPDFs.Logic
             RepoModelSnapshot snapshot = SnapshotForPurge();
 
             List<String> doomed = snapshot.Files
-                .Where(f => ShouldPurge(f.SourceMetadata.Rendition, scope))
+                .Where(f => ShouldPurge(f.SourceMetadata.Form, scope))
                 .Select(f => f.TrackedFile.FullPath)
                 .OrderBy(p => p, StringComparer.Ordinal)
                 .ToList();
@@ -273,14 +267,14 @@ namespace SyntheticPDFs.Logic
                 true, $"removed {doomed.Count} file(s); generation has started", doomed);
         }
 
-        private static bool ShouldPurge(SourceRendition rendition, PurgeScope scope)
+        private static bool ShouldPurge(SheetForm form, PurgeScope scope)
         {
-            switch (rendition)
+            switch (form)
             {
-                case SourceRendition.Original:
+                case SheetForm.Original:
                     return false;
 
-                case SourceRendition.VocabKey:
+                case SheetForm.Glossary:
                     return scope == PurgeScope.TranslationsAndVocabulary;
 
                 default:
@@ -288,17 +282,13 @@ namespace SyntheticPDFs.Logic
             }
         }
 
-        private record RepoModelSnapshot(List<TrackedFileWithMetadata> Files, String Hash);
+        private record RepoModelSnapshot(List<ContentFile> Files, String Hash);
 
         private RepoModelSnapshot SnapshotForPurge()
         {
-            var model = RepoManager.GetLatestModelOfRepo();
+            ContentModel model = ContentModel.From(RepoManager.GetLatestModelOfRepo(), _logger);
 
-            var files = GetVariantInfo(model, "tex")
-                .SelectMany(kvp => kvp.Value)
-                .ToList();
-
-            return new RepoModelSnapshot(files, model.LastCommitHash);
+            return new RepoModelSnapshot(model.AllFiles.ToList(), model.LastCommitHash);
         }
 
         #endregion

@@ -1,4 +1,6 @@
 using SyntheticPDFs.Models;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 using SyntheticPDFs.Services;
 
 namespace SyntheticPDFs.Logic

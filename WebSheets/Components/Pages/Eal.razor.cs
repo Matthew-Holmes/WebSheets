@@ -272,13 +272,13 @@ public partial class Eal : ComponentBase
                 // object store paths leave off
                 RootName  = $"{SourceOptions.Value.LatexSourcePath}/{Path}",
                 Language  = Chosen.Code,
-                Type      = part switch
+                Part      = part switch
                 {
                     SheetPart.WorkedSolutions => "WorkedSolutions",
                     SheetPart.Solutions       => "Solutions",
                     _                         => "Root",
                 },
-                Rendition = form == SheetForm.Tier3Only ? "Tier3Only" : "ParallelText",
+                Form = form == SheetForm.Tier3Only ? "Tier3Only" : "ParallelText",
             };
 
             var response = await http.PostAsJsonAsync("generate", request);

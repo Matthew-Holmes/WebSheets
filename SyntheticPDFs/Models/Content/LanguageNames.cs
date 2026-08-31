@@ -1,4 +1,4 @@
-namespace SyntheticPDFs.Logic
+namespace SyntheticPDFs.Models.Content
 {
     // ISO 639-3 codes we are prepared to see in a filename, with the English name
     // that goes into the name of a translated file.

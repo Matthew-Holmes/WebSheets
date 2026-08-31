@@ -2,6 +2,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 using SyntheticPDFs.Tests.Fakes;
 
 namespace SyntheticPDFs.Tests
@@ -34,7 +36,7 @@ namespace SyntheticPDFs.Tests
 
         // ---- parsing ----
 
-        // SourceArchetype is internal, so it cannot be a parameter on a public test method
+        // SheetArchetype is internal, so it cannot be a parameter on a public test method
         [TestMethod]
         [DataRow("latex/worksheets/quadratics", "Worksheet")]
         [DataRow("latex/worksheets/algebra/KS4/quadratics", "Worksheet")]
@@ -43,9 +45,9 @@ namespace SyntheticPDFs.Tests
         [DataRow("latex/cheatSheets/trigIdentities", "Poster")]
         public void ArchetypeComesFromTheFolder(String path, String expected)
         {
-            var parsed = Orchestrator.ParseMetadataFromFilename(path);
+            var parsed = SheetArchetypes.Parse(path);
 
-            Assert.AreEqual(Enum.Parse<SourceArchetype>(expected), parsed.Archetype);
+            Assert.AreEqual(SheetArchetypes.ByName(expected), parsed.Archetype);
         }
 
         [TestMethod]
@@ -54,9 +56,9 @@ namespace SyntheticPDFs.Tests
         public void DerivedFilesKeepTheArchetypeOfTheirRoot(String path)
         {
             // the suffix decides the type, the folder still decides the archetype
-            var parsed = Orchestrator.ParseMetadataFromFilename(path);
+            var parsed = SheetArchetypes.Parse(path);
 
-            Assert.AreEqual(SourceArchetype.QuestionSlides, parsed.Archetype);
+            Assert.AreEqual(SheetArchetypes.QuestionSlides, parsed.Archetype);
             Assert.AreEqual("latex/starters/KS3/circlesArea", parsed.RootName);
         }
 
@@ -65,9 +67,9 @@ namespace SyntheticPDFs.Tests
         {
             var logger = new RecordingLogger();
 
-            var parsed = Orchestrator.ParseMetadataFromFilename("latex/somethingNew/sheet", logger);
+            var parsed = SheetArchetypes.Parse("latex/somethingNew/sheet", logger);
 
-            Assert.AreEqual(SourceArchetype.Worksheet, parsed.Archetype);
+            Assert.AreEqual(SheetArchetypes.Worksheet, parsed.Archetype);
             StringAssert.Contains(logger.Warnings.Single(), "somethingNew");
         }
 
@@ -77,9 +79,9 @@ namespace SyntheticPDFs.Tests
             // latex/atype/name is the shortest path that carries an archetype
             var logger = new RecordingLogger();
 
-            var parsed = Orchestrator.ParseMetadataFromFilename("latex/looseSheet", logger);
+            var parsed = SheetArchetypes.Parse("latex/looseSheet", logger);
 
-            Assert.AreEqual(SourceArchetype.Worksheet, parsed.Archetype);
+            Assert.AreEqual(SheetArchetypes.Worksheet, parsed.Archetype);
             StringAssert.Contains(logger.Warnings.Single(), "looseSheet");
         }
 
@@ -89,9 +91,9 @@ namespace SyntheticPDFs.Tests
             // one odd path must not take a whole pass down with it
             var logger = new RecordingLogger();
 
-            var parsed = Orchestrator.ParseMetadataFromFilename("elsewhere/worksheets/sheet", logger);
+            var parsed = SheetArchetypes.Parse("elsewhere/worksheets/sheet", logger);
 
-            Assert.AreEqual(SourceArchetype.Worksheet, parsed.Archetype);
+            Assert.AreEqual(SheetArchetypes.Worksheet, parsed.Archetype);
             Assert.AreEqual("elsewhere/worksheets/sheet", parsed.RootName);
             StringAssert.Contains(logger.Warnings.Single(), "elsewhere/worksheets/sheet");
         }

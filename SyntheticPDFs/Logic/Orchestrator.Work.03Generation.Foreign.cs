@@ -1,5 +1,7 @@
-﻿using SyntheticPDFs.Configuration;
+using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Models;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 
 namespace SyntheticPDFs.Logic
 {
@@ -13,9 +15,9 @@ namespace SyntheticPDFs.Logic
         {
             SourceMetadata sm = request.Target;
 
-            if (sm.Rendition is not (SourceRendition.ParallelText or SourceRendition.Tier3Only))
+            if (sm.Form is not (SheetForm.ParallelText or SheetForm.Tier3Only))
             {
-                throw new NotImplementedException($"no way to generate a {sm.Rendition}");
+                throw new NotImplementedException($"no way to generate a {sm.Form}");
             }
 
             LanguageProfile? language = Languages.Get(sm.Language);
@@ -28,19 +30,11 @@ namespace SyntheticPDFs.Logic
 
             // the English file this is a version of - the sheet itself, or its worked
             // solutions, or its answers
-            String englishFilename = GetFilenameFromMetadata(sm with
-            {
-                Language  = ISO639_3Code.eng,
-                Rendition = SourceRendition.Original,
-            });
+            String englishFilename = (sm with { Language = ISO639_3Code.eng, Form = SheetForm.Original, }).FilePath;
 
             String english = RepoManager.GetContent(englishFilename).TexSource;
 
-            String keyFilename = GetFilenameFromMetadata(sm with
-            {
-                Type      = SourceType.Root,
-                Rendition = SourceRendition.L2Key,
-            });
+            String keyFilename = (sm with { Part = SheetPart.Root, Form = SheetForm.TranslatedGlossary, }).FilePath;
 
             List<VocabTerm>? terms = L2VocabData.ReadBlock(
                 RepoManager.GetContent(keyFilename).TexSource);
@@ -51,22 +45,23 @@ namespace SyntheticPDFs.Logic
             }
 
             String body = await SourceGenerator.GenerateTranslatedBody(
-                english, terms, language, L2Settings.Colours, sm.Rendition, LLMService);
+                english, terms, language, L2Settings.Colours, sm.Form, LLMService);
 
             String tex = L2Document.Assemble(
                 body,
                 L2Document.DocumentClassOf(english),
                 L2Document.PackagesOf(english),
                 L2Macros.TitleFor(
-                    new L2Macros.SourceMetadataTitle(sm.RootName, sm.Type, sm.Rendition), language),
+                    new L2Macros.SourceMetadataTitle(sm.RootName, sm.Part, sm.Form), language),
                 L2Settings.Colours,
                 language,
                 builtFrom: englishFilename,
-                vocabularyKey: keyFilename);
+                vocabularyKey: keyFilename,
+                fallbackFont: L2Settings.FallbackFont);
 
             return new List<TexSourceModel>
             {
-                new TexSourceModel { FileNameFullPath = GetFilenameFromMetadata(sm), TexSource = tex }
+                new TexSourceModel { FileNameFullPath = sm.FilePath, TexSource = tex }
             };
         }
     }

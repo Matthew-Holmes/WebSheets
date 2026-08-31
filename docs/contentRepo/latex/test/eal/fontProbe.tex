@@ -20,9 +20,16 @@
 % font that is selected and then prints nothing leaves LuaTeX subsetting an
 % empty font, which is a fatal backend error rather than a warning.
 %
-% That is worth knowing for its own sake, so each font is also asked whether it
-% has the Latin characters a translated sheet mixes into its own script. That
-% one is reported at the foot of the page and in the log, and is not fatal.
+% Beside the script letter, each language also prints the three Latin characters
+% a translated sheet mixes into its own script - a full stop, a digit and an em
+% dash. Those come from the fallback font wherever the language's own font has
+% not got them, so a Missing character line for one of them means the fallback
+% is not working in this container, and every translated sheet is quietly losing
+% its punctuation.
+%
+% Each font is separately asked, silently, whether it has those three of its own.
+% That is reported at the foot of the page and in the log and is not fatal: it
+% says which languages are relying on the fallback, not that anything is wrong.
 %
 % Generated from the generator's configuration by SyntheticPDFs.Tests - see
 % docs/content-repo-translation-setup.md before editing it by hand.
@@ -48,11 +55,13 @@
   \fi
 }
 
-% Does this font have the Latin characters a translated sheet mixes into its own
-% script? A full stop closes most definitions, digits appear in any fraction, and
-% the vocabulary key sets an em dash between a word and its meaning. LuaTeX drops
-% what a font has not got, leaving a warning in the log and a hole in the page,
-% so it is worth learning here rather than from a sheet.
+% Does this font have, of its own, the Latin characters a translated sheet mixes
+% into its own script? A full stop closes most definitions, digits appear in any
+% fraction, and the key sets an em dash between a word and its meaning.
+%
+% \iffontchar sees the font itself and not what the fallback lends it, which is
+% exactly what is wanted: the fallback fills these holes, and this says which
+% languages would have them without it.
 \newif\ifeallatin
 \def\eallatinlist{}
 \newcommand{\ealnolatin}[2]{%
@@ -80,346 +89,375 @@
 \newcommand{\ealfound}[2]{\expandafter\gdef\csname ealhas@#1\endcsname{#2}}
 \newcommand{\ealshow}[2]{%
   \ifcsname ealhas@#1\endcsname
-    \foreignlanguage{#1}{\selectfont\csname ealhas@#1\endcsname\eallatin{#2}}%
+    \foreignlanguage{#1}{\selectfont
+      \csname ealhas@#1\endcsname\eallatin{#2}\space{}. 0 \textemdash}%
   \else
     \textbf{\textcolor{red}{MISSING}}%
   \fi
 }
 
+
+% Where a character the language's own font has not got is borrowed from.
+% Several of the Noto script families carry their script and essentially no
+% Latin, and LuaTeX drops what a font has not got rather than substituting one,
+% so without this a sheet in one of them loses its punctuation.
+%
+% Every translated file loads this one font, so a name that does not resolve
+% breaks all of them rather than one - which is why it is fatal here.
+\IfFontExistsTF{Noto Serif}{}{%
+  \PackageError{fontProbe}{The fallback font Noto Serif is not installed}{%
+    Every translated file loads it, so no translated sheet will keep its full
+    stops until it is there. Install it, or change L2:FallbackFont to a family
+    that is.%
+  }%
+}
+%
+% Naming a fallback that was never registered does not degrade to no
+% fallback - it makes the font itself unloadable - so a build whose
+% luaotfload is too old to register one has to stop and say so.
+\directlua{%
+  if luaotfload and luaotfload.add_fallback then
+    luaotfload.add_fallback("eallatinfallback",
+      { "Noto Serif:mode=harf;" })
+  else
+    tex.error("this luaotfload is too old to register a fallback font")
+  end
+}
+
 \babelprovide[import]{albanian}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[albanian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[albanian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[albanian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[albanian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{albanian}{A}}
   {\ealabsent{Albanian}{Noto Serif}}
 \babelprovide[import]{amharic}
 \IfFontExistsTF{Noto Sans Ethiopic}
-  {\babelfont[amharic]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Ethiopic}, ItalicFont={Noto Sans Ethiopic}, BoldItalicFont={Noto Sans Ethiopic}]{Noto Sans Ethiopic}%
-   \babelfont[amharic]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Ethiopic}, ItalicFont={Noto Sans Ethiopic}, BoldItalicFont={Noto Sans Ethiopic}]{Noto Sans Ethiopic}%
+  {\babelfont[amharic]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Ethiopic}, ItalicFont={Noto Sans Ethiopic}, BoldItalicFont={Noto Sans Ethiopic}, RawFeature={fallback=eallatinfallback}]{Noto Sans Ethiopic}%
+   \babelfont[amharic]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Ethiopic}, ItalicFont={Noto Sans Ethiopic}, BoldItalicFont={Noto Sans Ethiopic}, RawFeature={fallback=eallatinfallback}]{Noto Sans Ethiopic}%
    \ealfound{amharic}{ሀ}}
   {\ealabsent{Amharic}{Noto Sans Ethiopic}}
 \babelprovide[import]{arabic}
 \IfFontExistsTF{Noto Naskh Arabic}
-  {\babelfont[arabic]{rm}[Renderer=Harfbuzz, BoldFont={Noto Naskh Arabic}, ItalicFont={Noto Naskh Arabic}, BoldItalicFont={Noto Naskh Arabic}]{Noto Naskh Arabic}%
-   \babelfont[arabic]{sf}[Renderer=Harfbuzz, BoldFont={Noto Naskh Arabic}, ItalicFont={Noto Naskh Arabic}, BoldItalicFont={Noto Naskh Arabic}]{Noto Naskh Arabic}%
+  {\babelfont[arabic]{rm}[Renderer=Harfbuzz, BoldFont={Noto Naskh Arabic}, ItalicFont={Noto Naskh Arabic}, BoldItalicFont={Noto Naskh Arabic}, RawFeature={fallback=eallatinfallback}]{Noto Naskh Arabic}%
+   \babelfont[arabic]{sf}[Renderer=Harfbuzz, BoldFont={Noto Naskh Arabic}, ItalicFont={Noto Naskh Arabic}, BoldItalicFont={Noto Naskh Arabic}, RawFeature={fallback=eallatinfallback}]{Noto Naskh Arabic}%
    \ealfound{arabic}{ا}}
   {\ealabsent{Arabic}{Noto Naskh Arabic}}
 \babelprovide[import]{bengali}
 \IfFontExistsTF{Noto Sans Bengali}
-  {\babelfont[bengali]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Bengali}, ItalicFont={Noto Sans Bengali}, BoldItalicFont={Noto Sans Bengali}]{Noto Sans Bengali}%
-   \babelfont[bengali]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Bengali}, ItalicFont={Noto Sans Bengali}, BoldItalicFont={Noto Sans Bengali}]{Noto Sans Bengali}%
+  {\babelfont[bengali]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Bengali}, ItalicFont={Noto Sans Bengali}, BoldItalicFont={Noto Sans Bengali}, RawFeature={fallback=eallatinfallback}]{Noto Sans Bengali}%
+   \babelfont[bengali]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Bengali}, ItalicFont={Noto Sans Bengali}, BoldItalicFont={Noto Sans Bengali}, RawFeature={fallback=eallatinfallback}]{Noto Sans Bengali}%
    \ealfound{bengali}{অ}}
   {\ealabsent{Bengali}{Noto Sans Bengali}}
 \babelprovide[import]{bulgarian}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[bulgarian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[bulgarian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[bulgarian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[bulgarian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{bulgarian}{A}}
   {\ealabsent{Bulgarian}{Noto Serif}}
 \babelprovide[import]{chinese}
 \IfFontExistsTF{Noto Sans CJK SC}
-  {\babelfont[chinese]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans CJK SC}, ItalicFont={Noto Sans CJK SC}, BoldItalicFont={Noto Sans CJK SC}]{Noto Sans CJK SC}%
-   \babelfont[chinese]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans CJK SC}, ItalicFont={Noto Sans CJK SC}, BoldItalicFont={Noto Sans CJK SC}]{Noto Sans CJK SC}%
+  {\babelfont[chinese]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans CJK SC}, ItalicFont={Noto Sans CJK SC}, BoldItalicFont={Noto Sans CJK SC}, RawFeature={fallback=eallatinfallback}]{Noto Sans CJK SC}%
+   \babelfont[chinese]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans CJK SC}, ItalicFont={Noto Sans CJK SC}, BoldItalicFont={Noto Sans CJK SC}, RawFeature={fallback=eallatinfallback}]{Noto Sans CJK SC}%
    \ealfound{chinese}{中}}
   {\ealabsent{Chinese}{Noto Sans CJK SC}}
 \babelprovide[import]{croatian}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[croatian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[croatian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[croatian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[croatian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{croatian}{A}}
   {\ealabsent{Croatian}{Noto Serif}}
 \babelprovide[import]{czech}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[czech]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[czech]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[czech]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[czech]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{czech}{A}}
   {\ealabsent{Czech}{Noto Serif}}
 \babelprovide[import]{dutch}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[dutch]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[dutch]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[dutch]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[dutch]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{dutch}{A}}
   {\ealabsent{Dutch}{Noto Serif}}
 \babelprovide[import]{estonian}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[estonian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[estonian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[estonian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[estonian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{estonian}{A}}
   {\ealabsent{Estonian}{Noto Serif}}
 \babelprovide[import]{persian}
 \IfFontExistsTF{Noto Naskh Arabic}
-  {\babelfont[persian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Naskh Arabic}, ItalicFont={Noto Naskh Arabic}, BoldItalicFont={Noto Naskh Arabic}]{Noto Naskh Arabic}%
-   \babelfont[persian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Naskh Arabic}, ItalicFont={Noto Naskh Arabic}, BoldItalicFont={Noto Naskh Arabic}]{Noto Naskh Arabic}%
+  {\babelfont[persian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Naskh Arabic}, ItalicFont={Noto Naskh Arabic}, BoldItalicFont={Noto Naskh Arabic}, RawFeature={fallback=eallatinfallback}]{Noto Naskh Arabic}%
+   \babelfont[persian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Naskh Arabic}, ItalicFont={Noto Naskh Arabic}, BoldItalicFont={Noto Naskh Arabic}, RawFeature={fallback=eallatinfallback}]{Noto Naskh Arabic}%
    \ealfound{persian}{ا}}
   {\ealabsent{Farsi}{Noto Naskh Arabic}}
 \babelprovide[import]{french}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[french]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[french]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[french]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[french]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{french}{A}}
   {\ealabsent{French}{Noto Serif}}
 \babelprovide[import]{german}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[german]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[german]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[german]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[german]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{german}{A}}
   {\ealabsent{German}{Noto Serif}}
 \babelprovide[import]{greek}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[greek]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[greek]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[greek]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[greek]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{greek}{A}}
   {\ealabsent{Greek}{Noto Serif}}
 \babelprovide[import]{gujarati}
 \IfFontExistsTF{Noto Sans Gujarati}
-  {\babelfont[gujarati]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Gujarati}, ItalicFont={Noto Sans Gujarati}, BoldItalicFont={Noto Sans Gujarati}]{Noto Sans Gujarati}%
-   \babelfont[gujarati]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Gujarati}, ItalicFont={Noto Sans Gujarati}, BoldItalicFont={Noto Sans Gujarati}]{Noto Sans Gujarati}%
+  {\babelfont[gujarati]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Gujarati}, ItalicFont={Noto Sans Gujarati}, BoldItalicFont={Noto Sans Gujarati}, RawFeature={fallback=eallatinfallback}]{Noto Sans Gujarati}%
+   \babelfont[gujarati]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Gujarati}, ItalicFont={Noto Sans Gujarati}, BoldItalicFont={Noto Sans Gujarati}, RawFeature={fallback=eallatinfallback}]{Noto Sans Gujarati}%
    \ealfound{gujarati}{અ}}
   {\ealabsent{Gujarati}{Noto Sans Gujarati}}
 \babelprovide[import]{hausa}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[hausa]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[hausa]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[hausa]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[hausa]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{hausa}{A}}
   {\ealabsent{Hausa}{Noto Serif}}
 \babelprovide[import]{hebrew}
 \IfFontExistsTF{Noto Sans Hebrew}
-  {\babelfont[hebrew]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Hebrew}, ItalicFont={Noto Sans Hebrew}, BoldItalicFont={Noto Sans Hebrew}]{Noto Sans Hebrew}%
-   \babelfont[hebrew]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Hebrew}, ItalicFont={Noto Sans Hebrew}, BoldItalicFont={Noto Sans Hebrew}]{Noto Sans Hebrew}%
+  {\babelfont[hebrew]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Hebrew}, ItalicFont={Noto Sans Hebrew}, BoldItalicFont={Noto Sans Hebrew}, RawFeature={fallback=eallatinfallback}]{Noto Sans Hebrew}%
+   \babelfont[hebrew]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Hebrew}, ItalicFont={Noto Sans Hebrew}, BoldItalicFont={Noto Sans Hebrew}, RawFeature={fallback=eallatinfallback}]{Noto Sans Hebrew}%
    \ealfound{hebrew}{א}}
   {\ealabsent{Hebrew}{Noto Sans Hebrew}}
 \babelprovide[import]{hindi}
 \IfFontExistsTF{Noto Sans Devanagari}
-  {\babelfont[hindi]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Devanagari}, ItalicFont={Noto Sans Devanagari}, BoldItalicFont={Noto Sans Devanagari}]{Noto Sans Devanagari}%
-   \babelfont[hindi]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Devanagari}, ItalicFont={Noto Sans Devanagari}, BoldItalicFont={Noto Sans Devanagari}]{Noto Sans Devanagari}%
+  {\babelfont[hindi]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Devanagari}, ItalicFont={Noto Sans Devanagari}, BoldItalicFont={Noto Sans Devanagari}, RawFeature={fallback=eallatinfallback}]{Noto Sans Devanagari}%
+   \babelfont[hindi]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Devanagari}, ItalicFont={Noto Sans Devanagari}, BoldItalicFont={Noto Sans Devanagari}, RawFeature={fallback=eallatinfallback}]{Noto Sans Devanagari}%
    \ealfound{hindi}{अ}}
   {\ealabsent{Hindi}{Noto Sans Devanagari}}
 \babelprovide[import]{hungarian}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[hungarian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[hungarian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[hungarian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[hungarian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{hungarian}{A}}
   {\ealabsent{Hungarian}{Noto Serif}}
 \babelprovide[import]{igbo}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[igbo]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[igbo]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[igbo]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[igbo]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{igbo}{A}}
   {\ealabsent{Igbo}{Noto Serif}}
 \babelprovide[import]{italian}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[italian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[italian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[italian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[italian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{italian}{A}}
   {\ealabsent{Italian}{Noto Serif}}
 \babelprovide[import]{japanese}
 \IfFontExistsTF{Noto Sans CJK JP}
-  {\babelfont[japanese]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans CJK JP}, ItalicFont={Noto Sans CJK JP}, BoldItalicFont={Noto Sans CJK JP}]{Noto Sans CJK JP}%
-   \babelfont[japanese]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans CJK JP}, ItalicFont={Noto Sans CJK JP}, BoldItalicFont={Noto Sans CJK JP}]{Noto Sans CJK JP}%
+  {\babelfont[japanese]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans CJK JP}, ItalicFont={Noto Sans CJK JP}, BoldItalicFont={Noto Sans CJK JP}, RawFeature={fallback=eallatinfallback}]{Noto Sans CJK JP}%
+   \babelfont[japanese]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans CJK JP}, ItalicFont={Noto Sans CJK JP}, BoldItalicFont={Noto Sans CJK JP}, RawFeature={fallback=eallatinfallback}]{Noto Sans CJK JP}%
    \ealfound{japanese}{あ}}
   {\ealabsent{Japanese}{Noto Sans CJK JP}}
 \babelprovide[import]{kannada}
 \IfFontExistsTF{Noto Sans Kannada}
-  {\babelfont[kannada]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Kannada}, ItalicFont={Noto Sans Kannada}, BoldItalicFont={Noto Sans Kannada}]{Noto Sans Kannada}%
-   \babelfont[kannada]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Kannada}, ItalicFont={Noto Sans Kannada}, BoldItalicFont={Noto Sans Kannada}]{Noto Sans Kannada}%
+  {\babelfont[kannada]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Kannada}, ItalicFont={Noto Sans Kannada}, BoldItalicFont={Noto Sans Kannada}, RawFeature={fallback=eallatinfallback}]{Noto Sans Kannada}%
+   \babelfont[kannada]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Kannada}, ItalicFont={Noto Sans Kannada}, BoldItalicFont={Noto Sans Kannada}, RawFeature={fallback=eallatinfallback}]{Noto Sans Kannada}%
    \ealfound{kannada}{ಅ}}
   {\ealabsent{Kannada}{Noto Sans Kannada}}
 \babelprovide[import]{korean}
 \IfFontExistsTF{Noto Sans CJK KR}
-  {\babelfont[korean]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans CJK KR}, ItalicFont={Noto Sans CJK KR}, BoldItalicFont={Noto Sans CJK KR}]{Noto Sans CJK KR}%
-   \babelfont[korean]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans CJK KR}, ItalicFont={Noto Sans CJK KR}, BoldItalicFont={Noto Sans CJK KR}]{Noto Sans CJK KR}%
+  {\babelfont[korean]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans CJK KR}, ItalicFont={Noto Sans CJK KR}, BoldItalicFont={Noto Sans CJK KR}, RawFeature={fallback=eallatinfallback}]{Noto Sans CJK KR}%
+   \babelfont[korean]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans CJK KR}, ItalicFont={Noto Sans CJK KR}, BoldItalicFont={Noto Sans CJK KR}, RawFeature={fallback=eallatinfallback}]{Noto Sans CJK KR}%
    \ealfound{korean}{가}}
   {\ealabsent{Korean}{Noto Sans CJK KR}}
 \babelprovide[import]{kurdish}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[kurdish]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[kurdish]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[kurdish]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[kurdish]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{kurdish}{A}}
   {\ealabsent{Kurdish}{Noto Serif}}
 \babelprovide[import]{latvian}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[latvian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[latvian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[latvian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[latvian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{latvian}{A}}
   {\ealabsent{Latvian}{Noto Serif}}
 \babelprovide[import]{lithuanian}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[lithuanian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[lithuanian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[lithuanian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[lithuanian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{lithuanian}{A}}
   {\ealabsent{Lithuanian}{Noto Serif}}
 \babelprovide[import]{malayalam}
 \IfFontExistsTF{Noto Sans Malayalam}
-  {\babelfont[malayalam]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Malayalam}, ItalicFont={Noto Sans Malayalam}, BoldItalicFont={Noto Sans Malayalam}]{Noto Sans Malayalam}%
-   \babelfont[malayalam]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Malayalam}, ItalicFont={Noto Sans Malayalam}, BoldItalicFont={Noto Sans Malayalam}]{Noto Sans Malayalam}%
+  {\babelfont[malayalam]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Malayalam}, ItalicFont={Noto Sans Malayalam}, BoldItalicFont={Noto Sans Malayalam}, RawFeature={fallback=eallatinfallback}]{Noto Sans Malayalam}%
+   \babelfont[malayalam]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Malayalam}, ItalicFont={Noto Sans Malayalam}, BoldItalicFont={Noto Sans Malayalam}, RawFeature={fallback=eallatinfallback}]{Noto Sans Malayalam}%
    \ealfound{malayalam}{അ}}
   {\ealabsent{Malayalam}{Noto Sans Malayalam}}
 \babelprovide[import]{marathi}
 \IfFontExistsTF{Noto Sans Devanagari}
-  {\babelfont[marathi]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Devanagari}, ItalicFont={Noto Sans Devanagari}, BoldItalicFont={Noto Sans Devanagari}]{Noto Sans Devanagari}%
-   \babelfont[marathi]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Devanagari}, ItalicFont={Noto Sans Devanagari}, BoldItalicFont={Noto Sans Devanagari}]{Noto Sans Devanagari}%
+  {\babelfont[marathi]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Devanagari}, ItalicFont={Noto Sans Devanagari}, BoldItalicFont={Noto Sans Devanagari}, RawFeature={fallback=eallatinfallback}]{Noto Sans Devanagari}%
+   \babelfont[marathi]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Devanagari}, ItalicFont={Noto Sans Devanagari}, BoldItalicFont={Noto Sans Devanagari}, RawFeature={fallback=eallatinfallback}]{Noto Sans Devanagari}%
    \ealfound{marathi}{अ}}
   {\ealabsent{Marathi}{Noto Sans Devanagari}}
 \babelprovide[import]{nepali}
 \IfFontExistsTF{Noto Sans Devanagari}
-  {\babelfont[nepali]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Devanagari}, ItalicFont={Noto Sans Devanagari}, BoldItalicFont={Noto Sans Devanagari}]{Noto Sans Devanagari}%
-   \babelfont[nepali]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Devanagari}, ItalicFont={Noto Sans Devanagari}, BoldItalicFont={Noto Sans Devanagari}]{Noto Sans Devanagari}%
+  {\babelfont[nepali]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Devanagari}, ItalicFont={Noto Sans Devanagari}, BoldItalicFont={Noto Sans Devanagari}, RawFeature={fallback=eallatinfallback}]{Noto Sans Devanagari}%
+   \babelfont[nepali]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Devanagari}, ItalicFont={Noto Sans Devanagari}, BoldItalicFont={Noto Sans Devanagari}, RawFeature={fallback=eallatinfallback}]{Noto Sans Devanagari}%
    \ealfound{nepali}{अ}}
   {\ealabsent{Nepali}{Noto Sans Devanagari}}
 \babelprovide[import]{pashto}
 \IfFontExistsTF{Noto Naskh Arabic}
-  {\babelfont[pashto]{rm}[Renderer=Harfbuzz, BoldFont={Noto Naskh Arabic}, ItalicFont={Noto Naskh Arabic}, BoldItalicFont={Noto Naskh Arabic}]{Noto Naskh Arabic}%
-   \babelfont[pashto]{sf}[Renderer=Harfbuzz, BoldFont={Noto Naskh Arabic}, ItalicFont={Noto Naskh Arabic}, BoldItalicFont={Noto Naskh Arabic}]{Noto Naskh Arabic}%
+  {\babelfont[pashto]{rm}[Renderer=Harfbuzz, BoldFont={Noto Naskh Arabic}, ItalicFont={Noto Naskh Arabic}, BoldItalicFont={Noto Naskh Arabic}, RawFeature={fallback=eallatinfallback}]{Noto Naskh Arabic}%
+   \babelfont[pashto]{sf}[Renderer=Harfbuzz, BoldFont={Noto Naskh Arabic}, ItalicFont={Noto Naskh Arabic}, BoldItalicFont={Noto Naskh Arabic}, RawFeature={fallback=eallatinfallback}]{Noto Naskh Arabic}%
    \ealfound{pashto}{ا}}
   {\ealabsent{Pashto}{Noto Naskh Arabic}}
 \babelprovide[import]{polish}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[polish]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[polish]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[polish]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[polish]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{polish}{A}}
   {\ealabsent{Polish}{Noto Serif}}
 \babelprovide[import]{portuguese}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[portuguese]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[portuguese]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[portuguese]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[portuguese]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{portuguese}{A}}
   {\ealabsent{Portuguese}{Noto Serif}}
 \babelprovide[import]{punjabi}
 \IfFontExistsTF{Noto Sans Gurmukhi}
-  {\babelfont[punjabi]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Gurmukhi}, ItalicFont={Noto Sans Gurmukhi}, BoldItalicFont={Noto Sans Gurmukhi}]{Noto Sans Gurmukhi}%
-   \babelfont[punjabi]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Gurmukhi}, ItalicFont={Noto Sans Gurmukhi}, BoldItalicFont={Noto Sans Gurmukhi}]{Noto Sans Gurmukhi}%
+  {\babelfont[punjabi]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Gurmukhi}, ItalicFont={Noto Sans Gurmukhi}, BoldItalicFont={Noto Sans Gurmukhi}, RawFeature={fallback=eallatinfallback}]{Noto Sans Gurmukhi}%
+   \babelfont[punjabi]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Gurmukhi}, ItalicFont={Noto Sans Gurmukhi}, BoldItalicFont={Noto Sans Gurmukhi}, RawFeature={fallback=eallatinfallback}]{Noto Sans Gurmukhi}%
    \ealfound{punjabi}{ਅ}}
   {\ealabsent{Punjabi}{Noto Sans Gurmukhi}}
 \babelprovide[import]{romanian}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[romanian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[romanian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[romanian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[romanian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{romanian}{A}}
   {\ealabsent{Romanian}{Noto Serif}}
 \babelprovide[import]{russian}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[russian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[russian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[russian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[russian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{russian}{A}}
   {\ealabsent{Russian}{Noto Serif}}
 \babelprovide[import]{serbian}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[serbian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[serbian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[serbian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[serbian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{serbian}{A}}
   {\ealabsent{Serbian}{Noto Serif}}
 \babelprovide[import]{shona}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[shona]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[shona]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[shona]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[shona]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{shona}{A}}
   {\ealabsent{Shona}{Noto Serif}}
 \babelprovide[import]{sinhala}
 \IfFontExistsTF{Noto Sans Sinhala}
-  {\babelfont[sinhala]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Sinhala}, ItalicFont={Noto Sans Sinhala}, BoldItalicFont={Noto Sans Sinhala}]{Noto Sans Sinhala}%
-   \babelfont[sinhala]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Sinhala}, ItalicFont={Noto Sans Sinhala}, BoldItalicFont={Noto Sans Sinhala}]{Noto Sans Sinhala}%
+  {\babelfont[sinhala]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Sinhala}, ItalicFont={Noto Sans Sinhala}, BoldItalicFont={Noto Sans Sinhala}, RawFeature={fallback=eallatinfallback}]{Noto Sans Sinhala}%
+   \babelfont[sinhala]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Sinhala}, ItalicFont={Noto Sans Sinhala}, BoldItalicFont={Noto Sans Sinhala}, RawFeature={fallback=eallatinfallback}]{Noto Sans Sinhala}%
    \ealfound{sinhala}{අ}}
   {\ealabsent{Sinhala}{Noto Sans Sinhala}}
 \babelprovide[import]{slovak}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[slovak]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[slovak]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[slovak]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[slovak]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{slovak}{A}}
   {\ealabsent{Slovak}{Noto Serif}}
 \babelprovide[import]{somali}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[somali]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[somali]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[somali]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[somali]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{somali}{A}}
   {\ealabsent{Somali}{Noto Serif}}
 \babelprovide[import]{spanish}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[spanish]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[spanish]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[spanish]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[spanish]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{spanish}{A}}
   {\ealabsent{Spanish}{Noto Serif}}
 \babelprovide[import]{swahili}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[swahili]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[swahili]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[swahili]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[swahili]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{swahili}{A}}
   {\ealabsent{Swahili}{Noto Serif}}
 \babelprovide[import]{filipino}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[filipino]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[filipino]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[filipino]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[filipino]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{filipino}{A}}
   {\ealabsent{Tagalog}{Noto Serif}}
 \babelprovide[import]{tamil}
 \IfFontExistsTF{Noto Sans Tamil}
-  {\babelfont[tamil]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Tamil}, ItalicFont={Noto Sans Tamil}, BoldItalicFont={Noto Sans Tamil}]{Noto Sans Tamil}%
-   \babelfont[tamil]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Tamil}, ItalicFont={Noto Sans Tamil}, BoldItalicFont={Noto Sans Tamil}]{Noto Sans Tamil}%
+  {\babelfont[tamil]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Tamil}, ItalicFont={Noto Sans Tamil}, BoldItalicFont={Noto Sans Tamil}, RawFeature={fallback=eallatinfallback}]{Noto Sans Tamil}%
+   \babelfont[tamil]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Tamil}, ItalicFont={Noto Sans Tamil}, BoldItalicFont={Noto Sans Tamil}, RawFeature={fallback=eallatinfallback}]{Noto Sans Tamil}%
    \ealfound{tamil}{அ}}
   {\ealabsent{Tamil}{Noto Sans Tamil}}
 \babelprovide[import]{telugu}
 \IfFontExistsTF{Noto Sans Telugu}
-  {\babelfont[telugu]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Telugu}, ItalicFont={Noto Sans Telugu}, BoldItalicFont={Noto Sans Telugu}]{Noto Sans Telugu}%
-   \babelfont[telugu]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Telugu}, ItalicFont={Noto Sans Telugu}, BoldItalicFont={Noto Sans Telugu}]{Noto Sans Telugu}%
+  {\babelfont[telugu]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Telugu}, ItalicFont={Noto Sans Telugu}, BoldItalicFont={Noto Sans Telugu}, RawFeature={fallback=eallatinfallback}]{Noto Sans Telugu}%
+   \babelfont[telugu]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Telugu}, ItalicFont={Noto Sans Telugu}, BoldItalicFont={Noto Sans Telugu}, RawFeature={fallback=eallatinfallback}]{Noto Sans Telugu}%
    \ealfound{telugu}{అ}}
   {\ealabsent{Telugu}{Noto Sans Telugu}}
 \babelprovide[import]{thai}
 \IfFontExistsTF{Noto Sans Thai}
-  {\babelfont[thai]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Thai}, ItalicFont={Noto Sans Thai}, BoldItalicFont={Noto Sans Thai}]{Noto Sans Thai}%
-   \babelfont[thai]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Thai}, ItalicFont={Noto Sans Thai}, BoldItalicFont={Noto Sans Thai}]{Noto Sans Thai}%
+  {\babelfont[thai]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Thai}, ItalicFont={Noto Sans Thai}, BoldItalicFont={Noto Sans Thai}, RawFeature={fallback=eallatinfallback}]{Noto Sans Thai}%
+   \babelfont[thai]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Thai}, ItalicFont={Noto Sans Thai}, BoldItalicFont={Noto Sans Thai}, RawFeature={fallback=eallatinfallback}]{Noto Sans Thai}%
    \ealfound{thai}{ก}}
   {\ealabsent{Thai}{Noto Sans Thai}}
 \babelprovide[import]{tigrinya}
 \IfFontExistsTF{Noto Sans Ethiopic}
-  {\babelfont[tigrinya]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Ethiopic}, ItalicFont={Noto Sans Ethiopic}, BoldItalicFont={Noto Sans Ethiopic}]{Noto Sans Ethiopic}%
-   \babelfont[tigrinya]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Ethiopic}, ItalicFont={Noto Sans Ethiopic}, BoldItalicFont={Noto Sans Ethiopic}]{Noto Sans Ethiopic}%
+  {\babelfont[tigrinya]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans Ethiopic}, ItalicFont={Noto Sans Ethiopic}, BoldItalicFont={Noto Sans Ethiopic}, RawFeature={fallback=eallatinfallback}]{Noto Sans Ethiopic}%
+   \babelfont[tigrinya]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans Ethiopic}, ItalicFont={Noto Sans Ethiopic}, BoldItalicFont={Noto Sans Ethiopic}, RawFeature={fallback=eallatinfallback}]{Noto Sans Ethiopic}%
    \ealfound{tigrinya}{ሀ}}
   {\ealabsent{Tigrinya}{Noto Sans Ethiopic}}
 \babelprovide[import]{turkish}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[turkish]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[turkish]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[turkish]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[turkish]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{turkish}{A}}
   {\ealabsent{Turkish}{Noto Serif}}
 \babelprovide[import]{akan}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[akan]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[akan]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[akan]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[akan]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{akan}{A}}
   {\ealabsent{Twi}{Noto Serif}}
 \babelprovide[import]{ukrainian}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[ukrainian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[ukrainian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[ukrainian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[ukrainian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{ukrainian}{A}}
   {\ealabsent{Ukrainian}{Noto Serif}}
 \babelprovide[import]{urdu}
 \IfFontExistsTF{Noto Nastaliq Urdu}
-  {\babelfont[urdu]{rm}[Renderer=Harfbuzz, BoldFont={Noto Nastaliq Urdu}, ItalicFont={Noto Nastaliq Urdu}, BoldItalicFont={Noto Nastaliq Urdu}]{Noto Nastaliq Urdu}%
-   \babelfont[urdu]{sf}[Renderer=Harfbuzz, BoldFont={Noto Nastaliq Urdu}, ItalicFont={Noto Nastaliq Urdu}, BoldItalicFont={Noto Nastaliq Urdu}]{Noto Nastaliq Urdu}%
+  {\babelfont[urdu]{rm}[Renderer=Harfbuzz, BoldFont={Noto Nastaliq Urdu}, ItalicFont={Noto Nastaliq Urdu}, BoldItalicFont={Noto Nastaliq Urdu}, RawFeature={fallback=eallatinfallback}]{Noto Nastaliq Urdu}%
+   \babelfont[urdu]{sf}[Renderer=Harfbuzz, BoldFont={Noto Nastaliq Urdu}, ItalicFont={Noto Nastaliq Urdu}, BoldItalicFont={Noto Nastaliq Urdu}, RawFeature={fallback=eallatinfallback}]{Noto Nastaliq Urdu}%
    \ealfound{urdu}{ا}}
   {\ealabsent{Urdu}{Noto Nastaliq Urdu}}
 \babelprovide[import]{vietnamese}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[vietnamese]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[vietnamese]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[vietnamese]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[vietnamese]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{vietnamese}{A}}
   {\ealabsent{Vietnamese}{Noto Serif}}
 \babelprovide[import]{welsh}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[welsh]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[welsh]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[welsh]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[welsh]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{welsh}{A}}
   {\ealabsent{Welsh}{Noto Serif}}
 \babelprovide[import]{yoruba}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[yoruba]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[yoruba]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[yoruba]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[yoruba]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{yoruba}{A}}
   {\ealabsent{Yoruba}{Noto Serif}}
 \babelprovide[import]{zulu}
 \IfFontExistsTF{Noto Serif}
-  {\babelfont[zulu]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
-   \babelfont[zulu]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}]{Noto Serif}%
+  {\babelfont[zulu]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[zulu]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{zulu}{A}}
   {\ealabsent{Zulu}{Noto Serif}}
 
@@ -429,9 +467,14 @@
 \begin{document}
 {\large\bfseries Font probe}\par\medskip
 Every language this instance is configured for, with the font it would be set
-in. One letter of each language's own script is printed beside it: a font that
-is installed but cannot print the script it was chosen for would pass a check
-by name and still set a page full of holes.\par\medskip
+in. Beside each is one letter of its own script, then a full stop, a digit and
+an em dash.\par\medskip
+The script letter is there because a font that is installed but cannot print the
+script it was chosen for would pass a check by name and still set a page full of
+holes. The three after it are there because several of these fonts carry their
+script and no Latin at all, and borrow those from a fallback - so a line below
+that is missing one of them is a language whose sheets have lost their
+punctuation.\par\medskip
 
 Albanian (sqi), Noto Serif: \ealshow{albanian}{Noto Serif}\\
 Amharic (amh), Noto Sans Ethiopic: \ealshow{amharic}{Noto Sans Ethiopic}\\
@@ -495,11 +538,13 @@ Zulu (zul), Noto Serif: \ealshow{zulu}{Noto Serif}\\
   \par\bigskip
   {\bfseries These fonts carry their own script and little else:}\eallatinlist\par
   \medskip
-  Text set in them loses the full stops, digits and em dashes a translated sheet
-  mixes into its own script - the characters are dropped rather than substituted,
-  leaving holes in the page. Those languages need a Latin fallback configured
-  before a sheet in one of them reads properly.
-  \PackageWarning{fontProbe}{Fonts with no Latin characters:\eallatinlist}
+  The full stop, digit and em dash printed beside each of them above came from
+  the fallback font rather than from the font itself. That is what the fallback
+  is for, so this is a note rather than a fault - but if any of those three is
+  missing from a line above, or the log carries a Missing character line for one
+  of them, then the fallback is not reaching these languages and every translated
+  sheet in them is losing its punctuation.
+  \PackageWarning{fontProbe}{Fonts with no Latin of their own:\eallatinlist}
 \fi
 
 \ifealmissing

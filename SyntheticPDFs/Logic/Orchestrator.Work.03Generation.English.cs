@@ -1,54 +1,58 @@
 using SyntheticPDFs.Git;
 using SyntheticPDFs.Models;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 using SyntheticPDFs.Services;
 
 namespace SyntheticPDFs.Logic
 {
-    using RootName = String;
-
     public partial class Orchestrator
     {
-        // DI the services so can have pure functions below this
-
-        private async Task<List<TexSourceModel>> GenerateEnglishSyntheticSource(GenerationRequest request)
+        // The services are passed in rather than reached for, so that everything below
+        // this line is a function of its arguments.
+        private async Task<List<TexSourceModel>> GenerateEnglishSyntheticSource(
+            GenerationRequest request)
         {
             SourceMetadata sm = request.Target;
 
             if (request.Job == GenerationJob.CheckAnswerMacros)
             {
-                return await CheckAnswerMacrosAndMarkWorkedSolutions(sm.RootName, RepoManager, LLMService);
+                return await CheckAnswerMacrosAndMarkWorkedSolutions(
+                    sm with { Part = SheetPart.Root }, RepoManager, LLMService);
             }
 
-            switch (sm.Type)
+            switch (sm.Part)
             {
-                case SourceType.Root:
+                case SheetPart.Root:
                     throw new ArgumentException("can't generate English root source");
-                case SourceType.WorkedSolutions:
-                    {
-                        return await GenerateSyntheticEnglishWorkedSolutions(sm.RootName, sm.Archetype, RepoManager, LLMService);
-                    }
-                case SourceType.Solutions:
-                    {
-                        return await GenerateSyntheticEnglishSolutions(sm.RootName, sm.Archetype, RepoManager, LLMService);
-                    }
+
+                case SheetPart.WorkedSolutions:
+                    return await GenerateSyntheticEnglishWorkedSolutions(sm, RepoManager, LLMService);
+
+                case SheetPart.Solutions:
+                    return await GenerateSyntheticEnglishSolutions(sm, RepoManager, LLMService);
+
                 default:
                     throw new NotImplementedException();
             }
         }
 
-
-        private static async Task<List<TexSourceModel>> GenerateSyntheticEnglishWorkedSolutions(RootName rootName, SourceArchetype at, IGitRepoManager gm, ILLMService LLM)
+        private static async Task<List<TexSourceModel>> GenerateSyntheticEnglishWorkedSolutions(
+            SourceMetadata target, IGitRepoManager gm, ILLMService LLM)
         {
-            SourceMetadata rootMetadata = new SourceMetadata { Language = ISO639_3Code.eng, RootName = rootName, Type = SourceType.Root, Archetype = at };
-            String rootFilename = GetFilenameFromMetadata(rootMetadata);
-            TexSourceModel rootSource = gm.GetContent(rootFilename);
+            SheetArchetype at = target.Archetype;
+
+            SourceMetadata rootMetadata = target with { Part = SheetPart.Root };
+
+            TexSourceModel rootSource = gm.GetContent(rootMetadata.FilePath);
 
             List<TexSourceModel> ret = new();
 
-            if (at == SourceArchetype.QuestionSlides)
+            if (at.RevealsItsOwnAnswers)
             {
-                // the review settles within this job now, so the deck and its worked solutions
-                // go in together - a batch lands in one commit, and IsYounger allows equal ages
+                // the review settles within this job now, so the deck and its worked
+                // solutions go in together - a batch lands in one commit, and a file is
+                // allowed to be exactly as old as what it came from
                 AnswerMacroReviewOutcome review = await ReviewAndFixAnswerMacros(rootSource, LLM);
 
                 if (review.DeckChanged) { ret.Add(review.Deck); }
@@ -56,62 +60,59 @@ namespace SyntheticPDFs.Logic
                 rootSource = review.Questions;
             }
 
-            String genSource = await SourceGenerator.GenerateSyntheticEnglishWorkedSolutionsTexSource(rootSource, at, LLM);
+            String genSource =
+                await SourceGenerator.GenerateSyntheticEnglishWorkedSolutionsTexSource(
+                    rootSource, at, LLM);
 
-            if (at == SourceArchetype.QuestionSlides)
+            if (at.RevealsItsOwnAnswers)
             {
-                // the deck has been settled one way or another, so record that here and stop
-                // reviewing it. a human edit makes these stale, which brings the review back
+                // the deck has been settled one way or another, so record that here and
+                // stop reviewing it. a human edit makes these stale, which brings the
+                // review back
                 genSource = AnswerMacros.AddVerifiedMarker(genSource);
             }
 
-            SourceMetadata synthMetadata = rootMetadata with { Type = SourceType.WorkedSolutions };
-            String synthFilename = GetFilenameFromMetadata(synthMetadata);
-
-            ret.Add(new TexSourceModel { FileNameFullPath = synthFilename, TexSource = genSource });
+            ret.Add(new TexSourceModel
+            {
+                FileNameFullPath = (rootMetadata with { Part = SheetPart.WorkedSolutions }).FilePath,
+                TexSource        = genSource,
+            });
 
             return ret;
         }
 
-        private static async Task<List<TexSourceModel>> GenerateSyntheticEnglishSolutions(RootName rootName, SourceArchetype at, IGitRepoManager gm, ILLMService LLM)
+        private static async Task<List<TexSourceModel>> GenerateSyntheticEnglishSolutions(
+            SourceMetadata target, IGitRepoManager gm, ILLMService LLM)
         {
-            SourceMetadata rootMetadata = new SourceMetadata { Language = ISO639_3Code.eng, RootName = rootName, Type = SourceType.Root,            Archetype = at, };
-            SourceMetadata wsolMetadata = new SourceMetadata { Language = ISO639_3Code.eng, RootName = rootName, Type = SourceType.WorkedSolutions, Archetype = at };
+            SourceMetadata rootMetadata = target with { Part = SheetPart.Root };
 
-            String rootFilename = GetFilenameFromMetadata(rootMetadata);
-            String wsolFilename = GetFilenameFromMetadata(wsolMetadata);
+            TexSourceModel rootSource = gm.GetContent(rootMetadata.FilePath);
 
-            TexSourceModel rootSource = gm.GetContent(rootFilename);
-            TexSourceModel wsolSource = gm.GetContent(wsolFilename);
+            TexSourceModel wsolSource = gm.GetContent(
+                (rootMetadata with { Part = SheetPart.WorkedSolutions }).FilePath);
 
-            // TODO extract logic about which archetype is allowed which source type and then reuse that here to check that not generating stuff we shouldn't
-            // is there a smarter way to refactor all this??
+            String genSource = await SourceGenerator.GenerateSyntheticEnglishSolutionsTexSource(
+                rootSource, wsolSource, LLM);
 
-            String genSource = await SourceGenerator.GenerateSyntheticEnglishSolutionsTexSource(rootSource, wsolSource, LLM);
-
-            SourceMetadata synthMetadata = rootMetadata with { Type = SourceType.Solutions };
-            String synthFilename = GetFilenameFromMetadata(synthMetadata);
-
-            return new List<TexSourceModel> { new TexSourceModel { FileNameFullPath = synthFilename, TexSource = genSource } };
+            return new List<TexSourceModel>
+            {
+                new TexSourceModel
+                {
+                    FileNameFullPath = (rootMetadata with { Part = SheetPart.Solutions }).FilePath,
+                    TexSource        = genSource,
+                },
+            };
         }
-
 
         #region Answer overlay helpers
 
-        // worked solutions that are already in the repo but carry no record of a review - the
-        // deck gets looked at, and if it settles the existing file is stamped rather than
-        // generated again, which would be paying twice for the same content
-        private static async Task<List<TexSourceModel>> CheckAnswerMacrosAndMarkWorkedSolutions(RootName rootName, IGitRepoManager gm, ILLMService LLM)
+        // Worked solutions that are already in the repository but carry no record of a
+        // review - the deck gets looked at, and if it settles the existing file is stamped
+        // rather than generated again, which would be paying twice for the same content.
+        private static async Task<List<TexSourceModel>> CheckAnswerMacrosAndMarkWorkedSolutions(
+            SourceMetadata rootMetadata, IGitRepoManager gm, ILLMService LLM)
         {
-            SourceMetadata rootMetadata = new SourceMetadata
-            {
-                Language  = ISO639_3Code.eng,
-                RootName  = rootName,
-                Type      = SourceType.Root,
-                Archetype = SourceArchetype.QuestionSlides
-            };
-
-            TexSourceModel rootSource = gm.GetContent(GetFilenameFromMetadata(rootMetadata));
+            TexSourceModel rootSource = gm.GetContent(rootMetadata.FilePath);
 
             AnswerMacroReviewOutcome review = await ReviewAndFixAnswerMacros(rootSource, LLM);
 
@@ -119,15 +120,14 @@ namespace SyntheticPDFs.Logic
 
             if (review.DeckChanged) { ret.Add(review.Deck); }
 
-            SourceMetadata wsolMetadata = rootMetadata with { Type = SourceType.WorkedSolutions };
-            String wsolFilename = GetFilenameFromMetadata(wsolMetadata);
+            String wsolFilename = (rootMetadata with { Part = SheetPart.WorkedSolutions }).FilePath;
 
             TexSourceModel wsolSource = gm.GetContent(wsolFilename);
 
             ret.Add(new TexSourceModel
             {
                 FileNameFullPath = wsolFilename,
-                TexSource = AnswerMacros.AddVerifiedMarker(wsolSource.TexSource)
+                TexSource        = AnswerMacros.AddVerifiedMarker(wsolSource.TexSource),
             });
 
             return ret;

@@ -13,17 +13,17 @@ namespace Shared
         public string Language { get; set; } = "";
 
         // Root, WorkedSolutions or Solutions - which part of the sheet
-        public string Type { get; set; } = "Root";
+        public string Part { get; set; } = "Root";
 
         // ParallelText or Tier3Only
-        public string Rendition { get; set; } = "ParallelText";
+        public string Form { get; set; } = "ParallelText";
     }
 
     public enum GenerateOutcome
     {
         Queued,          // accepted, and generation has been started
         AlreadyPresent,  // the file is already in the repository
-        NotUnderstood,   // the language, type or rendition was not one we produce
+        NotUnderstood,   // the language, type or form was not one we produce
     }
 
     public sealed record GenerateResult(

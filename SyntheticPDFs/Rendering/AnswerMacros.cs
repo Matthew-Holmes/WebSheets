@@ -1,6 +1,7 @@
+using SyntheticPDFs.Models.Content;
 using System.Text;
 
-namespace SyntheticPDFs.Logic
+namespace SyntheticPDFs.Rendering
 {
     // question slides reveal their answers on the next overlay rather than in a separate
     // solutions pdf, which only works if the deck defines and uses these helpers. there is
@@ -21,6 +22,27 @@ namespace SyntheticPDFs.Logic
 
         internal static String Ashowq =>
             @"\newcommand{\ashowq}[1]{\alt<2->{\textcolor{red}{\small #1}}{?}}";
+
+        // The one helper that belongs to the worked solutions rather than to the deck of
+        // questions. A worked solution frame becomes the question with the room its answer
+        // will take left empty - to be written in on the board - and then the answer
+        // itself on the next slide.
+        //
+        // \uncover rather than \only, because the space has to be reserved: the point is
+        // that the answer appears exactly where it was being written, and a frame that
+        // reflowed between the two slides would defeat that.
+        //
+        // Black rather than the red the question slides use. On a question slide red says
+        // "this was hidden a moment ago"; on a worked solution the whole frame is the
+        // answer, so colouring it would say nothing and read as a mistake.
+        internal static String Awork => String.Join('\n',
+            @"\newlength{\aworkpad}",
+            @"\setlength{\aworkpad}{8mm}",
+            @"\newcommand{\awork}[1]{%",
+            @"  \par\vspace{\aworkpad}%",
+            @"  \uncover<2->{#1}%",
+            @"  \par\vspace{\aworkpad}%",
+            @"}");
 
         // for an answer that is better drawn on to a diagram than written out. the styles go
         // on nodes and paths inside a picture the deck already has, so they are checked as
@@ -44,7 +66,11 @@ namespace SyntheticPDFs.Logic
             "",
             @"% Answers drawn straight on to a TikZ diagram, revealed on overlay 2 like \ashow.",
             "% Space is reserved on overlay 1, so the diagram does not move between slides.",
-            DiagramStyles);
+            DiagramStyles,
+            "",
+            "% Used by the worked solutions rather than by this deck, so that each worked",
+            "% solution is first a question with room to write in and then the answer.",
+            Awork);
 
         // written into the worked solutions once a deck has been checked, so we don't pay
         // to ask again every pass. a human editing the deck makes the worked solutions
@@ -55,7 +81,7 @@ namespace SyntheticPDFs.Logic
         // doesn't stack a second note on top of the first
         internal static String ReviewNoteMarker => "% answer macro review note";
 
-        // all four have to be there verbatim - that is the cheap necessary condition that
+        // every one of them has to be there verbatim - that is the cheap necessary condition that
         // settles most decks before the LLM is asked anything. line endings are the only
         // difference forgiven: a deck that has retyped the helpers slightly gets rewritten,
         // which is the safe way round to be wrong
@@ -66,6 +92,7 @@ namespace SyntheticPDFs.Logic
             return normalised.Contains(Ablank, StringComparison.Ordinal)
                 && normalised.Contains(Ashow, StringComparison.Ordinal)
                 && normalised.Contains(Ashowq, StringComparison.Ordinal)
+                && normalised.Contains(Awork, StringComparison.Ordinal)
                 && normalised.Contains(DiagramStyles, StringComparison.Ordinal);
         }
 

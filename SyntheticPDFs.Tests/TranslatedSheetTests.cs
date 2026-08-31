@@ -2,6 +2,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 using SyntheticPDFs.Tests.Fakes;
 
 namespace SyntheticPDFs.Tests
@@ -188,7 +190,7 @@ namespace SyntheticPDFs.Tests
         }
 
         [TestMethod]
-        public async Task ThePromptsDifferByRendition()
+        public async Task ThePromptsDifferByForm()
         {
             GiveTheRepoEverythingUpToTheKey();
 

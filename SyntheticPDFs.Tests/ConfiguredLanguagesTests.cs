@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Configuration;
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 using System.Text.RegularExpressions;
 
 namespace SyntheticPDFs.Tests

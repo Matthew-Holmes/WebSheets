@@ -1,9 +1,9 @@
-﻿using SyntheticPDFs.Services;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Services;
 using System.Text;
 using System.Text.RegularExpressions;
 
-
-namespace SyntheticPDFs.Logic
+namespace SyntheticPDFs.Rendering
 {
     public partial class SourceGenerator
     {

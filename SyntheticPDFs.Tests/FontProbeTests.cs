@@ -1,4 +1,6 @@
 using SyntheticPDFs.Configuration;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 using System.Text;
 
 namespace SyntheticPDFs.Tests

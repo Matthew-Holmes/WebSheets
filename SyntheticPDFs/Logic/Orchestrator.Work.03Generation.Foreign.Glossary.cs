@@ -1,0 +1,156 @@
+using SyntheticPDFs.Models;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
+
+namespace SyntheticPDFs.Logic
+{
+    public partial class Orchestrator
+    {
+        // The English glossary: the tier 3 words the sheet uses, with definitions.
+        //
+        // The model returns the words as data and the file is rendered here, so the
+        // layout, the shuffle and the two-page repeat are all deterministic.
+        private async Task<List<TexSourceModel>> GenerateGlossary(
+            SourceMetadata sm, ContentModel model)
+        {
+            SourceMetadata english = sm with { Form = SheetForm.Original };
+
+            String rootFilename = (english with { Part = SheetPart.Root }).FilePath;
+
+            String rootSource = RepoManager.GetContent(rootFilename).TexSource;
+
+            // only the parts this archetype actually has - a poster has no workings, and
+            // waiting for them would mean its glossary was never written
+            String? worked = sm.Archetype.HasWorkedSolutions
+                ? RepoManager.GetContent(
+                    (english with { Part = SheetPart.WorkedSolutions }).FilePath).TexSource
+                : null;
+
+            String? answers = sm.Archetype.HasSolutions
+                ? RepoManager.GetContent(
+                    (english with { Part = SheetPart.Solutions }).FilePath).TexSource
+                : null;
+
+            List<VocabTerm> terms = await SourceGenerator.GenerateVocabularyTerms(
+                rootSource, worked, answers, LLMService);
+
+            // the shared definitions win over the model's, which is what makes them
+            // standard across worksheets rather than merely suggested. matching is by
+            // headword, so a sheet saying "numerators" still gets the agreed wording
+            terms = L2VocabData.ApplyDictionary(
+                terms, model.DictionaryAt(ContentRepository.DictionaryPath).Definitions);
+
+            String tex = L2VocabKeyRenderer.Render(
+                terms,
+                new L2Macros.SourceMetadataTitle(sm.RootName, sm.Part, sm.Form),
+                L2Settings.Colours,
+                language: null,
+                builtFrom: rootFilename,
+                vocabularyKey: null,
+                fallbackFont: null);
+
+            return new List<TexSourceModel>
+            {
+                new TexSourceModel { FileNameFullPath = sm.FilePath, TexSource = tex },
+            };
+        }
+
+        // The same glossary in another language: the English word, the word a mathematics
+        // teacher in that language would use, and the definition translated. The match-up
+        // that follows tests the translation rather than the meaning.
+        //
+        // Every word this sheet can take from the shared dictionary is taken from it, and
+        // only what is left over is sent to a model. A repository whose dictionary covers
+        // its vocabulary produces these for nothing at all - which is the point of keeping
+        // the dictionary translated, and why the same word reads the same way on every
+        // sheet a pupil is given.
+        private async Task<List<TexSourceModel>> GenerateTranslatedGlossary(
+            SourceMetadata sm, ContentModel model)
+        {
+            LanguageProfile language = Profile(sm.Language);
+
+            SourceMetadata englishGlossary = sm with
+            {
+                Language = ISO639_3Code.eng,
+                Part     = SheetPart.Root,
+                Form     = SheetForm.Glossary,
+            };
+
+            String glossaryFilename = englishGlossary.FilePath;
+
+            // the terms come out of the English glossary's own data block rather than
+            // being read back off its table, so nothing depends on parsing generated LaTeX
+            List<VocabTerm>? terms = L2VocabData.ReadBlock(
+                RepoManager.GetContent(glossaryFilename).TexSource);
+
+            if (terms is null)
+            {
+                throw new Exception(
+                    $"{glossaryFilename} carries no vocabulary data block to translate");
+            }
+
+            List<VocabTerm> translated = await TranslateUsingDictionary(
+                terms, model.DictionaryAt(ContentRepository.DictionaryPath), language);
+
+            String tex = L2VocabKeyRenderer.Render(
+                translated,
+                new L2Macros.SourceMetadataTitle(sm.RootName, sm.Part, sm.Form),
+                L2Settings.Colours,
+                language,
+                builtFrom: (sm with { Language = ISO639_3Code.eng, Form = SheetForm.Original }).FilePath,
+                vocabularyKey: glossaryFilename,
+                fallbackFont: L2Settings.FallbackFont);
+
+            return new List<TexSourceModel>
+            {
+                new TexSourceModel { FileNameFullPath = sm.FilePath, TexSource = tex },
+            };
+        }
+
+        // The dictionary answers what it can, and the model is asked only about the rest.
+        // Nothing is sent at all when the dictionary covers the whole sheet, which is the
+        // usual case once a dictionary has settled.
+        private async Task<List<VocabTerm>> TranslateUsingDictionary(
+            IReadOnlyList<VocabTerm> terms, DictionaryState dictionary, LanguageProfile language)
+        {
+            Dictionary<String, VocabTerm> known = new(StringComparer.Ordinal);
+
+            List<VocabTerm> missing = new();
+
+            foreach (VocabTerm term in terms)
+            {
+                L2DictionaryEntry? entry =
+                    dictionary.Lookup(language.Code, term.English, term.Definition);
+
+                if (entry is null)
+                {
+                    missing.Add(term);
+                    continue;
+                }
+
+                known[term.English] = term with
+                {
+                    Translation          = entry.Word,
+                    TranslatedDefinition = entry.Definition,
+                };
+            }
+
+            _logger.LogInformation(
+                "{Known} of {Total} {Language} term(s) came from the shared dictionary",
+                known.Count, terms.Count, language.TitleName);
+
+            if (missing.Count > 0)
+            {
+                foreach (VocabTerm term in
+                    await SourceGenerator.TranslateVocabularyTerms(missing, language, LLMService))
+                {
+                    known[term.English] = term;
+                }
+            }
+
+            // the English glossary decides the order and the membership, so walk it rather
+            // than whatever came back
+            return terms.Select(t => known[t.English]).ToList();
+        }
+    }
+}

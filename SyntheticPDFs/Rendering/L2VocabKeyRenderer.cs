@@ -1,7 +1,8 @@
 using SyntheticPDFs.Configuration;
+using SyntheticPDFs.Models.Content;
 using System.Text;
 
-namespace SyntheticPDFs.Logic
+namespace SyntheticPDFs.Rendering
 {
     // Turns a list of terms into the key .tex.
     //
@@ -23,7 +24,8 @@ namespace SyntheticPDFs.Logic
             L2ColourOptions colours,
             LanguageProfile? language,
             String builtFrom,
-            String? vocabularyKey)
+            String? vocabularyKey,
+            String? fallbackFont = null)
         {
             String title = L2Macros.TitleFor(metadata, language);
 
@@ -34,7 +36,8 @@ namespace SyntheticPDFs.Logic
 
             sb.AppendLine(L2Macros.CompilerDirective);
             sb.AppendLine(L2Macros.ProvenanceBlock(
-                title, colours, language, builtFrom, vocabularyKey, isKey: true));
+                title, colours, language, builtFrom, vocabularyKey,
+                isKey: true, fallbackFont: fallbackFont));
             sb.AppendLine(L2VocabData.Block(ordered));
             sb.AppendLine();
 
@@ -43,7 +46,7 @@ namespace SyntheticPDFs.Logic
 
             if (language is not null)
             {
-                sb.AppendLine(L2Macros.LanguagePreamble(language));
+                sb.AppendLine(L2Macros.LanguagePreamble(language, fallbackFont));
             }
             else
             {

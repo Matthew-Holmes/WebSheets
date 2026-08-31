@@ -1,9 +1,8 @@
-using static SyntheticPDFs.Logic.Orchestrator;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 
 namespace SyntheticPDFs.Logic
 {
-    using RootName = String;
-
     public partial class Orchestrator
     {
         // What gets done first. English source is finished across the whole repository
@@ -13,21 +12,27 @@ namespace SyntheticPDFs.Logic
         // Anything asked for explicitly comes before all of it, in the order it was asked.
         internal enum GenerationPriority
         {
-            Requested    = 0,
-            English      = 1,
-            EnglishVocab = 2,
-            TranslatedKey = 3,
-            Translated   = 4,
+            Requested          = 0,
+            English            = 1,
+            EnglishGlossary    = 2,
+
+            // before anything translated, since a translated glossary is assembled from
+            // it - a sheet translated against a stale dictionary would disagree with the
+            // next sheet translated against the current one
+            Dictionary         = 3,
+
+            TranslatedGlossary = 4,
+            Translated         = 5,
         }
 
-        internal static GenerationPriority PriorityOf(SourceKey key)
+        internal static GenerationPriority PriorityOf(ContentKey key)
         {
-            switch (key.Rendition)
+            switch (key.Form)
             {
-                case SourceRendition.Original: return GenerationPriority.English;
-                case SourceRendition.VocabKey: return GenerationPriority.EnglishVocab;
-                case SourceRendition.L2Key:    return GenerationPriority.TranslatedKey;
-                default:                       return GenerationPriority.Translated;
+                case SheetForm.Original:           return GenerationPriority.English;
+                case SheetForm.Glossary:           return GenerationPriority.EnglishGlossary;
+                case SheetForm.TranslatedGlossary: return GenerationPriority.TranslatedGlossary;
+                default:                           return GenerationPriority.Translated;
             }
         }
 

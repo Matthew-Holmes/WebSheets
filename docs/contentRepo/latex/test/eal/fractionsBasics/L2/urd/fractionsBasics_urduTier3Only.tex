@@ -7,12 +7,13 @@
 %   language            Urdu (urd)
 %   text direction      right to left
 %   font                Noto Nastaliq Urdu
+%   fallback font       Noto Serif
 %   built from          latex/test/eal/fractionsBasics.tex
 %   vocabulary key      latex/test/eal/fractionsBasics/L2/urd/fractionsBasics_urduKey.tex
 %   tier 3 vocabulary   green   RGB 0 128 0
 %   English text        black   RGB 0 0 0
 %   Urdu text           purple  RGB 112 48 160
-%   layout macros       version 1
+%   layout macros       version 2
 %
 % Please don't edit any information in this comment block - the server
 % compares it against the current settings and rebuilds this file when
@@ -24,10 +25,20 @@
 \usepackage[a4paper,margin=1in]{geometry}
 \usepackage{amsmath}
 \usepackage{enumitem}
+% Characters this language's font has not got are borrowed from another,
+% rather than being silently dropped - see docs/translated-sheet-latex.md
+\directlua{%
+  if luaotfload and luaotfload.add_fallback then
+    luaotfload.add_fallback("eallatinfallback",
+      { "Noto Serif:mode=harf;" })
+  else
+    tex.error("this luaotfload is too old to register a fallback font")
+  end
+}
 \usepackage[english,bidi=basic]{babel}
 \babelprovide[import]{urdu}
-\babelfont[urdu]{rm}[Renderer=Harfbuzz, BoldFont={Noto Nastaliq Urdu}, ItalicFont={Noto Nastaliq Urdu}, BoldItalicFont={Noto Nastaliq Urdu}]{Noto Nastaliq Urdu}
-\babelfont[urdu]{sf}[Renderer=Harfbuzz, BoldFont={Noto Nastaliq Urdu}, ItalicFont={Noto Nastaliq Urdu}, BoldItalicFont={Noto Nastaliq Urdu}]{Noto Nastaliq Urdu}
+\babelfont[urdu]{rm}[Renderer=Harfbuzz, BoldFont={Noto Nastaliq Urdu}, ItalicFont={Noto Nastaliq Urdu}, BoldItalicFont={Noto Nastaliq Urdu}, RawFeature={fallback=eallatinfallback}]{Noto Nastaliq Urdu}
+\babelfont[urdu]{sf}[Renderer=Harfbuzz, BoldFont={Noto Nastaliq Urdu}, ItalicFont={Noto Nastaliq Urdu}, BoldItalicFont={Noto Nastaliq Urdu}, RawFeature={fallback=eallatinfallback}]{Noto Nastaliq Urdu}
 \newcommand{\ealtext}[1]{\foreignlanguage{urdu}{#1}}
 \newcommand{\ealtextblock}[1]{{\raggedleft\foreignlanguage{urdu}{#1}\par}}
 % ================================================================

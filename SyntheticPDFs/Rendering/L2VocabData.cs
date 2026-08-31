@@ -1,7 +1,8 @@
+using SyntheticPDFs.Models.Content;
 using System.Text;
 using System.Text.Json;
 
-namespace SyntheticPDFs.Logic
+namespace SyntheticPDFs.Rendering
 {
     // One tier 3 term. English is the word as it appears in the sheet; Translation is
     // empty in the English key and filled in for a translated one.
@@ -188,6 +189,25 @@ namespace SyntheticPDFs.Logic
             return terms.All(t =>
                 dictionary.Define(t.English) is not String shared
                 || String.Equals(shared, t.Definition, StringComparison.Ordinal));
+        }
+
+        // Whether a translated glossary already in the repository still agrees with the
+        // dictionary in its language. This is what makes correcting a translation rebuild
+        // the glossaries that use that word, and only those - and the rebuild costs
+        // nothing, since the corrected wording is read straight out of the dictionary
+        // rather than asked for again.
+        internal static bool MatchesTranslations(
+            String texSource, DictionaryState dictionary, ISO639_3Code language)
+        {
+            List<VocabTerm>? terms = ReadBlock(texSource);
+
+            if (terms is null) { return false; }
+
+            return terms.All(t =>
+                dictionary.Lookup(language, t.English, t.Definition) is not L2DictionaryEntry entry
+                || (String.Equals(entry.Word, t.Translation, StringComparison.Ordinal)
+                    && String.Equals(
+                        entry.Definition, t.TranslatedDefinition, StringComparison.Ordinal)));
         }
 
         #endregion

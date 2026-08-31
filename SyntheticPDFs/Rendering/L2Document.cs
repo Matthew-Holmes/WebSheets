@@ -1,8 +1,9 @@
 using SyntheticPDFs.Configuration;
+using SyntheticPDFs.Models.Content;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace SyntheticPDFs.Logic
+namespace SyntheticPDFs.Rendering
 {
     // Assembles a translated sheet from the body a model wrote and the preamble the
     // generator owns.
@@ -21,13 +22,15 @@ namespace SyntheticPDFs.Logic
             L2ColourOptions colours,
             LanguageProfile language,
             String builtFrom,
-            String vocabularyKey)
+            String vocabularyKey,
+            String? fallbackFont = null)
         {
             StringBuilder sb = new();
 
             sb.AppendLine(L2Macros.CompilerDirective);
             sb.AppendLine(L2Macros.ProvenanceBlock(
-                title, colours, language, builtFrom, vocabularyKey));
+                title, colours, language, builtFrom, vocabularyKey,
+                isKey: false, fallbackFont: fallbackFont));
             sb.AppendLine();
 
             sb.AppendLine(documentClass);
@@ -37,7 +40,7 @@ namespace SyntheticPDFs.Logic
                 sb.AppendLine(package);
             }
 
-            sb.AppendLine(L2Macros.LanguagePreamble(language));
+            sb.AppendLine(L2Macros.LanguagePreamble(language, fallbackFont));
             sb.AppendLine(L2Macros.Definitions(colours));
             sb.AppendLine();
             sb.Append(body);

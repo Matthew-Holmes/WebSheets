@@ -1,5 +1,7 @@
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 
 namespace SyntheticPDFs.Tests.Fakes
 {
@@ -42,18 +44,23 @@ namespace SyntheticPDFs.Tests.Fakes
         // block and all. Seeding a fake repository with only the data block gives a file
         // that cannot be shown to have been built from the current settings, so the very
         // next pass removes it as out of date.
+        // the fallback the shipped settings name, so a fixture is built from the same
+        // settings a real pass would judge it against
+        internal static String FallbackFont => new L2Options().FallbackFont;
+
         internal static String VocabularyKey(
             String root, IReadOnlyList<VocabTerm> terms, LanguageProfile? language = null) =>
             L2VocabKeyRenderer.Render(
                 terms,
                 new L2Macros.SourceMetadataTitle(
                     root,
-                    SourceType.Root,
-                    language is null ? SourceRendition.VocabKey : SourceRendition.L2Key),
+                    SheetPart.Root,
+                    language is null ? SheetForm.Glossary : SheetForm.TranslatedGlossary),
                 new L2ColourOptions(),
                 language,
                 builtFrom: root + ".tex",
-                vocabularyKey: language is null ? null : root + "_vocab.tex");
+                vocabularyKey: language is null ? null : root + "_vocab.tex",
+                fallbackFont: language is null ? null : FallbackFont);
 
         internal static LanguageProfile Polish => new LanguageProfile
         {

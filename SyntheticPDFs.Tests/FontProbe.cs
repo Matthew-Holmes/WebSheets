@@ -1,5 +1,7 @@
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 using System.Text;
 
 namespace SyntheticPDFs.Tests
@@ -76,7 +78,38 @@ namespace SyntheticPDFs.Tests
 
         private static String Faces(String font) =>
             $"Renderer=Harfbuzz, BoldFont={{{font}}}, ItalicFont={{{font}}}, "
-            + $"BoldItalicFont={{{font}}}";
+            + $"BoldItalicFont={{{font}}}, RawFeature={{fallback=eallatinfallback}}";
+
+        // The fallback every translated file loads, checked here because it is loaded by
+        // all of them: a name that does not resolve breaks every translation rather than
+        // one, so it is worth failing on rather than reporting.
+        private static String Fallback(String font) => String.Join('\n',
+            "% Where a character the language's own font has not got is borrowed from.",
+            "% Several of the Noto script families carry their script and essentially no",
+            "% Latin, and LuaTeX drops what a font has not got rather than substituting one,",
+            "% so without this a sheet in one of them loses its punctuation.",
+            "%",
+            "% Every translated file loads this one font, so a name that does not resolve",
+            "% breaks all of them rather than one - which is why it is fatal here.",
+            $@"\IfFontExistsTF{{{font}}}{{}}{{%",
+            $@"  \PackageError{{fontProbe}}{{The fallback font {font} is not installed}}{{%",
+            "    Every translated file loads it, so no translated sheet will keep its full",
+            "    stops until it is there. Install it, or change L2:FallbackFont to a family",
+            "    that is.%",
+            "  }%",
+            "}",
+            "%",
+            "% Naming a fallback that was never registered does not degrade to no",
+            "% fallback - it makes the font itself unloadable - so a build whose",
+            "% luaotfload is too old to register one has to stop and say so.",
+            @"\directlua{%",
+            @"  if luaotfload and luaotfload.add_fallback then",
+            @"    luaotfload.add_fallback(""eallatinfallback"",",
+            $@"      {{ ""{font}:mode=harf;"" }})",
+            @"  else",
+            @"    tex.error(""this luaotfload is too old to register a fallback font"")",
+            @"  end",
+            @"}");
 
         internal static String Render(L2Options options)
         {
@@ -98,6 +131,11 @@ namespace SyntheticPDFs.Tests
             Line(Header);
             Line();
             Line(Macros);
+
+            // after the macros, since the declaration below calls one of them when this
+            // build turns out to be too old to have a fallback at all
+            Line(Fallback(options.FallbackFont));
+            Line();
 
             // Farsi and Persian share a babel name, and providing one language twice is
             // not something this file should be the first to find out about
@@ -151,9 +189,16 @@ namespace SyntheticPDFs.Tests
 % font that is selected and then prints nothing leaves LuaTeX subsetting an
 % empty font, which is a fatal backend error rather than a warning.
 %
-% That is worth knowing for its own sake, so each font is also asked whether it
-% has the Latin characters a translated sheet mixes into its own script. That
-% one is reported at the foot of the page and in the log, and is not fatal.
+% Beside the script letter, each language also prints the three Latin characters
+% a translated sheet mixes into its own script - a full stop, a digit and an em
+% dash. Those come from the fallback font wherever the language's own font has
+% not got them, so a Missing character line for one of them means the fallback
+% is not working in this container, and every translated sheet is quietly losing
+% its punctuation.
+%
+% Each font is separately asked, silently, whether it has those three of its own.
+% That is reported at the foot of the page and in the log and is not fatal: it
+% says which languages are relying on the fallback, not that anything is wrong.
 %
 % Generated from the generator's configuration by SyntheticPDFs.Tests - see
 % docs/content-repo-translation-setup.md before editing it by hand.
@@ -179,11 +224,13 @@ namespace SyntheticPDFs.Tests
   \fi
 }
 
-% Does this font have the Latin characters a translated sheet mixes into its own
-% script? A full stop closes most definitions, digits appear in any fraction, and
-% the vocabulary key sets an em dash between a word and its meaning. LuaTeX drops
-% what a font has not got, leaving a warning in the log and a hole in the page,
-% so it is worth learning here rather than from a sheet.
+% Does this font have, of its own, the Latin characters a translated sheet mixes
+% into its own script? A full stop closes most definitions, digits appear in any
+% fraction, and the key sets an em dash between a word and its meaning.
+%
+% \iffontchar sees the font itself and not what the fallback lends it, which is
+% exactly what is wanted: the fallback fills these holes, and this says which
+% languages would have them without it.
 \newif\ifeallatin
 \def\eallatinlist{}
 \newcommand{\ealnolatin}[2]{%
@@ -211,11 +258,13 @@ namespace SyntheticPDFs.Tests
 \newcommand{\ealfound}[2]{\expandafter\gdef\csname ealhas@#1\endcsname{#2}}
 \newcommand{\ealshow}[2]{%
   \ifcsname ealhas@#1\endcsname
-    \foreignlanguage{#1}{\selectfont\csname ealhas@#1\endcsname\eallatin{#2}}%
+    \foreignlanguage{#1}{\selectfont
+      \csname ealhas@#1\endcsname\eallatin{#2}\space{}. 0 \textemdash}%
   \else
     \textbf{\textcolor{red}{MISSING}}%
   \fi
 }
+
 ";
 
         private const String Opening = @"\pagestyle{empty}
@@ -224,20 +273,27 @@ namespace SyntheticPDFs.Tests
 \begin{document}
 {\large\bfseries Font probe}\par\medskip
 Every language this instance is configured for, with the font it would be set
-in. One letter of each language's own script is printed beside it: a font that
-is installed but cannot print the script it was chosen for would pass a check
-by name and still set a page full of holes.\par\medskip
+in. Beside each is one letter of its own script, then a full stop, a digit and
+an em dash.\par\medskip
+The script letter is there because a font that is installed but cannot print the
+script it was chosen for would pass a check by name and still set a page full of
+holes. The three after it are there because several of these fonts carry their
+script and no Latin at all, and borrow those from a fallback - so a line below
+that is missing one of them is a language whose sheets have lost their
+punctuation.\par\medskip
 ";
 
         private const String Closing = @"\ifeallatin
   \par\bigskip
   {\bfseries These fonts carry their own script and little else:}\eallatinlist\par
   \medskip
-  Text set in them loses the full stops, digits and em dashes a translated sheet
-  mixes into its own script - the characters are dropped rather than substituted,
-  leaving holes in the page. Those languages need a Latin fallback configured
-  before a sheet in one of them reads properly.
-  \PackageWarning{fontProbe}{Fonts with no Latin characters:\eallatinlist}
+  The full stop, digit and em dash printed beside each of them above came from
+  the fallback font rather than from the font itself. That is what the fallback
+  is for, so this is a note rather than a fault - but if any of those three is
+  missing from a line above, or the log carries a Missing character line for one
+  of them, then the fallback is not reaching these languages and every translated
+  sheet in them is losing its punctuation.
+  \PackageWarning{fontProbe}{Fonts with no Latin of their own:\eallatinlist}
 \fi
 
 \ifealmissing

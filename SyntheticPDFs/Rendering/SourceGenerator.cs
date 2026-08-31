@@ -1,8 +1,9 @@
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Models;
+using SyntheticPDFs.Models.Content;
 using SyntheticPDFs.Services;
 
-namespace SyntheticPDFs.Logic
+namespace SyntheticPDFs.Rendering
 {
     public static partial class SourceGenerator
     {
@@ -168,11 +169,11 @@ namespace SyntheticPDFs.Logic
             IReadOnlyList<VocabTerm> terms,
             LanguageProfile language,
             L2ColourOptions colours,
-            SourceRendition rendition,
+            SheetForm form,
             ILLMService LLM,
             int retry = 3)
         {
-            String prompt = rendition == SourceRendition.ParallelText
+            String prompt = form == SheetForm.ParallelText
                 ? GenerateParallelTextPrompt(english, terms, language, colours)
                 : GenerateTier3OnlyPrompt(english, terms, language, colours);
 
@@ -187,11 +188,11 @@ namespace SyntheticPDFs.Logic
                 if (wrong is null && BeginBalance(body) == 0) { return body; }
 
                 LLM.Log(LogLevel.Warning,
-                    $"attempt {i + 1} at a {rendition} body failed: "
+                    $"attempt {i + 1} at a {form} body failed: "
                     + (wrong ?? "its begin and end statements do not balance"));
             }
 
-            throw new Exception($"failed to generate a usable {rendition} body!");
+            throw new Exception($"failed to generate a usable {form} body!");
         }
 
         // the body is not a whole document, so IsValidTex does not apply to it - but the
@@ -213,7 +214,7 @@ namespace SyntheticPDFs.Logic
             return body;
         }
 
-        internal static async Task<String> GenerateSyntheticEnglishWorkedSolutionsTexSource(TexSourceModel rootSource, SourceArchetype at, ILLMService LLM)
+        internal static async Task<String> GenerateSyntheticEnglishWorkedSolutionsTexSource(TexSourceModel rootSource, SheetArchetype at, ILLMService LLM)
         {
             String prompt = GenerateEnglishWorkedSolutionsPrompt(rootSource.TexSource, at);
 

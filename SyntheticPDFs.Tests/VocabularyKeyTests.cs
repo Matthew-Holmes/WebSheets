@@ -2,6 +2,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
+using SyntheticPDFs.Models.Content;
+using SyntheticPDFs.Rendering;
 using SyntheticPDFs.Tests.Fakes;
 using System.Text.RegularExpressions;
 
@@ -318,7 +320,7 @@ namespace SyntheticPDFs.Tests
 
             String tex = L2VocabKeyRenderer.Render(
                 terms,
-                new L2Macros.SourceMetadataTitle(Root, SourceType.Root, SourceRendition.VocabKey),
+                new L2Macros.SourceMetadataTitle(Root, SheetPart.Root, SheetForm.Glossary),
                 new L2ColourOptions(), null, RootEx, null);
 
             Assert.AreEqual(1, Occurrences(tex, @"\newcommand{\ealkeybody}"),
@@ -347,7 +349,7 @@ namespace SyntheticPDFs.Tests
 
             String tex = L2VocabKeyRenderer.Render(
                 terms,
-                new L2Macros.SourceMetadataTitle(Root, SourceType.Root, SourceRendition.VocabKey),
+                new L2Macros.SourceMetadataTitle(Root, SheetPart.Root, SheetForm.Glossary),
                 new L2ColourOptions(), null, RootEx, null);
 
             var rows = Regex.Matches(tex, @"\\ealentry\{(\w+)\}")
@@ -407,7 +409,7 @@ namespace SyntheticPDFs.Tests
 
             String tex = L2VocabKeyRenderer.Render(
                 terms,
-                new L2Macros.SourceMetadataTitle(Root, SourceType.Root, SourceRendition.VocabKey),
+                new L2Macros.SourceMetadataTitle(Root, SheetPart.Root, SheetForm.Glossary),
                 new L2ColourOptions(), language, RootEx, null);
 
             List<String> rows = MatchUpRows(tex);
@@ -462,7 +464,7 @@ namespace SyntheticPDFs.Tests
 
             String tex = L2VocabKeyRenderer.Render(
                 terms,
-                new L2Macros.SourceMetadataTitle(Root, SourceType.Root, SourceRendition.VocabKey),
+                new L2Macros.SourceMetadataTitle(Root, SheetPart.Root, SheetForm.Glossary),
                 new L2ColourOptions(), null, RootEx, null);
 
             CollectionAssert.AreEqual(terms, L2VocabData.ReadBlock(tex));
@@ -479,7 +481,7 @@ namespace SyntheticPDFs.Tests
 
             String tex = L2VocabKeyRenderer.Render(
                 terms,
-                new L2Macros.SourceMetadataTitle(Root, SourceType.Root, SourceRendition.VocabKey),
+                new L2Macros.SourceMetadataTitle(Root, SheetPart.Root, SheetForm.Glossary),
                 new L2ColourOptions(), null, RootEx, null);
 
             StringAssert.Contains(tex, @"50\% of something \& more");
