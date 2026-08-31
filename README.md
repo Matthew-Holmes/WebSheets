@@ -373,3 +373,23 @@ trigger endpoint rather than directly. On startup it deletes and re-clones the
 content repository into `ContentRepository:LocalDirectory`. On Windows its git
 commands run through WSL, so a working WSL install with `git` is required for
 local development.
+
+## Deploying
+
+Both services run as containers on the droplet, behind the same nginx that was
+always there. A deploy builds them here, pushes them to GitHub's container
+registry, and tells the droplet to pull and restart:
+
+```bash
+./docs/deploy/deploy.sh
+```
+
+[docs/deploy/README.md](docs/deploy/README.md) is the step-by-step guide,
+including the one-off setup each machine needs and what to do when the deploy
+complains. [docs/deploy/how-it-works.md](docs/deploy/how-it-works.md) explains
+the machinery behind it — images, registries, host networking and the rest — for
+anyone who has not met Docker before.
+
+The object store is not part of any of this. Garage runs on the droplet as an
+ordinary service, and the site reads from it over its public address like any
+other client, so deploying never touches it.

@@ -1,0 +1,25 @@
+# The build context is the repository root, so that Shared comes along too.
+#   docker build -f docs/deploy/Dockerfile.websheets .
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# restore against the project files alone, so editing source reuses this layer
+COPY WebSheets/WebSheets.csproj WebSheets/
+COPY Shared/Shared.csproj       Shared/
+RUN dotnet restore WebSheets/WebSheets.csproj
+
+COPY WebSheets/ WebSheets/
+COPY Shared/    Shared/
+RUN dotnet publish WebSheets/WebSheets.csproj -c Release -o /app --no-restore
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+WORKDIR /app
+COPY --from=build /app .
+
+ENV DOTNET_NOLOGO=true
+
+# the base image ships this non-root user; nothing here needs more than it
+USER app
+
+ENTRYPOINT ["dotnet", "WebSheets.dll"]

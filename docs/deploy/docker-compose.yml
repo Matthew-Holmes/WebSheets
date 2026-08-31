@@ -1,0 +1,74 @@
+# Runs on the droplet. Deployed there by docs/deploy/deploy.sh, which also
+# builds and pushes the images - nothing is ever built on the droplet, whose
+# disk is shared with the garage object store.
+#
+# Both services join the host network. That is deliberate rather than lazy: the
+# generator binds loopback only, and the site reaches it on localhost:5432, so
+# sharing the host's network namespace keeps both of those literally true and
+# means nginx needs no change at all - it still proxies to 127.0.0.1:5000.
+
+name: mattsmaths
+
+services:
+  websheets:
+    image: ${REGISTRY:-ghcr.io/matthew-holmes}/websheets:${TAG:-latest}
+    network_mode: host
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      # nginx proxies here; loopback so it is not reachable past the proxy
+      ASPNETCORE_URLS: http://127.0.0.1:5000
+      # was "*", which left the site open to host header attacks
+      AllowedHosts: matthewsmathematics.uk;www.matthewsmathematics.uk
+    env_file:
+      # holds SyntheticPdfsTrigger__ApiKey - see README.md in this folder
+      - /etc/mattsmaths/mmWebsite.env
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  syntheticpdfs:
+    image: ${REGISTRY:-ghcr.io/matthew-holmes}/syntheticpdfs:${TAG:-latest}
+    network_mode: host
+    restart: always
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      # all three of these are paths the committed defaults get wrong for a
+      # container: the defaults are relative to the working directory, which
+      # here is the read-only /app the image was published into
+      ContentRepository__SshKeyPath: /run/secrets/deploy_key
+      ContentRepository__LocalDirectory: /var/lib/generator/content-repo
+      LLM__DeepSeekAPIKeyFile: /run/secrets/deepseek_api_key
+    volumes:
+      # both owned by uid 10001 on the host, mode 600 - the generator user in
+      # the image has that uid so that ssh accepts the key.
+      # create_host_path is off because the default is on: a missing key file
+      # would otherwise be silently created as a directory, and the failure
+      # that follows says nothing about the file that was actually missing
+      - type: bind
+        source: /etc/mattsmaths/deploy_key
+        target: /run/secrets/deploy_key
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /etc/mattsmaths/deepseek_api_key
+        target: /run/secrets/deepseek_api_key
+        read_only: true
+        bind:
+          create_host_path: false
+      # the clone is deleted and remade at every startup, so it needs somewhere
+      # writable that a deploy does not overwrite
+      - type: volume
+        source: generator-work
+        target: /var/lib/generator
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  generator-work:

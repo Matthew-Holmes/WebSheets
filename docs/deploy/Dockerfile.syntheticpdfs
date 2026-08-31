@@ -1,0 +1,40 @@
+# The build context is the repository root, so that Agents and Shared come too.
+#   docker build -f docs/deploy/Dockerfile.syntheticpdfs .
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# restore against the project files alone, so editing source reuses this layer
+COPY SyntheticPDFs/SyntheticPDFs.csproj SyntheticPDFs/
+COPY Agents/Agents.csproj               Agents/
+COPY Shared/Shared.csproj               Shared/
+RUN dotnet restore SyntheticPDFs/SyntheticPDFs.csproj
+
+COPY SyntheticPDFs/ SyntheticPDFs/
+COPY Agents/        Agents/
+COPY Shared/        Shared/
+RUN dotnet publish SyntheticPDFs/SyntheticPDFs.csproj -c Release -o /app --no-restore
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+
+# every git operation is shelled out to bash, so these have to be in the image
+# rather than assumed present on whatever host runs it
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git openssh-client ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+# a fixed uid, so the deploy key on the host can be chowned to something known -
+# ssh refuses a private key it does not own, or one readable by anyone else
+RUN groupadd --gid 10001 generator \
+ && useradd  --uid 10001 --gid 10001 --create-home --shell /usr/sbin/nologin generator \
+ && mkdir -p /var/lib/generator \
+ && chown generator:generator /var/lib/generator
+
+WORKDIR /app
+COPY --from=build /app .
+
+ENV DOTNET_NOLOGO=true
+
+USER generator
+
+ENTRYPOINT ["dotnet", "SyntheticPDFs.dll"]

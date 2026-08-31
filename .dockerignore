@@ -1,0 +1,15 @@
+# Build context for the Dockerfiles in docs/deploy. Two entries here matter for
+# more than speed: the DeepSeek key and the local clone of the content
+# repository both sit inside SyntheticPDFs/ and must never reach an image layer.
+SyntheticPDFs/run/secrets/
+SyntheticPDFs/Matthews_Mathematics/
+
+**/bin/
+**/obj/
+.git/
+.github/
+.vs/
+TestResults/
+docs/
+README.md
+*.user
