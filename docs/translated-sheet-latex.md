@@ -114,6 +114,71 @@ claims its **full height**, so a table row or a TikZ node makes room for it.
 Inside `ealglossed` the leading is fixed at 2.1× — about 30pt against the ~21pt
 a gloss needs — so claiming that height costs nothing in running text.
 
+## The vocabulary key
+
+The key is the one generated file whose LaTeX is written entirely by
+`L2VocabKeyRenderer` rather than by a model, so its layout lives there and not
+in `L2Macros` — a parallel text sheet has no use for any of it, and pasting it
+into every generated file would make restyling the key rebuild all of them.
+That is also why the key records its own `key layout version` in the provenance
+block, separate from `layout macros version`: only the keys go stale when the
+key is restyled.
+
+Three pages: the key, the match-up, and the answers to the match-up, in that
+order so a teacher can print the first two. See
+[glossaryStyles/](glossaryStyles/) for what they look like.
+
+**`\ealpage` packs copies onto the page.** The body is typeset into a box so its
+height can be measured, then repeated with a cut line between as many times as
+it fits. `\ealfits` is a `\count` taking a dimension, which is how TeX coerces
+scaled points to an integer for the division; `\divide` truncates, where
+`\numexpr` would round up and overflow the page. A body taller than the page is
+typeset directly instead, so it breaks across pages rather than overflowing one.
+The body is therefore typeset twice — once to be measured and thrown away — so
+nothing in it may have a side effect that would differ between copies.
+
+**The match-up is a TikZ matrix, not a `tabular`.** The answer page has to draw
+a line from each word to its meaning, and both pages have to agree on where the
+rows are. Nothing uses `remember picture`, so the grid is placed in one pass and
+a packed copy of it is simply drawn again — which is what makes packing and the
+answer lines coexist.
+
+The cell separator is `\ealnextcol` rather than the usual `\&`. A definition is
+allowed to contain an ampersand, which `Escape` writes as `\&`, and that would
+otherwise split the cell in half.
+
+**Straight answer lines depend on the shuffle being bounded.**
+`L2VocabData.MaxDisplacement` keeps every definition within five rows of its
+word. Curves, or lines routed through lanes, were both tried at fifteen terms
+and neither is readable; bounding the shuffle bounds the slope, and straight
+lines then read cleanly. A definition left beside its own word is swapped out
+afterwards — it would be a free answer, and draws a horizontal line saying so.
+
+### Two rules a right-to-left key encodes
+
+**The whole key is mirrored, not just the text alignment.** Setting the meaning
+flush right is necessary and is not enough: with the word still on the left, the
+dotted leader runs out in the middle of the line and the meaning starts
+somewhere else entirely, and on the match-up an answer line stops at the far
+side of the column with a gap before the text it points at. So for an RTL
+profile the word goes to the right margin with the leader running leftwards, and
+the match-up grid has its columns swapped — which also swaps which edge each
+answer line is drawn from, `2.west -- 1.east` rather than `1.east -- 2.west`.
+Both ends then meet the text, because both columns end against the gutter.
+
+The translated word, the em dash and the definition go inside a **single**
+`\ealtext`. Set as separate runs they are ordered left to right by the
+surrounding paragraph, which lands the word at the far end of the line where it
+is read last.
+
+**The meaning needs a `\strut`.** A translated meaning opens with a language
+switch and a colour, and both put a whatsit into the box ahead of its first
+line. A `\parbox[t]` whose first item is not a box takes its height as zero, so
+the whole meaning drops about half a line below the word it belongs to — on
+every row, in every translated key, and not at all in an English one. Starting
+the paragraph in horizontal mode puts them back on the same line. It is worth
+roughly one extra copy per page, since the offset was costing a line an entry.
+
 ## Fonts in CI
 
 > For the actual steps to take in the content repository, see

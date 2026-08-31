@@ -192,37 +192,139 @@ namespace SyntheticPDFs.Logic
 
         #endregion
 
+        #region The order the key is read in
+
+        // A key is looked up by its English word, so that is what it is ordered by -
+        // including the translated keys, which keep the English order rather than
+        // sorting by the translation, so that the same sheet's keys read the same way
+        // whichever language a pupil has.
+        internal static List<VocabTerm> Alphabetical(IReadOnlyList<VocabTerm> terms) =>
+            terms.OrderBy(t => t.English, StringComparer.OrdinalIgnoreCase).ToList();
+
+        #endregion
+
         #region The match-up
+
+        // How far a definition may sit from the word it belongs to.
+        //
+        // An unbounded shuffle puts a definition anywhere, which means an answer line
+        // can run the full height of the page, and fifteen of those cross into
+        // something nobody can read. Keeping every definition within five rows bounds
+        // how steep a line can be, and the match-up is no easier for it - the pupil
+        // still has to know which of eleven it is.
+        internal const int MaxDisplacement = 5;
 
         // The definitions in an order that is not the order of the key, so that matching
         // them is actually a task. Seeded from the sheet's name rather than the clock,
         // so regenerating a key produces the same file and does not show up as a change.
-        //
-        // Rejects the identity ordering rather than trusting the shuffle: with four
-        // terms it comes up one time in 24, and a match-up already in the right order
-        // gives the answer away.
         internal static List<VocabTerm> Shuffled(IReadOnlyList<VocabTerm> terms, String seed)
         {
             if (terms.Count < 2) { return terms.ToList(); }
 
             Random random = new(StableHash(seed));
 
-            List<VocabTerm> shuffled = terms.ToList();
+            int[] order = BoundedShuffle(terms.Count, random);
 
-            for (int attempt = 0; attempt < 8; attempt++)
+            // A definition the repair could not move is possible, on an unlucky draw
+            // near the end of a long list. Drawing again is cheaper than engineering
+            // it away, and since the seed is the sheet's name, whatever comes out is
+            // what that sheet gets every time.
+            for (int attempt = 1; attempt < 8 && LeavesOneInPlace(order); attempt++)
             {
-                for (int i = shuffled.Count - 1; i > 0; i--)
-                {
-                    int j = random.Next(i + 1);
-                    (shuffled[i], shuffled[j]) = (shuffled[j], shuffled[i]);
-                }
-
-                if (!shuffled.SequenceEqual(terms)) { return shuffled; }
+                order = BoundedShuffle(terms.Count, random);
             }
 
-            // vanishingly unlikely, but a rotation is guaranteed to differ
-            return terms.Skip(1).Concat(terms.Take(1)).ToList();
+            return order.Select(i => terms[i]).ToList();
         }
+
+        private static bool LeavesOneInPlace(int[] order) =>
+            order.Where((definition, row) => definition == row).Any();
+
+        // Fills the rows in order, each from the definitions still unplaced that are
+        // near enough to it. Built rather than shuffled-and-checked because a random
+        // permutation almost never satisfies the bound once there are more than a few
+        // terms, so rejection would loop for a long time and then give up.
+        //
+        // Returns which definition each row holds, rather than the terms themselves,
+        // because that is what the bound and the repair below are stated in terms of.
+        private static int[] BoundedShuffle(int count, Random random)
+        {
+            List<int> unplaced = Enumerable.Range(0, count).ToList();
+
+            int[] from = new int[count];
+
+            for (int row = 0; row < count; row++)
+            {
+                from[row] = Take(unplaced, row, random);
+            }
+
+            Unfix(from);
+
+            return from;
+        }
+
+        // unplaced stays ascending, so the definitions near enough to this row are a
+        // prefix of it, and the one at the front is always the most urgent
+        private static int Take(List<int> unplaced, int row, Random random)
+        {
+            int index = 0;
+
+            // the front one has run out of rows it can still reach, so it goes here
+            if (unplaced[0] + MaxDisplacement > row)
+            {
+                int reachable = 0;
+
+                while (reachable < unplaced.Count
+                    && unplaced[reachable] <= row + MaxDisplacement)
+                {
+                    reachable++;
+                }
+
+                index = random.Next(reachable);
+            }
+
+            int chosen = unplaced[index];
+
+            unplaced.RemoveAt(index);
+
+            return chosen;
+        }
+
+        // A definition left beside its own word is a free answer, and draws a line
+        // straight across the answer page that says so. Swapping the two rows clears
+        // it, so long as the other row's definition can afford the move - which is
+        // why the nearest row that can is looked for rather than only the next one.
+        private static void Unfix(int[] from)
+        {
+            for (int row = 0; row < from.Length; row++)
+            {
+                if (from[row] != row) { continue; }
+
+                for (int step = 1; step <= MaxDisplacement; step++)
+                {
+                    if (TrySwap(from, row, row - step) || TrySwap(from, row, row + step))
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+
+        // the fixed definition moves to `other`, which it can reach because `other` is
+        // within the bound of `row`; the definition at `other` has to reach `row`
+        private static bool TrySwap(int[] from, int row, int other)
+        {
+            if (other < 0 || other >= from.Length) { return false; }
+
+            if (!Fits(from[other], row)) { return false; }
+
+            (from[row], from[other]) = (from[other], from[row]);
+
+            return true;
+        }
+
+        private static bool Fits(int definition, int row) =>
+            Math.Abs(definition - row) <= MaxDisplacement;
 
         // string.GetHashCode is randomised per process, which would give a different
         // shuffle on every run and make every regeneration look like a change

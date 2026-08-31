@@ -16,6 +16,12 @@ namespace SyntheticPDFs.Logic
         // makes every file built from the old ones stale
         internal const int MacroVersion = 1;
 
+        // The same idea for the layout of a vocabulary key, kept separate because it is
+        // only the keys that use it. Restyling the key would otherwise rebuild every
+        // parallel text sheet as well, each of which costs an API call to remake and
+        // would come back identical.
+        internal const int KeyLayoutVersion = 3;
+
         // Always lualatex, never inherited from the English source. The CI classifier
         // reads this before anything else, so a sheet pinned to pdflatex would take its
         // translation down with it - pdflatex cannot typeset any of these scripts.
@@ -154,7 +160,8 @@ namespace SyntheticPDFs.Logic
             L2ColourOptions colours,
             LanguageProfile? language,
             String builtFrom,
-            String? vocabularyKey)
+            String? vocabularyKey,
+            bool isKey = false)
         {
             List<String> lines = new()
             {
@@ -188,6 +195,11 @@ namespace SyntheticPDFs.Logic
 
             lines.Add(Setting(translationLabel, Describe(colours.Translation)));
             lines.Add(Setting("layout macros", $"version {MacroVersion}"));
+
+            if (isKey)
+            {
+                lines.Add(Setting("key layout", $"version {KeyLayoutVersion}"));
+            }
 
             lines.AddRange(new[]
             {
@@ -252,6 +264,10 @@ namespace SyntheticPDFs.Logic
         {
             internal required IReadOnlyList<(int R, int G, int B)> Colours { get; init; }
             internal required int MacroVersion { get; init; }
+
+            // null in anything that is not a vocabulary key, and in a key written
+            // before the layout was versioned
+            internal int? KeyLayoutVersion { get; init; }
         }
 
         private static readonly Regex RgbLine =
@@ -259,6 +275,9 @@ namespace SyntheticPDFs.Logic
 
         private static readonly Regex VersionLine =
             new(@"layout macros\s+version\s+(\d+)", RegexOptions.Compiled);
+
+        private static readonly Regex KeyLayoutLine =
+            new(@"key layout\s+version\s+(\d+)", RegexOptions.Compiled);
 
         // null when the file carries no block we can read, which counts as out of date -
         // a file with no record of what it was made from cannot be shown to be current
@@ -279,22 +298,32 @@ namespace SyntheticPDFs.Logic
 
             if (colours.Count < 3) { return null; }
 
+            var keyLayout = KeyLayoutLine.Match(normalised);
+
             return new Provenance
             {
-                Colours      = colours,
-                MacroVersion = int.Parse(version.Groups[1].Value),
+                Colours          = colours,
+                MacroVersion     = int.Parse(version.Groups[1].Value),
+                KeyLayoutVersion = keyLayout.Success
+                    ? int.Parse(keyLayout.Groups[1].Value)
+                    : null,
             };
         }
 
         // whether a file already in the repository was built from the settings in force
         // now. this is what makes a settings change rebuild only what it actually affects
-        internal static bool MatchesSettings(String texSource, L2ColourOptions colours)
+        internal static bool MatchesSettings(
+            String texSource, L2ColourOptions colours, bool isKey = false)
         {
             Provenance? provenance = ParseProvenance(texSource);
 
             if (provenance is null) { return false; }
 
             if (provenance.MacroVersion != MacroVersion) { return false; }
+
+            // a key written before the layout was versioned records nothing, which
+            // cannot be shown to be current and so is not
+            if (isKey && provenance.KeyLayoutVersion != KeyLayoutVersion) { return false; }
 
             var wanted = new[]
             {

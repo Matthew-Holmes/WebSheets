@@ -65,3 +65,6 @@ SyntheticPDFs/run/secrets/DeepSeekAPIKey.txt
 
 /SyntheticPDFs/Matthews_Mathematics/
 /SyntheticPDFs/run/secrets/DeepSeekAPIKey.txt
+
+# Latex junk
+*.pdf

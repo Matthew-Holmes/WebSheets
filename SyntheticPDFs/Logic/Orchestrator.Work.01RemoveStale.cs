@@ -83,7 +83,9 @@ namespace SyntheticPDFs.Logic
                     continue;
                 }
 
-                if (!L2Macros.MatchesSettings(contents, L2Settings.Colours))
+                bool isKey = rendition is SourceRendition.VocabKey or SourceRendition.L2Key;
+
+                if (!L2Macros.MatchesSettings(contents, L2Settings.Colours, isKey))
                 {
                     _logger.LogInformation(
                         "{File} was built from different settings", file.TrackedFile.FullPath);

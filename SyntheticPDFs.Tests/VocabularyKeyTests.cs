@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
 using SyntheticPDFs.Tests.Fakes;
+using System.Text.RegularExpressions;
 
 namespace SyntheticPDFs.Tests
 {
@@ -182,6 +183,58 @@ namespace SyntheticPDFs.Tests
         }
 
         [TestMethod]
+        public void NoDefinitionSitsFarFromTheWordItBelongsTo()
+        {
+            // what keeps the answer page readable: a bounded shuffle means a bounded
+            // slope, and a straight line that never sweeps across the others
+            for (int count = 2; count <= 40; count++)
+            {
+                var terms = Enumerable.Range(0, count)
+                    .Select(i => new VocabTerm { English = $"word{i}", Definition = $"def{i}" })
+                    .ToList();
+
+                for (int seed = 0; seed < 25; seed++)
+                {
+                    var shuffled = L2VocabData.Shuffled(terms, $"sheet{seed}");
+
+                    CollectionAssert.AreEquivalent(terms, shuffled,
+                        $"{count} terms, seed {seed}: every term must still be there");
+
+                    for (int row = 0; row < count; row++)
+                    {
+                        int from = terms.IndexOf(shuffled[row]);
+
+                        Assert.IsTrue(
+                            Math.Abs(from - row) <= L2VocabData.MaxDisplacement,
+                            $"{count} terms, seed {seed}: {shuffled[row].English} moved "
+                            + $"from row {from} to row {row}");
+                    }
+                }
+            }
+        }
+
+        [TestMethod]
+        public void ADefinitionIsNotLeftBesideItsOwnWord()
+        {
+            // it would be a free answer, and a bounded shuffle leaves one in place far
+            // more often than an unbounded one did
+            var terms = Enumerable.Range(0, 12)
+                .Select(i => new VocabTerm { English = $"word{i}", Definition = $"def{i}" })
+                .ToList();
+
+            for (int seed = 0; seed < 25; seed++)
+            {
+                var shuffled = L2VocabData.Shuffled(terms, $"sheet{seed}");
+
+                for (int row = 0; row < terms.Count; row++)
+                {
+                    Assert.AreNotEqual(terms[row], shuffled[row],
+                        $"seed {seed}: row {row} was left in place");
+                }
+            }
+        }
+
+        [TestMethod]
         public void ATwoTermMatchUpIsStillReordered()
         {
             // the case most likely to come back in its original order by chance
@@ -230,12 +283,33 @@ namespace SyntheticPDFs.Tests
             Assert.IsFalse(L2Macros.MatchesSettings("\\documentclass{article}", new L2ColourOptions()));
         }
 
+        [TestMethod]
+        public void RestylingTheKeyDatesTheKeysAndNothingElse()
+        {
+            // the key layout is versioned apart from the shared macros so that
+            // restyling it does not rebuild every parallel text sheet as well - each
+            // of those costs an API call and would come back identical
+            var colours = new L2ColourOptions();
+
+            String sheet = L2Macros.ProvenanceBlock("title", colours, null, RootEx, null);
+            String key = L2Macros.ProvenanceBlock(
+                "title", colours, null, RootEx, null, isKey: true);
+
+            Assert.IsTrue(L2Macros.MatchesSettings(sheet, colours),
+                "a sheet says nothing about the key layout and does not need to");
+            Assert.IsTrue(L2Macros.MatchesSettings(key, colours, isKey: true));
+
+            Assert.IsFalse(L2Macros.MatchesSettings(sheet, colours, isKey: true),
+                "a key written before the layout was versioned cannot be shown current");
+        }
+
         // ---- the rendered key ----
 
         [TestMethod]
         public void TheKeyRepeatsItselfWithoutRepeatingItsSource()
         {
-            // A4 twice over, so a teacher printing two pages to a sheet gets two copies
+            // how many copies fit on a page is decided when the file is compiled, so
+            // the source says each body once and \ealpage does the repeating
             var terms = new List<VocabTerm>
             {
                 new() { English = "numerator", Definition = "above the line" },
@@ -251,11 +325,131 @@ namespace SyntheticPDFs.Tests
                 "the key body is defined once");
             Assert.AreEqual(1, Occurrences(tex, "key vocabulary"),
                 "and its contents appear once in the source, not twice over");
+            Assert.AreEqual(1, Occurrences(tex, @"\newcommand{\ealmatchrows}"),
+                "the match-up rows are written once and used by both of its pages");
 
-            // both bodies invoked twice, which is what puts each on two pages
-            StringAssert.Contains(tex, @"\ealkeybody\newpage\ealkeybody");
-            StringAssert.Contains(tex, @"\ealmatchbody\newpage\ealmatchbody");
+            StringAssert.Contains(tex, @"\ealpage{\ealkeybody}");
+            StringAssert.Contains(tex, @"\ealpage{\ealmatchbody}");
+            StringAssert.Contains(tex, @"\ealpage{\ealanswerbody}");
             StringAssert.Contains(tex, L2Macros.CompilerDirective);
+        }
+
+        [TestMethod]
+        public void TheKeyIsInAlphabeticalOrder()
+        {
+            // a key is looked up by its English word, so that is what it is ordered by
+            var terms = new List<VocabTerm>
+            {
+                new() { English = "numerator", Definition = "above the line" },
+                new() { English = "denominator", Definition = "below the line" },
+                new() { English = "fraction", Definition = "parts of a whole" },
+            };
+
+            String tex = L2VocabKeyRenderer.Render(
+                terms,
+                new L2Macros.SourceMetadataTitle(Root, SourceType.Root, SourceRendition.VocabKey),
+                new L2ColourOptions(), null, RootEx, null);
+
+            var rows = Regex.Matches(tex, @"\\ealentry\{(\w+)\}")
+                .Select(m => m.Groups[1].Value)
+                .ToList();
+
+            CollectionAssert.AreEqual(
+                new[] { "denominator", "fraction", "numerator" }, rows);
+
+            var carried = L2VocabData.ReadBlock(tex);
+
+            Assert.IsNotNull(carried);
+            CollectionAssert.AreEqual(
+                new[] { "denominator", "fraction", "numerator" },
+                carried.Select(t => t.English).ToList(),
+                "the data block is in the same order as the table it was written with");
+        }
+
+        [TestMethod]
+        public void EveryAnswerLineJoinsAWordToItsOwnMeaning()
+        {
+            // the answers are drawn from the shuffle rather than read back off it, so
+            // an off-by-one here would ship a page of confidently wrong answers
+            AssertTheAnswersAreRight(language: null, word: 1, meaning: 2);
+        }
+
+        [TestMethod]
+        public void AMirroredAnswerLineStillJoinsAWordToItsOwnMeaning()
+        {
+            // a right to left key has the columns the other way round, so the lines
+            // are drawn between the other two edges. getting one of the pair and not
+            // the other would draw them across the text instead of across the gutter.
+            AssertTheAnswersAreRight(Urdu, word: 2, meaning: 1);
+        }
+
+        private static readonly LanguageProfile Urdu = new()
+        {
+            Code        = new ISO639_3Code("urd"),
+            EnglishName = "urdu",
+            Font        = "Noto Nastaliq Urdu",
+            BabelName   = "urdu",
+            RightToLeft = true,
+        };
+
+        private static void AssertTheAnswersAreRight(
+            LanguageProfile? language, int word, int meaning)
+        {
+            var terms = Enumerable.Range(0, 9)
+                .Select(i => new VocabTerm
+                {
+                    English              = $"word{i}",
+                    Definition           = $"the meaning of word{i}",
+                    Translation          = $"tr{i}",
+                    TranslatedDefinition = $"the meaning of word{i}",
+                })
+                .ToList();
+
+            String tex = L2VocabKeyRenderer.Render(
+                terms,
+                new L2Macros.SourceMetadataTitle(Root, SourceType.Root, SourceRendition.VocabKey),
+                new L2ColourOptions(), language, RootEx, null);
+
+            List<String> rows = MatchUpRows(tex);
+
+            Assert.AreEqual(terms.Count, rows.Count);
+
+            // both ends face the gutter, whichever side of it each column is on
+            String leavingTheWord = word == 1 ? "east" : "west";
+            String reachingTheMeaning = word == 1 ? "west" : "east";
+
+            var lines = Regex.Matches(
+                    tex,
+                    $@"\(m-(\d+)-{word}\.{leavingTheWord}\) -- "
+                    + $@"\(m-(\d+)-{meaning}\.{reachingTheMeaning}\)")
+                .Select(m => (Word: int.Parse(m.Groups[1].Value),
+                              Meaning: int.Parse(m.Groups[2].Value)))
+                .ToList();
+
+            Assert.AreEqual(terms.Count, lines.Count, "one line per word");
+            Assert.AreEqual(terms.Count, lines.Select(l => l.Meaning).Distinct().Count(),
+                "and no two words pointing at the same meaning");
+
+            foreach (var line in lines)
+            {
+                String english = Regex.Match(
+                    rows[line.Word - 1], @"ealkey\{(\w+)\}").Groups[1].Value;
+
+                StringAssert.Contains(rows[line.Meaning - 1], $"the meaning of {english}",
+                    $"the line from row {line.Word} points at the wrong meaning");
+            }
+        }
+
+        // the rows of the match-up grid, which both of its pages are drawn from
+        private static List<String> MatchUpRows(String tex)
+        {
+            int open = tex.IndexOf(@"\newcommand{\ealmatchrows}", StringComparison.Ordinal);
+
+            String block = tex[open..tex.IndexOf(@"\newcommand{\ealmatchbody}", StringComparison.Ordinal)];
+
+            return block.Split(@"\\", StringSplitOptions.TrimEntries)
+                .Where(line => line.Contains(@"\ealnextcol", StringComparison.Ordinal))
+                .ToList();
         }
 
         [TestMethod]
@@ -481,7 +675,10 @@ namespace SyntheticPDFs.Tests
 
             Assert.IsNotNull(terms);
             Assert.AreEqual(2, terms.Count, "no term may be dropped");
-            Assert.AreEqual("denominator", terms[1].Translation,
+
+            VocabTerm missed = terms.Single(t => t.English == "denominator");
+
+            Assert.AreEqual("denominator", missed.Translation,
                 "an untranslated term keeps its English rather than going missing");
         }
 
