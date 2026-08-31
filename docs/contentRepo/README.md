@@ -51,16 +51,58 @@ has to be present in the build container. A family that is not there is a hard
 fontspec error that takes the whole build down — and it would otherwise surface
 one language at a time, whenever somebody first asked for a sheet in it.
 
-The probe loads every one of them and typesets a full stop in each, which is
-enough to make fontspec resolve the family without needing text this repository
-has no business inventing. Push it once with the `extra_system_packages` change
-from [content-repo-translation-setup.md](../content-repo-translation-setup.md)
-and the run either passes, or names the family it could not find.
+The probe asks for every one of them by name before loading it, and prints one
+letter of each language's own script in the font that language would be set in.
+Push it once with the `extra_system_packages` change from
+[content-repo-translation-setup.md](../content-repo-translation-setup.md) and
+the run either passes, or names **every** family it could not find: one line in
+the log per language as it is found, and one error at the end listing each
+family once.
 
-It is worth keeping afterwards rather than deleting: it is a few seconds of
-compile, and it turns a change to the build image into a failure with a name on
-it rather than a mystery months later. It is generated from the generator's
-configuration, so it needs rewriting when a language is added.
+Asking first is the point. Loading a font that is not installed is a fatal
+error, so a probe that simply used all fifty-odd would stop at the first one
+missing and say nothing about the rest — which is the drip-feed it exists to
+avoid. If you would rather it reported without failing the build, change
+`\PackageError` at the end of the file to `\PackageWarning`.
+
+**It has to print the script, not a full stop.** Several of Alpine's Noto script
+packages carry their script and very little else. An earlier version of this
+file printed `.` in every language; five of them had no full stop to print, and
+the run then died — a font that is selected and then prints nothing leaves
+LuaTeX subsetting an empty font, which is a fatal backend error rather than a
+warning. A letter the font is certain to have avoids both.
+
+### The note at the foot of the page
+
+That discovery is worth more than the bug that produced it, so each font is now
+also asked whether it has the characters a translated sheet mixes into its own
+script: a full stop to close a definition, digits for a fraction, and the em
+dash the vocabulary key sets between a word and its meaning. Anything missing is
+named at the foot of the page and in the log, and does **not** fail the build —
+it is a fact about the font, not about the container.
+
+It matters because LuaTeX drops a character the font has not got rather than
+substituting one, so a sheet in such a language compiles green with holes where
+its punctuation should be. A language named in that note needs a Latin fallback
+configured before a sheet in it reads properly.
+
+### Regenerating it
+
+It is generated from `SyntheticPDFs/appsettings.json` by `SyntheticPDFs.Tests`
+and pinned by a test there, so adding a language fails the suite until the probe
+is rewritten:
+
+```bash
+WEBSHEETS_WRITE_FONTPROBE=1 dotnet test SyntheticPDFs.Tests
+```
+
+A language in a script none of the configured fonts covers yet fails a different
+test first: every font needs a sample letter in `FontProbe.Samples` before it can
+be used, which is what stops the empty-subset crash coming back.
+
+It is worth keeping in the content repository afterwards rather than deleting: it
+is a few seconds of compile, and it turns a change to the build image into a
+failure with a name on it rather than a mystery months later.
 
 ## What is not here yet
 

@@ -14,7 +14,7 @@ namespace SyntheticPDFs.Tests
     [TestClass]
     public class ConfiguredLanguagesTests
     {
-        private static L2Options Shipped()
+        internal static L2Options Shipped()
         {
             var configuration = new ConfigurationBuilder()
                 .AddJsonFile(FindAppSettings(), optional: false)

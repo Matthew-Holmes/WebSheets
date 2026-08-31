@@ -86,11 +86,20 @@ step as well.
 
 ### Checking it took
 
-`latex/test/eal/fontProbe.tex` loads the font of every configured language and
-typesets a full stop in each, so one run says whether the container has them all.
-Push it with this change: it either passes, or the log names the family it could
-not find. Without it, a missing script stays hidden until the first person asks
-for a sheet in that language, and then breaks the whole build.
+`latex/test/eal/fontProbe.tex` asks for the font of every configured language
+and prints one letter of that language's script in it, so one run says whether
+the container has them all. Push it with this change: it either passes, or names
+every family it could not find — a line in the log per language, then one error
+listing each family once. Without it, a missing script stays hidden until the
+first person asks for a sheet in that language, and then breaks the whole build.
+
+The same run also reports, **without** failing, any font that has no full stop,
+no digits or no em dash of its own. Several Noto script packages carry their
+script and nothing else, and LuaTeX drops a character the font has not got
+rather than substituting one — so a sheet in one of those languages compiles
+green with holes where its punctuation should be. That list is worth reading
+even when the build passes; see
+[contentRepo/README.md](contentRepo/README.md) for what it means.
 
 ---
 
