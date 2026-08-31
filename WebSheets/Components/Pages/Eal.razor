@@ -41,8 +41,10 @@ else
 
     @if (Chosen is null)
     {
+        var shortlist = Matches();
+
         <ul class="language-list">
-            @foreach (var language in Matches())
+            @foreach (var language in shortlist.Shown)
             {
                 <li>
                     <button class="language-option" @onclick="() => Choose(language)">
@@ -55,7 +57,14 @@ else
                 </li>
             }
 
-            @if (!Matches().Any())
+            @if (shortlist.Hidden > 0)
+            {
+                <li class="more-languages">
+                    and @shortlist.Hidden more - start typing to find one
+                </li>
+            }
+
+            @if (shortlist.Shown.Count == 0)
             {
                 <li class="no-match">No language matches "@Search".</li>
             }

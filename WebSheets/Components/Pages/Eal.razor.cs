@@ -137,11 +137,21 @@ public partial class Eal : ComponentBase
 
     #region Choosing a language
 
+    // what the reader sees before they have typed anything. the rest are a search away
+    private const int ShownUnsearched = 12;
+
+    protected sealed record Shortlist(IReadOnlyList<LanguageInfo> Shown, int Hidden);
+
     // Matched on the name as well as the code, since a reader looking for Urdu is far
     // more likely to type "urd" by accident than on purpose. A language already
     // generated sorts first, so what is there to read comes before what has to be asked
     // for.
-    protected IEnumerable<LanguageInfo> Matches()
+    //
+    // Listing all of them unasked would be a wall of fifty-odd names to read past, and
+    // the one a reader wants is nearly always either already made for this sheet or one
+    // of the common few. So an empty box shows those and says how many more there are;
+    // typing searches the lot.
+    protected Shortlist Matches()
     {
         string search = Search.Trim();
 
@@ -151,9 +161,26 @@ public partial class Eal : ComponentBase
                 l.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
                 || l.Code.StartsWith(search, StringComparison.OrdinalIgnoreCase));
 
-        return matching
+        List<LanguageInfo> ordered = matching
             .OrderByDescending(l => Group?.HasAnyTranslationIn(l.Code) == true)
-            .ThenBy(l => l.Name, StringComparer.OrdinalIgnoreCase);
+            .ThenBy(l => l.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (search.Length > 0) { return new Shortlist(ordered, 0); }
+
+        List<LanguageInfo> worthShowing = ordered
+            .Where(l => l.Eager || Group?.HasAnyTranslationIn(l.Code) == true)
+            .Take(ShownUnsearched)
+            .ToList();
+
+        // an instance with nothing marked eager would otherwise show an empty box and
+        // no way of knowing there was anything behind it
+        if (worthShowing.Count == 0)
+        {
+            worthShowing = ordered.Take(ShownUnsearched).ToList();
+        }
+
+        return new Shortlist(worthShowing, ordered.Count - worthShowing.Count);
     }
 
     protected void Choose(LanguageInfo language)

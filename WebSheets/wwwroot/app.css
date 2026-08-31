@@ -328,6 +328,14 @@ h1:focus {
     padding: 0.4rem 0.6rem;
 }
 
+/* not a language, so it must not look like one of the buttons above it */
+.more-languages {
+    color: #6c757d;
+    font-size: 0.9rem;
+    font-style: italic;
+    padding: 0.5rem 0.6rem 0.2rem;
+}
+
 .eal-file {
     padding: 0.2rem 0;
 }

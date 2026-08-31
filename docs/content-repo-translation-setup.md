@@ -59,13 +59,23 @@ and add the last three lines:
           work_in_root_file_dir: true
           latexmk_use_lualatex: true
           extra_system_packages: >-
-            font-noto font-noto-arabic font-noto-bengali
-            font-noto-gurmukhi font-noto-devanagari
+            font-noto font-noto-all font-noto-cjk
           extra_fonts: ./fonts/*.ttf
 ```
 
 Those are `apk` package names, because the action's `os` input defaults to
 `alpine`. Debian names such as `fonts-noto-core` will not resolve.
+
+**`font-noto-all` rather than a list of scripts.** Alpine packages Noto one
+script at a time — `font-noto-arabic`, `font-noto-bengali`,
+`font-noto-devanagari` and so on — and naming them individually means this list
+has to be kept in step with `L2:Languages` in the generator's configuration.
+It does not fail loudly when it drifts: fontspec stops with *"The font ... cannot
+be found"* the first time somebody asks for a language whose script was left
+out, and it takes the whole build down with it. There are fifty-odd languages
+configured across eighteen font families, so `font-noto-all` is both shorter and
+the only version that cannot go stale. `font-noto-cjk` is named as well because
+it is packaged separately and is what Chinese, Japanese and Korean need.
 
 Only the LuaLaTeX step needs this. Every generated translation carries
 `% !TeX program = lualatex`, so the classifier always routes it here. If a
@@ -73,6 +83,14 @@ hand-written translation ever needs XeLaTeX, add the same two inputs to that
 step as well.
 
 `extra_fonts` is harmless while `fonts/` is empty, so it can go in now.
+
+### Checking it took
+
+`latex/test/eal/fontProbe.tex` loads the font of every configured language and
+typesets a full stop in each, so one run says whether the container has them all.
+Push it with this change: it either passes, or the log names the family it could
+not find. Without it, a missing script stays hidden until the first person asks
+for a sheet in that language, and then breaks the whole build.
 
 ---
 

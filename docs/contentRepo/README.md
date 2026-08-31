@@ -27,6 +27,7 @@ fractionsBasics_solutions.tex
 fractionsBasics_vocab.tex               the tier 3 vocabulary key
 fractionsBasics/L2/pol/                 Polish: key, parallel text, key words only
 fractionsBasics/L2/urd/                 Urdu: the same three, right to left
+fontProbe.tex                           every configured language's font, loaded
 ```
 
 Two languages rather than one so the language picker has something to pick
@@ -42,6 +43,26 @@ The definitions are copied from the dictionary for the same reason.
 All ten compile with no errors and no missing glyphs. The two Noto fonts they
 name are the ones the workflow installs, so they build in CI but not necessarily
 on a machine without them.
+
+## `fontProbe.tex` — proving the fonts are installed
+
+The site offers around fifty languages, and each is set in a Noto family that
+has to be present in the build container. A family that is not there is a hard
+fontspec error that takes the whole build down — and it would otherwise surface
+one language at a time, whenever somebody first asked for a sheet in it.
+
+The probe loads every one of them and typesets a full stop in each, which is
+enough to make fontspec resolve the family without needing text this repository
+has no business inventing. Push it once with the `extra_system_packages` change
+from [content-repo-translation-setup.md](../content-repo-translation-setup.md)
+and the run either passes, or names the family it could not find.
+
+It is worth keeping afterwards rather than deleting: it is a few seconds of
+compile, and it turns a change to the build image into a failure with a name on
+it rather than a mystery months later. It is generated from the generator's
+configuration, so it needs rewriting when a language is added.
+
+## What is not here yet
 
 The generator will still fill in what is missing here — the other three eager
 languages, and translations of the worked solutions and answers if anyone asks

@@ -10,6 +10,15 @@ namespace SyntheticPDFs.Logic
     // being root files. A language only needs adding here when a sheet is actually
     // wanted in it; whether it can be typeset is a separate question, answered by
     // the language table in configuration.
+    //
+    // The list below is roughly the languages a UK school is most likely to need,
+    // taken as far as the fifty or so that come up in practice. It is not a ranking
+    // and the order does not matter: the site sorts by name, and only the languages
+    // in L2:EagerLanguages are generated without being asked for.
+    //
+    // One collision is worth knowing about in a mathematics repository: "sin" is
+    // Sinhala. A sheet called something_sin.tex is still treated as an English root,
+    // but it logs a warning saying so on every pass.
     internal static class LanguageNames
     {
         internal const String English = "english";
@@ -27,30 +36,68 @@ namespace SyntheticPDFs.Logic
                 ["ben"] = "bengali",
                 ["ara"] = "arabic",
 
-                // available on request
+                // ---- available on request ----
+
+                // Latin script
                 ["ces"] = "czech",
                 ["cym"] = "welsh",
                 ["deu"] = "german",
-                ["fas"] = "persian",
+                ["est"] = "estonian",
                 ["fra"] = "french",
-                ["guj"] = "gujarati",
-                ["hin"] = "hindi",
+                ["hau"] = "hausa",
+                ["hrv"] = "croatian",
+                ["hun"] = "hungarian",
+                ["ibo"] = "igbo",
                 ["ita"] = "italian",
                 ["kur"] = "kurdish",
+                ["lav"] = "latvian",
                 ["lit"] = "lithuanian",
                 ["nld"] = "dutch",
-                ["pes"] = "farsi",
                 ["por"] = "portuguese",
                 ["ron"] = "romanian",
-                ["rus"] = "russian",
                 ["slk"] = "slovak",
+                ["sna"] = "shona",
                 ["som"] = "somali",
                 ["spa"] = "spanish",
                 ["sqi"] = "albanian",
-                ["tam"] = "tamil",
+                ["swa"] = "swahili",
+                ["tgl"] = "tagalog",
                 ["tur"] = "turkish",
-                ["ukr"] = "ukrainian",
+                ["twi"] = "twi",
                 ["vie"] = "vietnamese",
+                ["yor"] = "yoruba",
+                ["zul"] = "zulu",
+
+                // Cyrillic and Greek
+                ["bul"] = "bulgarian",
+                ["ell"] = "greek",
+                ["rus"] = "russian",
+                ["srp"] = "serbian",
+                ["ukr"] = "ukrainian",
+
+                // right to left
+                ["fas"] = "persian",
+                ["heb"] = "hebrew",
+                ["pes"] = "farsi",
+                ["pus"] = "pashto",
+
+                // Indic
+                ["guj"] = "gujarati",
+                ["hin"] = "hindi",
+                ["kan"] = "kannada",
+                ["mal"] = "malayalam",
+                ["mar"] = "marathi",
+                ["nep"] = "nepali",
+                ["sin"] = "sinhala",
+                ["tam"] = "tamil",
+                ["tel"] = "telugu",
+
+                // everything else
+                ["amh"] = "amharic",
+                ["jpn"] = "japanese",
+                ["kor"] = "korean",
+                ["tha"] = "thai",
+                ["tir"] = "tigrinya",
                 ["zho"] = "chinese",
             };
 
