@@ -154,10 +154,21 @@ namespace SyntheticPDFs.Logic
         private static String VocabularyRules(IReadOnlyList<VocabTerm> terms, LanguageProfile language) =>
             String.Join(' ',
                 "These are the tier 3 words for this sheet, with the translation to use for each.",
-                "This list is fixed: mark these words and only these words, and use exactly the",
-                "translation given, so that the same word looks the same on every sheet a pupil sees.",
+                "This list is fixed: mark these words and only these words, and use the translation",
+                "given rather than one of your own, so the same word reads the same way on every",
+                "sheet a pupil sees.",
                 "Do not mark any other word, and do not translate a listed word differently.",
                 "A word not in the list is ordinary English however technical it looks.",
+
+                // The list gives each word in its dictionary form. Most of these languages
+                // inflect, so a sentence will often need a different form of it - Polish
+                // "ulamek" becomes "ulamka" after "each". Demanding the dictionary form
+                // verbatim would produce translations that read as wrong to the pupil the
+                // sheet is for, which is a worse failure than an inconsistent ending.
+                $"The list gives each word in its dictionary form. Put it into whatever form the",
+                $"sentence needs - {language.TitleName} grammar comes first, and a word that has to",
+                "change its ending to fit is still that word and is still marked.",
+                "What must not change is which word you have chosen for it.",
                 $"\n\n{TermsList(terms, language)}\n\n");
 
         internal static String GenerateParallelTextPrompt(

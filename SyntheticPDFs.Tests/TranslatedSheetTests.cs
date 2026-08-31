@@ -218,6 +218,29 @@ namespace SyntheticPDFs.Tests
         }
 
         [TestMethod]
+        public async Task ThePromptAllowsAKeyWordToBeInflected()
+        {
+            // Most of these languages inflect, so the dictionary form of a word is often
+            // not the form a sentence needs - Polish "ulamek" becomes "ulamka" after
+            // "each". Demanding the given translation verbatim produces sentences that
+            // read as wrong, and leaves the inflected word looking like it was never a
+            // key word at all.
+            GiveTheRepoEverythingUpToTheKey();
+
+            await _orchestrator.DoOnePassAsync();
+
+            foreach (String prompt in _llm.PromptsSeen)
+            {
+                StringAssert.Contains(prompt, "dictionary form");
+                StringAssert.Contains(prompt, "still that word and is still marked");
+
+                Assert.IsFalse(
+                    prompt.Contains("use exactly the translation given", StringComparison.Ordinal),
+                    "asking for the translation verbatim breaks any language that inflects");
+            }
+        }
+
+        [TestMethod]
         public async Task ThePromptAllowsTheSheetToGrowButNotToOverlap()
         {
             GiveTheRepoEverythingUpToTheKey();
