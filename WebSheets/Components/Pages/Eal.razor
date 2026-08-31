@@ -1,0 +1,108 @@
+@page "/eal/{*Path}"
+@rendermode InteractiveServer
+
+@using WebSheets.Models
+
+<PageTitle>@RootName - for EAL learners</PageTitle>
+
+<p><a href="@BrowseLink()">⬅️ Back</a></p>
+
+<h1 class="eal-title">@RootName</h1>
+<p class="eal-subtitle">Versions for pupils learning English as an additional language.</p>
+
+@if (!Loaded)
+{
+    <p>Loading...</p>
+}
+else if (AllLanguages.Count == 0)
+{
+    <p>No languages are available at the moment. Please try again later.</p>
+}
+else
+{
+    <div class="language-picker">
+        <span class="globe" aria-hidden="true">🌍</span>
+
+        @if (Chosen is null)
+        {
+            <input class="language-search"
+                   type="text"
+                   placeholder="Choose a language..."
+                   aria-label="Search for a language"
+                   @bind="Search"
+                   @bind:event="oninput" />
+        }
+        else
+        {
+            <span class="language-chosen">@Chosen.Name</span>
+            <button class="language-clear" @onclick="ClearChoice">change</button>
+        }
+    </div>
+
+    @if (Chosen is null)
+    {
+        <ul class="language-list">
+            @foreach (var language in Matches())
+            {
+                <li>
+                    <button class="language-option" @onclick="() => Choose(language)">
+                        <span class="language-name">@language.Name</span>
+                        @if (Group?.HasAnyTranslationIn(language.Code) == true)
+                        {
+                            <span class="badge-ready">ready</span>
+                        }
+                    </button>
+                </li>
+            }
+
+            @if (!Matches().Any())
+            {
+                <li class="no-match">No language matches "@Search".</li>
+            }
+        </ul>
+    }
+    else
+    {
+        @if (Notice is not null)
+        {
+            <p class="notice">@Notice</p>
+        }
+
+        <ul class="listing">
+            @foreach (var (part, form, file) in Forms())
+            {
+                <li class="eal-file">
+                    @if (file is not null)
+                    {
+                        <a href="@FileLink(file)" target="_blank">📄 @Heading(part, form)</a>
+                        <span class="source-after"> - <a href="@SourceLink(file)" target="_blank">source</a></span>
+                    }
+                    else if (Pending is not null && Pending.Value.Part == part && Pending.Value.Form == form)
+                    {
+                        <span class="missing">📄 @Heading(part, form)</span>
+                        <span class="confirm">
+                            Write this one now?
+                            <button class="confirm-yes" disabled="@Requesting" @onclick="ConfirmAsync">
+                                @(Requesting ? "asking..." : "yes, please")
+                            </button>
+                            <button class="confirm-no" disabled="@Requesting" @onclick="Cancel">no</button>
+                        </span>
+                    }
+                    else
+                    {
+                        <button class="missing-button" @onclick="() => Ask(part, form)">
+                            📄 <span class="missing">@Heading(part, form)</span>
+                            <span class="not-yet">not written yet</span>
+                        </button>
+                    }
+                </li>
+            }
+        </ul>
+
+        <p class="eal-note">
+            Anything greyed out has not been written yet. Asking for one puts it at the
+            front of the queue - it usually takes a few minutes, and a little longer if
+            it has to be built from other files that do not exist yet either.
+        </p>
+    }
+}

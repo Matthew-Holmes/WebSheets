@@ -127,6 +127,11 @@ app.MapPost("/ping", (
     };
 });
 
+// Which languages this instance can produce. The website reads this rather than
+// keeping a list of its own, so it can only ever offer a language that would work.
+app.MapGet("/languages", (Orchestrator orchestrator) =>
+    Results.Ok(orchestrator.SupportedLanguages()));
+
 // Ask for one translated file. Everything it is derived from is queued with it and
 // jumps ahead of the work the pipeline chose for itself, so a caller gets what they
 // asked for without having to know what it depends on, or wait for the whole

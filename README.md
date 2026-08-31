@@ -270,6 +270,35 @@ for the scripts involved before any of it will compile — see
 [docs/content-repo-translation-setup.md](docs/content-repo-translation-setup.md).
 And the eager set is large: 36 roots with five languages is around 576 files.
 
+### Finding them on the site
+
+A sheet and everything derived from it take **one line** in `/browse`, with the rest
+behind a menu that opens on hover — worked solutions, answers, glossary, a link to
+the EAL page, and the source on GitHub. Hovering one of the derived files opens a
+second level with the source for that file. Clicking the sheet name still goes
+straight to its PDF, as it always did.
+
+The menus are CSS only. This is a Blazor Server app, so a hover handled in C#
+would be a round trip to the server for every mouse movement. They open on focus
+as well as hover, so they can be reached by keyboard.
+
+A sheet's translations live in a folder named after the sheet, which is hidden
+from the listing — those files belong to the sheet beside it and are reached
+through its menu.
+
+`/eal/<path to sheet>` lists every translated form for a chosen language, with the
+ones that have not been written yet greyed out rather than left out — an absence
+and a language we do not do at all should not look the same. Clicking one asks for
+confirmation and then queues it, along with anything it is derived from.
+
+That request is unauthenticated by design: the generator listens on loopback, so
+the site is the only way in, and the worst a flood can do is spend tokens. If that
+becomes a problem the fix is a login on the site, not a key in the browser.
+
+The site keeps no language list of its own. It reads `GET /languages` from the
+generator, so it can only ever offer a language that would actually work. If the
+generator is not answering, browsing carries on without the translated variants.
+
 ### Asking for one file
 
 Most combinations are generated only when asked for. This queues the file and

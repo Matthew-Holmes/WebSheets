@@ -197,11 +197,16 @@ namespace SyntheticPDFs.Tests
 
         // ---- the shipped dictionary ----
 
+        // The copy under docs/contentRepo is the one committed here - the live dictionary
+        // lives in the content repository and is free to move ahead of it. What this
+        // pins is the format: if the convention the parser reads ever drifts from the
+        // file people are told to copy, this is what says so.
         [TestMethod]
         public void TheShippedDictionaryParsesAndCoversItsOwnHeadwords()
         {
             String path = Path.Combine(
-                RepositoryRoot(), "contentRepo", "latex", "dictionary", "mathematicalDictionary.tex");
+                RepositoryRoot(), "docs", "contentRepo",
+                "latex", "dictionary", "mathematicalDictionary.tex");
 
             Assert.IsTrue(File.Exists(path), $"expected the dictionary at {path}");
 

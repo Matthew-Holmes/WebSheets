@@ -140,9 +140,14 @@ Copy it in from this repository:
 
 ```bash
 mkdir -p latex/dictionary
-cp <path-to-WebSheets>/contentRepo/latex/dictionary/mathematicalDictionary.tex \
+cp <path-to-WebSheets>/docs/contentRepo/latex/dictionary/mathematicalDictionary.tex \
    latex/dictionary/
 ```
+
+Once it is committed there, **that** copy is the authoritative one — it is what the
+generator reads and what people edit to change a wording. The copy under
+`docs/contentRepo` is a starting point, kept so the format stays pinned by the
+test suite; see [contentRepo/README.md](contentRepo/README.md).
 
 It builds under pdfLaTeX like any other sheet, and the generator excludes it from
 the pipeline — nothing is derived from it, and it never gets worked solutions.

@@ -1,6 +1,8 @@
 ﻿@page "/browse"
 @page "/browse/{*Path}"
 
+@using WebSheets.Models
+
 <PageTitle>Browse</PageTitle>
 
 <h3>@(CurrentPath == "" ? "Browse" : CurrentPath)</h3>
@@ -18,29 +20,96 @@ else
         </p>
     }
 
-    <ul>
-        @foreach (var child in Node.Children.Values
-       .OrderByDescending(x => x.IsDirectory)
-       .ThenBy(x => x.Name))
+    <ul class="listing">
+        @foreach (var folder in Folders)
         {
-            <li>
-                @if (child.IsDirectory)
-                {
-                    <a href="@DirLink(child.Name)">📁 @child.Name</a>
-                }
-                else
-                {
-                    <a href="@FileLink(child.Name)" target="_blank">
-                        📄 @child.CleanName
-                    </a>
+            <li class="folder">
+                <a href="@DirLink(folder.Name)">📁 @folder.Name</a>
+            </li>
+        }
 
-                    @* If the file is a PDF, add a source link *@
-                    @if (child.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+        @foreach (var group in Groups)
+        {
+            <li class="sheet">
+                <div class="sheet-row">
+                    @if (group.Sheet is not null)
                     {
-                        <span> &nbsp; &nbsp; &nbsp; &nbsp; -  <a href="@SourceCodeLink(child.Name)" target="_blank">source</a></span>
+                        <a class="sheet-link" href="@FileLink(group.Sheet)" target="_blank">
+                            📄 @group.RootName
+                        </a>
                     }
-                }
+                    else
+                    {
+                        @* derived files whose sheet has gone - still worth seeing *@
+                        <span class="sheet-link missing">📄 @group.RootName</span>
+                    }
+
+                    @if (group.HasAnythingBeyondTheSheet || group.Sheet is not null)
+                    {
+                        <span class="menu-hint" aria-hidden="true">▾</span>
+
+                        <ul class="menu">
+                            @foreach (var part in new[] { SheetPart.WorkedSolutions, SheetPart.Solutions })
+                            {
+                                var file = group.Parts.GetValueOrDefault(part);
+
+                                @if (file is not null)
+                                {
+                                    <li class="has-submenu">
+                                        <a href="@FileLink(file)" target="_blank">
+                                            @WorksheetNaming.Describe(part, SheetForm.Original)
+                                        </a>
+                                        <span class="submenu-hint" aria-hidden="true">›</span>
+                                        <ul class="submenu">
+                                            <li><a href="@SourceLink(file)" target="_blank">source</a></li>
+                                        </ul>
+                                    </li>
+                                }
+                            }
+
+                            @if (group.Glossary is not null)
+                            {
+                                <li class="has-submenu">
+                                    <a href="@FileLink(group.Glossary)" target="_blank">glossary</a>
+                                    <span class="submenu-hint" aria-hidden="true">›</span>
+                                    <ul class="submenu">
+                                        <li><a href="@SourceLink(group.Glossary)" target="_blank">source</a></li>
+                                    </ul>
+                                </li>
+                            }
+
+                            @* only when there is something above it to separate from *@
+                            @if (group.WorkedSolutions is not null || group.Solutions is not null
+                                 || group.Glossary is not null)
+                            {
+                                <li class="menu-separator"></li>
+                            }
+
+                            <li>
+                                <a href="@EalLink(group)">
+                                    🌍 for EAL learners
+                                    @if (group.Translations.Count > 0)
+                                    {
+                                        <span class="count">@group.Translations.Count</span>
+                                    }
+                                </a>
+                            </li>
+                        </ul>
+                    }
+
+                    @* the sheet's own source stays on the line, as it always was - the
+                       menu is for the files derived from it *@
+                    @if (group.Sheet is not null)
+                    {
+                        <span class="source-after"> - <a href="@SourceLink(group.Sheet)" target="_blank">source</a></span>
+                    }
+                </div>
             </li>
         }
     </ul>
+
+    @if (Folders.Count == 0 && Groups.Count == 0)
+    {
+        <p>Nothing here.</p>
+    }
 }

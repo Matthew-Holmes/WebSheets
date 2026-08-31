@@ -218,6 +218,22 @@ namespace SyntheticPDFs.Logic
 
         #endregion
 
+        // The languages that can actually be produced, in the order they are configured.
+        // The website offers these and no others, so it cannot invite someone to ask for
+        // a language that would fail the moment it was tried.
+        public IReadOnlyList<LanguageInfo> SupportedLanguages()
+        {
+            return Languages.All
+                .Select(code => Languages.Get(code)!)
+                .Select(profile => new LanguageInfo(
+                    profile.Code.Code,
+                    profile.TitleName,
+                    profile.RightToLeft,
+                    Languages.EagerLanguages.Contains(profile.Code)))
+                .OrderBy(l => l.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
         #region Purging
 
         // Removes the generated translations so they are built again from the settings in

@@ -52,4 +52,13 @@ namespace Shared
         bool Removed,
         string Message,
         IReadOnlyList<string> Files);
+
+    // A language the generator is configured to produce. Served rather than duplicated
+    // in the website, so there is one list: a language the site offers is one the
+    // generator can actually typeset.
+    public sealed record LanguageInfo(
+        string Code,          // ISO 639-3, "pol"
+        string Name,          // as a reader would say it, "Polish"
+        bool RightToLeft,
+        bool Eager);          // generated for every sheet without being asked
 }

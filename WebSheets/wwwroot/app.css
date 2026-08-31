@@ -49,3 +49,336 @@ h1:focus {
 .darker-border-checkbox.form-check-input {
     border-color: #929292;
 }
+
+/* ============================================================
+   Worksheet listing
+   ============================================================
+   A sheet and everything derived from it take one line, with the rest behind
+   a menu. The menus are CSS only and deliberately so: this is a Blazor Server
+   app, so a hover handled in C# would be a round trip to the server for every
+   mouse movement.
+*/
+
+.listing {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+.listing > li {
+    padding: 0.15rem 0;
+}
+
+/* Links here are left to look like links - the site's colour and an underline.
+   Styling them flat made them read as labels, when every one of them is
+   something to click. */
+
+.sheet-row {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.sheet-link.missing {
+    color: #6c757d;
+}
+
+.menu-hint {
+    color: #6c757d;
+    font-size: 0.75rem;
+    line-height: 1;
+}
+
+/* the menu itself */
+
+/* Opens to the right of the sheet rather than below it. Below, it covered the
+   sheets underneath - the one place a reader is most likely to be looking next.
+   To the right it only ever covers empty space, since the names are short
+   relative to the line. */
+.sheet-row .menu {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 100%;
+    margin-left: 0.4rem;
+    z-index: 20;
+    min-width: 14rem;
+    padding: 0.25rem 0;
+    list-style: none;
+    background: #fff;
+    border: 1px solid #d4d4d4;
+    border-radius: 0.35rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+}
+
+/* The gap above is a dead zone the pointer would cross on its way to the menu,
+   closing it before it arrived. This bridges it without showing anything. */
+.sheet-row .menu::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -0.4rem;
+    width: 0.4rem;
+    height: 100%;
+}
+
+.sheet-row:hover > .menu {
+    display: block;
+}
+
+/* Opening on focus too is what makes the menu reachable by keyboard: tabbing to
+   the sheet link opens it, so the items inside can be tabbed to.
+
+   It has to be :focus-visible rather than :focus-within, and the difference is a
+   bug rather than a nicety. These links open in a new tab, so clicking one leaves
+   it focused in this one with nothing ever taking focus away - the menu then hung
+   open for good, and hovering another sheet gave a second menu alongside it.
+   :focus-visible matches keyboard focus and not a mouse click, which is exactly
+   the distinction wanted.
+
+   Kept as its own rule rather than added to the list above: a browser without
+   :has() drops the rule it cannot parse, and that must not take hovering with it. */
+.sheet-row:has(:focus-visible) > .menu {
+    display: block;
+}
+
+.sheet-row .menu > li {
+    position: relative;
+}
+
+.sheet-row .menu a {
+    display: block;
+    padding: 0.3rem 0.75rem;
+    white-space: nowrap;
+}
+
+.sheet-row .menu a:hover,
+.sheet-row .menu a:focus {
+    background: #f0f4f8;
+}
+
+.menu-separator {
+    height: 1px;
+    margin: 0.25rem 0;
+    background: #e4e4e4;
+}
+
+.sheet-row .menu .count {
+    margin-left: 0.4rem;
+    padding: 0 0.35rem;
+    font-size: 0.7rem;
+    color: #fff;
+    background: #6c757d;
+    border-radius: 0.6rem;
+}
+
+/* the second level, holding the link to the source of that one file */
+
+.has-submenu > .submenu-hint {
+    position: absolute;
+    right: 0.5rem;
+    top: 0.35rem;
+    color: #adadad;
+    pointer-events: none;
+}
+
+.sheet-row .submenu {
+    display: none;
+    position: absolute;
+    top: -0.25rem;
+    left: 100%;
+    z-index: 21;
+    min-width: 7rem;
+    margin: 0;
+    padding: 0.25rem 0;
+    list-style: none;
+    background: #fff;
+    border: 1px solid #d4d4d4;
+    border-radius: 0.35rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.14);
+}
+
+.sheet-row .has-submenu:hover > .submenu {
+    display: block;
+}
+
+.sheet-row .has-submenu:has(:focus-visible) > .submenu {
+    display: block;
+}
+
+/* Two menus deep to the right needs room. Below about this width there is none,
+   so both fall back to opening downwards - which is also where a touch screen
+   ends up, having no hover to work with in the first place. */
+@media (max-width: 820px) {
+    .sheet-row .menu {
+        top: 100%;
+        left: 0;
+        margin-left: 0;
+    }
+
+    .sheet-row .menu::before {
+        display: none;
+    }
+
+    .sheet-row .submenu {
+        position: static;
+        display: block;
+        border: none;
+        box-shadow: none;
+        padding: 0 0 0 1rem;
+        min-width: 0;
+    }
+
+    .has-submenu > .submenu-hint {
+        display: none;
+    }
+}
+
+/* ============================================================
+   For EAL learners
+   ============================================================ */
+
+.eal-title {
+    margin-bottom: 0.15rem;
+    word-break: break-word;
+}
+
+.eal-subtitle {
+    color: #5c5c5c;
+    margin-bottom: 1.1rem;
+}
+
+.language-picker {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 26rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #d4d4d4;
+    border-radius: 0.4rem;
+    background: #fff;
+}
+
+.language-picker .globe {
+    font-size: 1.15rem;
+    line-height: 1;
+}
+
+.language-search {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 1rem;
+    min-width: 0;
+}
+
+.language-chosen {
+    flex: 1;
+    font-weight: 600;
+}
+
+.language-clear,
+.confirm-yes,
+.confirm-no {
+    border: 1px solid #d4d4d4;
+    background: #f7f7f7;
+    border-radius: 0.3rem;
+    padding: 0.1rem 0.5rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.language-list {
+    list-style: none;
+    padding-left: 0;
+    margin: 0.6rem 0 0 0;
+    max-width: 26rem;
+}
+
+.language-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.4rem 0.6rem;
+    border: none;
+    border-bottom: 1px solid #efefef;
+    background: none;
+    text-align: left;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.language-option:hover,
+.language-option:focus {
+    background: #f0f4f8;
+}
+
+.badge-ready {
+    font-size: 0.7rem;
+    color: #fff;
+    background: #2e7d32;
+    border-radius: 0.6rem;
+    padding: 0 0.4rem;
+}
+
+.no-match {
+    color: #6c757d;
+    padding: 0.4rem 0.6rem;
+}
+
+.eal-file {
+    padding: 0.2rem 0;
+}
+
+.eal-file .missing {
+    color: #9a9a9a;
+}
+
+.missing-button {
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: 1rem;
+    cursor: pointer;
+    text-align: left;
+}
+
+.not-yet {
+    margin-left: 0.5rem;
+    font-size: 0.75rem;
+    color: #9a9a9a;
+    font-style: italic;
+}
+
+.missing-button:hover .not-yet,
+.missing-button:focus .not-yet {
+    color: #006bb7;
+    font-style: normal;
+    text-decoration: underline;
+}
+
+.confirm {
+    margin-left: 0.6rem;
+    font-size: 0.9rem;
+}
+
+.notice {
+    padding: 0.5rem 0.75rem;
+    background: #eef6ee;
+    border: 1px solid #cfe3cf;
+    border-radius: 0.35rem;
+    max-width: 40rem;
+}
+
+.eal-note {
+    margin-top: 1.2rem;
+    color: #5c5c5c;
+    font-size: 0.9rem;
+    max-width: 40rem;
+}
+
+.source-after {
+    color: #6c757d;
+}

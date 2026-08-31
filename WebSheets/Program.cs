@@ -16,6 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddSingleton<ManifestService>();
+builder.Services.AddSingleton<LanguageCatalogue>();
 builder.Services.Configure<WorksheetSourceOptions>(
     builder.Configuration.GetSection(WorksheetSourceOptions.SectionName));
 builder.Services.Configure<SyntheticPdfsTriggerOptions>(
@@ -29,6 +30,13 @@ builder.Services.AddHttpClient("SyntheticPDFsAPI", (sp, client) =>
 
 
 var app = builder.Build();
+
+// Warm both caches now rather than on the first page view. Neither is awaited: a
+// reader should never wait on the object store or the generator, and both of these
+// serve whatever they last knew while refreshing behind it. Doing it here just means
+// the first person to browse after a restart gets a complete page.
+_ = app.Services.GetRequiredService<ManifestService>().GetTreeAsync();
+app.Services.GetRequiredService<LanguageCatalogue>();
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
