@@ -23,6 +23,13 @@ namespace SyntheticPDFs.Models.Content
         internal const String SolutionsIndicator = "solutions";
         internal const String GlossaryIndicator = "vocab";
 
+        // A variant's suffix goes on the outside, after the part - so the worked
+        // solutions of a starter in one school's wording is
+        // "algebraStarters_workedSolutions_retrieveAndConnect". Written that way round
+        // so that a name still reads left to right as sheet, part, then variant, and so
+        // that adding a variant cannot change how an existing name parses.
+        internal const String RetrieveAndConnectIndicator = "retrieveAndConnect";
+
         // the folder under a root that holds every translation of it
         internal const String L2DirectoryName = "L2";
 
@@ -45,6 +52,11 @@ namespace SyntheticPDFs.Models.Content
             if (metadata.Form == SheetForm.Glossary)
             {
                 sb.Append('_').Append(GlossaryIndicator);
+            }
+
+            if (metadata.Form == SheetForm.RetrieveAndConnect)
+            {
+                sb.Append('_').Append(RetrieveAndConnectIndicator);
             }
 
             return sb.ToString();
@@ -144,7 +156,24 @@ namespace SyntheticPDFs.Models.Content
                 return ParseTranslated(filenameNoExt, metadata, logger);
             }
 
-            String[] parts = filenameNoExt.Split('_');
+            // The variant suffix sits outside the part suffix, so it comes off first and
+            // everything below then reads the name as though the variant were not there.
+            String name = filenameNoExt;
+
+            String variant = '_' + RetrieveAndConnectIndicator;
+
+            if (name.EndsWith(variant, StringComparison.Ordinal))
+            {
+                name = name[..^variant.Length];
+
+                metadata = metadata with
+                {
+                    Form     = SheetForm.RetrieveAndConnect,
+                    RootName = name,
+                };
+            }
+
+            String[] parts = name.Split('_');
 
             // no suffix at all => an English root, so handle that here
             if (parts.Length == 1) { return metadata; }

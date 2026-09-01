@@ -21,6 +21,14 @@ namespace SyntheticPDFs.Models.Content.Archetypes
 
         internal override bool RevealsItsOwnAnswers => true;
 
+        // Some schools have their own name for a starter and expect to see it on the
+        // board, so the deck and its worked solutions each get a version titled the way
+        // they say it. Nothing but the titles differs - see RetrieveAndConnect.
+        internal override IReadOnlyList<SheetForm> Variants { get; } = new[]
+        {
+            SheetForm.RetrieveAndConnect,
+        };
+
         // a deck's worked solutions are laid out quite differently to a worksheet's -
         // interleaved with the questions, one solution to a slide - so the prompt that
         // writes them needs saying so. The wording lives with the other prompts; which

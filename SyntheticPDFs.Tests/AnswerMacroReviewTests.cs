@@ -19,6 +19,11 @@ namespace SyntheticPDFs.Tests
         private const String Deck = "latex/starters/KS3/circlesArea.tex";
         private const String DeckWorked = "latex/starters/KS3/circlesArea_workedSolutions.tex";
 
+        // a deck is retitled for the school that wants it worded their way, in the same
+        // pass and the same commit as the rest of the English work it owes
+        private const String DeckVariant =
+            "latex/starters/KS3/circlesArea_retrieveAndConnect.tex";
+
         private const String RewriteAsk = "Rewrite it so that";
 
         // bodies that make each round's deck tell itself apart in a scripted prompt
@@ -65,7 +70,7 @@ namespace SyntheticPDFs.Tests
             Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
 
             Assert.AreEqual(1, _llm.ReviewCallCount);
-            CollectionAssert.AreEqual(new[] { DeckWorked }, Committed());
+            CollectionAssert.AreEquivalent(new[] { DeckWorked, DeckVariant }, Committed());
             Assert.IsTrue(AnswerMacros.IsMarkedVerified(_git.Contents[DeckWorked]));
             Assert.IsFalse(_llm.PromptsSeen.Any(p => p.Contains(RewriteAsk)), "nothing to fix");
         }
@@ -81,7 +86,7 @@ namespace SyntheticPDFs.Tests
             Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
 
             // the deck and what was derived from it land in the same commit
-            CollectionAssert.AreEquivalent(new[] { Deck, DeckWorked }, Committed());
+            CollectionAssert.AreEquivalent(new[] { Deck, DeckWorked, DeckVariant }, Committed());
             StringAssert.Contains(_git.Contents[Deck], BodyTwo);
             Assert.IsTrue(AnswerMacros.IsMarkedVerified(_git.Contents[DeckWorked]));
             Assert.IsFalse(AnswerMacros.HasReviewNote(_git.Contents[Deck]), "it was settled, so no note");
@@ -257,6 +262,9 @@ namespace SyntheticPDFs.Tests
             Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
 
             Assert.IsTrue(AnswerMacros.IsMarkedVerified(_git.Contents[DeckWorked]));
+
+            // the variant of the worked solutions, and then there is nothing left
+            Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
             Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
         }
 
@@ -273,6 +281,8 @@ namespace SyntheticPDFs.Tests
 
             int reviewsAfterFirstPass = _llm.ReviewCallCount;
 
+            // the variant of the worked solutions is still owed, and then nothing is
+            Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
             Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
             Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
 

@@ -12,14 +12,18 @@ namespace SyntheticPDFs.Tests.Fakes
     {
         public const String DefaultBody = "What is $2 + 2$? \\ashow{4}";
 
-        // a deck that defines the helpers, so it gets past the cheap check and on to the review
+        // a deck that defines the helpers, so it gets past the cheap check and on to the
+        // review. the questions sit on a titled frame, as they do in a real deck - which
+        // is also what gives the retitling something to recognise
         public static String SlideDeckDefiningAnswerMacros(String body = DefaultBody) =>
             "\\documentclass{beamer}\n"
             + "\\usepackage{xcolor}\n"
             + "\\usepackage{tikz}\n"
             + AnswerMacros.Definitions + "\n"
             + "\\begin{document}\n"
+            + "\\begin{frame}{Starter 1}\n"
             + body + "\n"
+            + "\\end{frame}\n"
             + "\\end{document}";
 
         // a deck with no helpers at all - fails the cheap check without any LLM call
@@ -39,6 +43,20 @@ namespace SyntheticPDFs.Tests.Fakes
 
         public static String VerifiedWorkedSolutions(String body = "Two plus two is four.") =>
             AnswerMacros.AddVerifiedMarker(WorkedSolutions(body));
+
+        // A deck's worked solutions, which are slides too, titled the way the prompt
+        // asks for them. The title matters: it is what the retitling recognises, so a
+        // stub with none would send a deck off to a model that a real one never would.
+        public static String SlideWorkedSolutions(String body = "Two plus two is four.") =>
+            "\\documentclass{beamer}\n"
+            + "\\begin{document}\n"
+            + "\\begin{frame}{Worked Solution: Starter 1, Question 1}\n"
+            + body + "\n"
+            + "\\end{frame}\n"
+            + "\\end{document}";
+
+        public static String VerifiedSlideWorkedSolutions(String body = "Two plus two is four.") =>
+            AnswerMacros.AddVerifiedMarker(SlideWorkedSolutions(body));
 
         // A vocabulary key as the generator would actually have written it - provenance
         // block and all. Seeding a fake repository with only the data block gives a file

@@ -19,6 +19,11 @@ namespace SyntheticPDFs.Models.Content
         TranslatedGlossary, // translated only, Root - the translation of that key
         ParallelText,       // translated only - the whole text above the English
         Tier3Only,          // translated only - only the tier 3 words glossed
+
+        // English only - a variant: the same file with something about it changed for a
+        // school that wants it differently. Named on the archetype rather than assumed
+        // to apply everywhere, so a new one is a form here and a line there.
+        RetrieveAndConnect, // starters titled the way some schools insist on
     }
 
     // Identifies one file belonging to a root, without naming it. The three axes are

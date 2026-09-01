@@ -23,6 +23,10 @@ namespace WebSheets.Models
         ParallelText, // the whole text translated above the English
         Tier3Only,    // only the tier 3 words glossed
         Dictionary,   // the shared definitions in one language
+
+        // a variant: the same English sheet with something about it changed for a
+        // school that wants it differently
+        RetrieveAndConnect,
     }
 
     public record WorksheetFile
@@ -65,6 +69,17 @@ namespace WebSheets.Models
         private const string WorkedSolutionsIndicator = "workedSolutions";
         private const string SolutionsIndicator = "solutions";
         private const string GlossaryIndicator = "vocab";
+        private const string RetrieveAndConnectIndicator = "retrieveAndConnect";
+
+        // Forms that are a variant of a sheet rather than a version of it: the same
+        // content with something about it changed for a school that wants it that way.
+        // Listed so that adding one is a value in the enum and a line here.
+        public static readonly IReadOnlyList<SheetForm> VariantForms = new[]
+        {
+            SheetForm.RetrieveAndConnect,
+        };
+
+        public static bool IsVariant(SheetForm form) => VariantForms.Contains(form);
 
         /// <summary>
         /// Removes the trailing git-hash suffix from a name that has already
@@ -124,11 +139,20 @@ namespace WebSheets.Models
 
         private static WorksheetFile? ParseEnglish(string bare, string fileName, string fullPath)
         {
-            (string root, SheetPart part) = SplitPart(bare);
-
             SheetForm form = SheetForm.Original;
 
-            if (root.EndsWith('_' + GlossaryIndicator, StringComparison.Ordinal))
+            // a variant's suffix sits outside the part's, so it comes off first -
+            // "algebraStarters_workedSolutions_retrieveAndConnect" is the worked solutions
+            if (bare.EndsWith('_' + RetrieveAndConnectIndicator, StringComparison.Ordinal))
+            {
+                bare = bare[..^(RetrieveAndConnectIndicator.Length + 1)];
+                form = SheetForm.RetrieveAndConnect;
+            }
+
+            (string root, SheetPart part) = SplitPart(bare);
+
+            if (form == SheetForm.Original
+                && root.EndsWith('_' + GlossaryIndicator, StringComparison.Ordinal))
             {
                 root = root[..^(GlossaryIndicator.Length + 1)];
                 form = SheetForm.Glossary;
@@ -227,6 +251,22 @@ namespace WebSheets.Models
         // definitions would think to look under an English word they cannot read.
         public static string DictionaryTitle(LanguageInfo language) =>
             $"{language.Name} Dictionary";
+
+        // How a variant reads in the menu. The school's own name for the thing comes
+        // first, since that is what somebody is looking for, and which part of the sheet
+        // it is follows it.
+        public static string VariantName(SheetPart part, SheetForm form)
+        {
+            string name = form switch
+            {
+                SheetForm.RetrieveAndConnect => "Retrieve and connect",
+                _                            => "variant",
+            };
+
+            return part == SheetPart.Sheet
+                ? name
+                : $"{name}: {Describe(part, SheetForm.Original)}";
+        }
 
         // how a form reads in a menu
         public static string Describe(SheetPart part, SheetForm form)

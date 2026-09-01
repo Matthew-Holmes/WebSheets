@@ -180,7 +180,7 @@ namespace SyntheticPDFs.Tests
         [TestMethod]
         public async Task UnmarkedWorkedSolutionsAreStampedRatherThanRegenerated()
         {
-            String handWritten = TexFixtures.WorkedSolutions("a person wrote these");
+            String handWritten = TexFixtures.SlideWorkedSolutions("a person wrote these");
 
             _git.AddFile(Deck, ageCommits: 2, contents: TexFixtures.SlideDeckDefiningAnswerMacros());
             _git.AddFile(DeckWorked, ageCommits: 1, contents: handWritten);
@@ -195,6 +195,8 @@ namespace SyntheticPDFs.Tests
             Assert.IsTrue(AnswerMacros.IsMarkedVerified(_git.Contents[DeckWorked]));
             StringAssert.Contains(_git.Contents[DeckWorked], "a person wrote these", "the content must survive");
 
+            // the retitled versions follow, once the files they are made from are settled
+            Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
             Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
         }
 
@@ -202,8 +204,10 @@ namespace SyntheticPDFs.Tests
         public async Task MarkedWorkedSolutionsAreNotCheckedAgain()
         {
             _git.AddFile(Deck, ageCommits: 2, contents: TexFixtures.SlideDeckDefiningAnswerMacros());
-            _git.AddFile(DeckWorked, ageCommits: 1, contents: TexFixtures.VerifiedWorkedSolutions());
+            _git.AddFile(DeckWorked, ageCommits: 1, contents: TexFixtures.VerifiedSlideWorkedSolutions());
 
+            // the retitled versions are still owed, and cost nothing to make
+            Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
             Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
 
             Assert.AreEqual(0, _llm.CallCount);
@@ -216,7 +220,7 @@ namespace SyntheticPDFs.Tests
             // this is the case where a person edits the deck and takes the helpers back out:
             // the worked solutions go stale, are removed, and the review comes back with them
             _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckDefiningAnswerMacros());
-            _git.AddFile(DeckWorked, ageCommits: 5, contents: TexFixtures.VerifiedWorkedSolutions());
+            _git.AddFile(DeckWorked, ageCommits: 5, contents: TexFixtures.VerifiedSlideWorkedSolutions());
 
             Assert.AreEqual(Orchestrator.PassOutcome.RemovedStaleFiles, await _orchestrator.DoOnePassAsync());
             Assert.AreEqual(0, _llm.ReviewCallCount, "removal happens before anything is asked");
@@ -231,9 +235,14 @@ namespace SyntheticPDFs.Tests
             _git.AddFile(Deck, ageCommits: 1, contents: TexFixtures.SlideDeckDefiningAnswerMacros());
             _llm.DefaultVerdict = null;
 
-            Assert.AreEqual(Orchestrator.PassOutcome.GenerationFailed, await _orchestrator.DoOnePassAsync());
+            await _orchestrator.DoOnePassAsync();
 
-            Assert.AreEqual(0, _git.CommitCalls.Count, "a shrug must not be read as either verdict");
+            // the retitled deck needs no verdict and is written, but nothing that does
+            // was: no worked solutions, and no change to the deck itself
+            CollectionAssert.DoesNotContain(
+                _git.CommitCalls.SelectMany(c => c).Select(NameOf).ToArray(), DeckWorked,
+                "a shrug must not be read as either verdict");
+
             Assert.AreEqual(3, _llm.ReviewCallCount, "the model gets a few goes before we give up");
         }
 

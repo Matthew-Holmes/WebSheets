@@ -34,6 +34,10 @@ namespace SyntheticPDFs.Logic
         {
             switch (key.Form)
             {
+                // a variant is English source made from English source, and costs
+                // nothing to make, so it is finished alongside the rest of it
+                case SheetForm.RetrieveAndConnect: return GenerationPriority.English;
+
                 case SheetForm.Original:           return GenerationPriority.English;
                 case SheetForm.Glossary:           return GenerationPriority.EnglishGlossary;
                 case SheetForm.TranslatedGlossary: return GenerationPriority.TranslatedGlossary;

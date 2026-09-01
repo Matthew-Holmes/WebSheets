@@ -43,6 +43,9 @@ namespace SyntheticPDFs.Logic
                 case SheetForm.TranslatedGlossary:
                     return await GenerateTranslatedGlossary(sm, model);
 
+                case SheetForm.RetrieveAndConnect:
+                    return await GenerateVariant(sm);
+
                 default:
                     return await GenerateForeignLanguageSyntheticSource(request);
             }

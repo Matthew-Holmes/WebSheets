@@ -45,7 +45,7 @@ independent things:
 | --- | --- |
 | `Language` | `eng`, `pol`, `urd`, … (ISO 639-3) |
 | `SheetPart` | `Root`, `WorkedSolutions`, `Solutions` |
-| `SheetForm` | `Original`, `Glossary`, `TranslatedGlossary`, `ParallelText`, `Tier3Only` |
+| `SheetForm` | `Original`, `Glossary`, `TranslatedGlossary`, `ParallelText`, `Tier3Only`, `RetrieveAndConnect` |
 
 None implies the others: "the Polish parallel text of the worked solutions" is a
 language, a part and a form.
@@ -99,12 +99,40 @@ the glossary and every translated form. The virtual members worth knowing about:
 | `HasGlossary` | `true` | it *is* a glossary, as the dictionary is |
 | `RevealsItsOwnAnswers` | `false` | its answers live in the file itself, so the file has to be checked for the helpers that reveal them |
 | `WorkedSolutionsInstructions` | `null` | its worked solutions are laid out unusually and the prompt has to say so |
+| `Variants` | none | some school wants this kind of file worded their way |
 | `FileNameFor` / `Parse` | the shared convention | it is not one-file-per-sheet, as the dictionary is not |
 | `Plan` | the standard chain | its files are not created-and-replaced, as the dictionary's are not |
 
 The last two are why the dictionary is a class rather than a special case: it is
 one file for the whole repository, named `latex/dictionary/L2/pol/…` rather than
 under a sheet, and its translations are **refreshed** rather than rebuilt.
+
+## Variants
+
+A variant is the same English file with something about it changed, made **from
+the file** rather than written again. There is one so far: some schools have
+their own name for a starter and expect to see it on the board, so a deck and
+its worked solutions each get a version whose slide titles say
+`Retrieve and Connect` instead.
+
+```
+latex/starters/KS3/circlesArea_retrieveAndConnect.tex
+latex/starters/KS3/circlesArea_workedSolutions_retrieveAndConnect.tex
+```
+
+It is a `SheetForm` like any other, so naming, planning and staleness need no
+special case: it is derived from the part it is a variant of, it is rebuilt when
+that part is edited, and it is not translated. Adding one is a value in the enum,
+a rewriter, and a line on the archetype that wants it.
+
+**No model is asked.** `RetrieveAndConnect.Rewrite` edits the file's titles in
+place, so every byte outside a title is the byte that was there before. That is
+the whole point: a model handed a beamer deck to reproduce with one word changed
+will also reflow a TikZ picture or lose an overlay specification somewhere in the
+middle of it, and the failure is a slide that comes out wrong in a lesson rather
+than a build that goes red. A model is asked only when no title in the file
+mentions a starter at all, and if it cannot answer safely the variant is a copy —
+never an error to retry forever.
 
 ## Plans, and what stale means
 

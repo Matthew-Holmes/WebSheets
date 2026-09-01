@@ -274,6 +274,12 @@ namespace SyntheticPDFs.Logic
                 case SheetForm.Original:
                     return false;
 
+                // English, made from English, and made without paying anyone - so a
+                // purge of the translations has nothing to do with it, and clearing it
+                // out would only mean writing the same bytes again next pass
+                case SheetForm.RetrieveAndConnect:
+                    return false;
+
                 case SheetForm.Glossary:
                     return scope == PurgeScope.TranslationsAndVocabulary;
 

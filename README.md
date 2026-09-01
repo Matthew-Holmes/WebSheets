@@ -274,9 +274,14 @@ And the eager set is large: 36 roots with six languages is around 680 files.
 
 A sheet and everything derived from it take **one line** in `/browse`, with the rest
 behind a menu that opens on hover — worked solutions, answers, glossary, a link to
-the EAL page, and the source on GitHub. Hovering one of the derived files opens a
-second level with the source for that file. Clicking the sheet name still goes
-straight to its PDF, as it always did.
+the EAL page, any variants of it, and the source on GitHub. Hovering one of the
+derived files opens a second level with the source for that file. Clicking the sheet
+name still goes straight to its PDF, as it always did.
+
+A **variant** is the same file worded differently for a school that asks for it that
+way. A deck of starters has one for a school that calls them Retrieve and Connects:
+the slides are identical and only the titles differ. They sit in their own section at
+the foot of the menu, so there is somewhere obvious to put the next one.
 
 The menus are CSS only. This is a Blazor Server app, so a hover handled in C#
 would be a round trip to the server for every mouse movement. They open on focus

@@ -125,9 +125,21 @@ namespace SyntheticPDFs.Tests
             _git.AddFile("latex/starters/KS3/circlesArea.tex", ageCommits: 1,
                 contents: TexFixtures.SlideDeckDefiningAnswerMacros());
 
+            // the deck's retitled variant is written in the same pass, since it is made
+            // from the deck rather than from anything that has still to be generated
+            Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    "latex/starters/KS3/circlesArea_workedSolutions.tex",
+                    "latex/starters/KS3/circlesArea_retrieveAndConnect.tex",
+                },
+                _git.LastCommit.Select(NameOf).ToArray());
+
+            // and the variant of the worked solutions once those exist
             Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
             CollectionAssert.AreEqual(
-                new[] { "latex/starters/KS3/circlesArea_workedSolutions.tex" },
+                new[] { "latex/starters/KS3/circlesArea_workedSolutions_retrieveAndConnect.tex" },
                 _git.LastCommit.Select(NameOf).ToArray());
 
             Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
@@ -177,13 +189,22 @@ namespace SyntheticPDFs.Tests
                 {
                     "latex/worksheets/quadratics_workedSolutions.tex",
                     "latex/starters/circlesArea_workedSolutions.tex",
+
+                    // only a deck has a variant, and only a deck's folder is checked for
+                    // one - the worksheet and the poster get none
+                    "latex/starters/circlesArea_retrieveAndConnect.tex",
                 },
                 _git.LastCommit.Select(NameOf).ToArray());
 
-            // only the worksheet still owes an answer key
+            // the worksheet still owes an answer key, and the deck the variant of the
+            // worked solutions it has just been given
             Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
-            CollectionAssert.AreEqual(
-                new[] { "latex/worksheets/quadratics_solutions.tex" },
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    "latex/worksheets/quadratics_solutions.tex",
+                    "latex/starters/circlesArea_workedSolutions_retrieveAndConnect.tex",
+                },
                 _git.LastCommit.Select(NameOf).ToArray());
 
             Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());

@@ -230,6 +230,30 @@ namespace SyntheticPDFs.Rendering
 
 
 
+        // The last resort behind RetrieveAndConnect.Rewrite, for a deck whose titles it
+        // could make nothing of. Asking for the whole file back risks everything that
+        // rewriting it here avoids, so the prompt spends most of its words saying what
+        // must not change, and the answer is checked for the helpers that reveal the
+        // answers - a deck that has lost those is worse than one that was never retitled.
+        //
+        // Null when nothing safe came back, which the caller turns into a copy rather
+        // than into another attempt: a deck this cannot retitle it will not retitle next
+        // pass either, and paying for the same refusal every pass forever helps nobody.
+        internal static async Task<String?> RetitleAsRetrieveAndConnect(
+            String deck, ILLMService LLM)
+        {
+            String? texSource = await TryGetValidTex(LLM, RetitlePrompt(deck));
+
+            if (texSource is null) { return null; }
+
+            if (AnswerMacros.AreDefined(deck) && !AnswerMacros.AreDefined(texSource))
+            {
+                return null;
+            }
+
+            return texSource;
+        }
+
         internal static async Task<String> GenerateSyntheticEnglishSolutionsTexSource(TexSourceModel rootSource, TexSourceModel wsolSource, ILLMService LLM)
         {
             String prompt = GenerateEnglishSolutionsPrompt(rootSource.TexSource, wsolSource.TexSource);

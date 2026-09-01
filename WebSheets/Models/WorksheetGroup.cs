@@ -16,6 +16,11 @@ namespace WebSheets.Models
 
         public WorksheetFile? Glossary { get; set; }
 
+        // the same sheet with something about it changed, by which part of the sheet it
+        // is a variant of and which variant it is
+        public Dictionary<(SheetPart Part, SheetForm Form), WorksheetFile> Variants { get; } =
+            new();
+
         // language code -> the translated files for it
         public Dictionary<string, List<WorksheetFile>> Translations { get; } =
             new(StringComparer.OrdinalIgnoreCase);
@@ -32,7 +37,25 @@ namespace WebSheets.Models
 
         public bool HasAnythingBeyondTheSheet =>
             WorkedSolutions is not null || Solutions is not null
-            || Glossary is not null || Translations.Count > 0;
+            || Glossary is not null || Translations.Count > 0 || Variants.Count > 0;
+
+        // Which variants to offer and in what order: each kind in turn, and within a
+        // kind the sheet before the files derived from it, so the menu reads the same
+        // way down as the one above it.
+        public IEnumerable<(SheetPart Part, SheetForm Form, WorksheetFile File)> VariantsInOrder()
+        {
+            foreach (SheetForm form in WorksheetNaming.VariantForms)
+            {
+                foreach (SheetPart part in new[]
+                    { SheetPart.Sheet, SheetPart.WorkedSolutions, SheetPart.Solutions })
+                {
+                    if (Variants.TryGetValue((part, form), out WorksheetFile? file))
+                    {
+                        yield return (part, form, file);
+                    }
+                }
+            }
+        }
 
         // Builds the groups for one directory. Translations live in a folder below the
         // sheet rather than beside it, so they are passed in separately.
@@ -60,6 +83,14 @@ namespace WebSheets.Models
                 if (file.Form == SheetForm.Glossary)
                 {
                     group.Glossary = file;
+                    continue;
+                }
+
+                // a variant is not the sheet, so it must not take the sheet's place in
+                // the listing - it gets its own section of the menu
+                if (WorksheetNaming.IsVariant(file.Form))
+                {
+                    group.Variants[(file.Part, file.Form)] = file;
                     continue;
                 }
 

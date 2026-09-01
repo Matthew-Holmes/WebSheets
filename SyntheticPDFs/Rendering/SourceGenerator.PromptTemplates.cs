@@ -223,6 +223,28 @@ namespace SyntheticPDFs.Rendering
                 + $"{RewriteRequirements} Original source: \n\n {rootSourceContents}";
         }
 
+        // Only reached for a deck whose titles the rewriter could make nothing of, so the
+        // prompt cannot say "rename Starter" - it has to describe what a starter's title
+        // is. Everything else it says is about leaving the file alone.
+        private static String RetitlePrompt(String rootSourceContents)
+        {
+            return "Below is the contents of a .tex file for a deck of starter slides - short "
+                + "questions a class works through at the beginning of a lesson. Return the same "
+                + "deck with only its titles changed. "
+                + $"Every slide that is one of the starters must be titled exactly \"{RetrieveAndConnect.Name}\", "
+                + "with no number, no colon and nothing after it, however it was titled before. "
+                + $"The document title, set with \\title, becomes \"{RetrieveAndConnect.Name}\" as well. "
+                + "A slide that is not one of the starters keeps the title it has: a contents slide, a "
+                + "slide of worked solutions, a slide of answers. Where such a title refers to a starter "
+                + $"by number, that number stays and only the word changes, so \"Worked Solution: Starter 3, "
+                + $"Question 1\" becomes \"Worked Solution: {RetrieveAndConnect.Name} 3, Question 1\". "
+                + "Change nothing else whatsoever. Every line of the preamble, every question, every "
+                + "answer, every overlay specification, every tikzpicture and every label stays exactly "
+                + "as it is, character for character. This is a rename and not a rewrite. "
+                + $"{CompilerDirectiveRule} "
+                + $"{RewriteRequirements} Original source: \n\n {rootSourceContents}";
+        }
+
         // the reviewer's own words are too long, and often too pedantic, to put in front of a
         // teacher unedited
         private static String SummariseReviewReasonsPrompt(IEnumerable<String> reasons)

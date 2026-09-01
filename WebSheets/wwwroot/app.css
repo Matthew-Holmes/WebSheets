@@ -164,6 +164,18 @@ h1:focus {
     background: #e4e4e4;
 }
 
+/* Names a section of the menu rather than offering anything, so it is deliberately
+   not a link: nothing to click, nothing to tab to, and quiet enough that the eye
+   goes past it to the entries below. */
+.sheet-row .menu .menu-heading {
+    padding: 0.15rem 0.75rem 0.1rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #8a8a8a;
+    cursor: default;
+}
+
 .sheet-row .menu .count {
     margin-left: 0.4rem;
     padding: 0 0.35rem;

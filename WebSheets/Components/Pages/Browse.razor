@@ -106,6 +106,28 @@ else
                                     }
                                 </a>
                             </li>
+
+                            @* the same sheet worded differently, for a school that asks
+                               for it that way. its own section, since it is neither a
+                               part of the sheet nor a translation of it *@
+                            @if (group.Variants.Count > 0)
+                            {
+                                <li class="menu-separator"></li>
+                                <li class="menu-heading">variants</li>
+
+                                @foreach (var (part, form, file) in group.VariantsInOrder())
+                                {
+                                    <li class="has-submenu">
+                                        <a href="@FileLink(file)" target="_blank">
+                                            @WorksheetNaming.VariantName(part, form)
+                                        </a>
+                                        <span class="submenu-hint" aria-hidden="true">›</span>
+                                        <ul class="submenu">
+                                            <li><a href="@SourceLink(file)" target="_blank">source</a></li>
+                                        </ul>
+                                    </li>
+                                }
+                            }
                         </ul>
                     }
 

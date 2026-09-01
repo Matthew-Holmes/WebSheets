@@ -184,6 +184,21 @@ namespace SyntheticPDFs.Logic
                 // would cost an API call on a guess
                 if (contents is null) { continue; }
 
+                // a variant is not translated and records no colours, so it is judged
+                // against the rules that made it and nothing else
+                if (form == SheetForm.RetrieveAndConnect)
+                {
+                    if (!RetrieveAndConnect.MatchesCurrentRules(contents))
+                    {
+                        _logger.LogInformation(
+                            "{File} was retitled by older rules", file.FullPath);
+
+                        outdated.Add(file.Key);
+                    }
+
+                    continue;
+                }
+
                 if (form == SheetForm.Glossary)
                 {
                     NoteWordsTheDictionaryHasNot(contents, dictionary, sheet.RootName);

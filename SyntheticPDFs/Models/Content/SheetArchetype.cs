@@ -45,6 +45,16 @@ namespace SyntheticPDFs.Models.Content
         // already exists, so no plan can express it - it is asked about separately.
         internal virtual bool RevealsItsOwnAnswers => false;
 
+        // Extra English versions of this kind of source: the same file with something
+        // about it changed for a school that wants it differently, made from the file
+        // itself rather than written again.
+        //
+        // Empty for everything but a deck of starters, and named here so that adding a
+        // variant is a form, a rewriter and one line on the archetype that wants it -
+        // nothing has to learn that a variant exists in order to plan, judge or name it.
+        internal virtual IReadOnlyList<SheetForm> Variants { get; } =
+            Array.Empty<SheetForm>();
+
         // Extra instructions the worked-solutions prompt needs for this kind of source.
         // Named here rather than chosen by a switch elsewhere, so that adding an
         // archetype is one file; the wording itself lives with the other prompts.
@@ -104,6 +114,26 @@ namespace SyntheticPDFs.Models.Content
             LanguageTable languages, bool includeGlossaries = true)
         {
             List<PlannedFile> plan = new(EnglishChain());
+
+            // Each variant is made from the part it is a variant of and from nothing
+            // else, so it can be written the moment that part exists and it goes stale
+            // the moment that part is edited. There are no translated variants: a
+            // translation is printed for a handful of pupils, where the wording on the
+            // board is not what is being read.
+            foreach (SheetForm variant in Variants)
+            {
+                foreach (SheetPart part in Parts)
+                {
+                    ContentKey original = new(ISO639_3Code.eng, part, SheetForm.Original);
+
+                    plan.Add(new PlannedFile
+                    {
+                        Key       = new ContentKey(ISO639_3Code.eng, part, variant),
+                        DependsOn = new[] { original },
+                        Eager     = true,
+                    });
+                }
+            }
 
             if (!includeGlossaries || !HasGlossary) { return plan; }
 

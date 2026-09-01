@@ -15,6 +15,7 @@ namespace SyntheticPDFs.Logic
             SheetForm.TranslatedGlossary,
             SheetForm.ParallelText,
             SheetForm.Tier3Only,
+            SheetForm.RetrieveAndConnect,
         };
 
         // Gathers everything the whole repository could generate now, then lets the
@@ -47,6 +48,24 @@ namespace SyntheticPDFs.Logic
                 throw new ArgumentException("can't generate files while stale files exist!");
             }
 
+            // Work owed on a file that already exists comes before anything derived from
+            // it. A deck whose answer overlays have not been checked may still be
+            // rewritten by that check, and a variant made from it first would be made
+            // from bytes that are about to change - then thrown away as stale and made
+            // again from the ones that replaced them.
+            List<GenerationRequest> owed = OutstandingChecks(sheet);
+
+            if (owed.Count > 0)
+            {
+                return owed.Select(request => new Candidate
+                {
+                    Request   = request,
+                    Priority  = GenerationPriority.English,
+                    RootOrder = rootOrder,
+                    Sequence  = 0,
+                });
+            }
+
             List<Candidate> ret = new();
 
             long order = 0;
@@ -72,17 +91,7 @@ namespace SyntheticPDFs.Logic
                 });
             }
 
-            if (ret.Count > 0) { return ret; }
-
-            // work owed on a file that already exists counts as English work, since it is
-            // the English deck being settled
-            return OutstandingChecks(sheet).Select(request => new Candidate
-            {
-                Request   = request,
-                Priority  = GenerationPriority.English,
-                RootOrder = rootOrder,
-                Sequence  = 0,
-            });
+            return ret;
         }
 
         // Work owed on a file that already exists, which the plan has nothing to say
