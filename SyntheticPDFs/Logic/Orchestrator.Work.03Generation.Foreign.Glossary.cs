@@ -34,14 +34,53 @@ namespace SyntheticPDFs.Logic
             List<VocabTerm> terms = await SourceGenerator.GenerateVocabularyTerms(
                 rootSource, worked, answers, LLMService);
 
+            return new List<TexSourceModel> { RenderGlossary(sm, terms, model) };
+        }
+
+        // The same key again, from the words it already picked out.
+        //
+        // Nothing is asked of a model. A key that has fallen out of step - because the
+        // shared dictionary now words one of its terms differently, or because the
+        // colours or the layout have changed - has everything needed to bring it back
+        // inside it, so this is the dictionary applied afresh and the file rendered
+        // again. That is what makes editing a definition free across the whole
+        // repository, however many sheets use the word.
+        private List<TexSourceModel> RestateGlossary(SourceMetadata sm, ContentModel model)
+        {
+            String contents = RepoManager.GetContent(sm.FilePath).TexSource;
+
+            List<VocabTerm>? terms = L2VocabData.ReadBlock(contents);
+
+            // only a key with a data block is ever asked for, so this is a broken
+            // invariant rather than a file to guess at
+            if (terms is null)
+            {
+                throw new Exception($"{sm.FilePath} carries no vocabulary data to state again");
+            }
+
+            _logger.LogInformation(
+                "stating {File} again from its own {Count} word(s)", sm.FilePath, terms.Count);
+
+            return new List<TexSourceModel> { RenderGlossary(sm, terms, model) };
+        }
+
+        // Written once and used by both, so that a key stated again is byte for byte the
+        // key that would have been written from scratch - which is what lets the cheap
+        // path be taken without wondering whether it produces something different.
+        private TexSourceModel RenderGlossary(
+            SourceMetadata sm, IReadOnlyList<VocabTerm> terms, ContentModel model)
+        {
+            String rootFilename =
+                (sm with { Form = SheetForm.Original, Part = SheetPart.Root }).FilePath;
+
             // the shared definitions win over the model's, which is what makes them
             // standard across worksheets rather than merely suggested. matching is by
             // headword, so a sheet saying "numerators" still gets the agreed wording
-            terms = L2VocabData.ApplyDictionary(
+            List<VocabTerm> shared = L2VocabData.ApplyDictionary(
                 terms, model.DictionaryAt(ContentRepository.DictionaryPath).Definitions);
 
             String tex = L2VocabKeyRenderer.Render(
-                terms,
+                shared,
                 new L2Macros.SourceMetadataTitle(sm.RootName, sm.Part, sm.Form),
                 L2Settings.Colours,
                 language: null,
@@ -49,10 +88,7 @@ namespace SyntheticPDFs.Logic
                 vocabularyKey: null,
                 fallbackFont: null);
 
-            return new List<TexSourceModel>
-            {
-                new TexSourceModel { FileNameFullPath = sm.FilePath, TexSource = tex },
-            };
+            return new TexSourceModel { FileNameFullPath = sm.FilePath, TexSource = tex };
         }
 
         // The same glossary in another language: the English word, the word a mathematics

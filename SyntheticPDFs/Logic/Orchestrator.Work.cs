@@ -21,6 +21,7 @@ namespace SyntheticPDFs.Logic
             CheckAnswerMacros,
             RefreshDictionary,
             ExtendDictionary,
+            RestateGlossary,
         }
 
         internal record GenerationRequest
@@ -65,6 +66,7 @@ namespace SyntheticPDFs.Logic
             // read fresh from the keys as they are judged below, since a word added to
             // the dictionary last pass is not a new word this pass
             _newWords.Clear();
+            _restating.Clear();
 
             model = model.Judged(
                 Languages,

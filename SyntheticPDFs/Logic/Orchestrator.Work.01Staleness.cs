@@ -34,6 +34,10 @@ namespace SyntheticPDFs.Logic
         // met twice is settled the same way whatever order the repository is walked in
         private readonly record struct NewWord(String Definition, String Root);
 
+        // English keys that are out of step but can be put back into step from what they
+        // already carry, gathered as they are judged and emptied at the start of a pass.
+        private readonly HashSet<(String Root, ContentKey Key)> _restating = new();
+
         // Read fresh each pass, since they live in the content repository and may have
         // been changed by anyone. A repository without a dictionary is not an error - it
         // simply has no shared definitions yet, and the model's own wording stands.
@@ -155,14 +159,82 @@ namespace SyntheticPDFs.Logic
                 // matter. the sheet that comes first alphabetically wins, so that what
                 // the dictionary ends up saying does not depend on the order the
                 // repository happened to be walked in
-                if (_newWords.TryGetValue(headword, out NewWord seen)
-                    && String.CompareOrdinal(seen.Root, rootName) <= 0)
+                if (_newWords.TryGetValue(headword, out NewWord seen))
                 {
-                    continue;
+                    // Said once here so that the entries most likely to be wrong are the
+                    // ones a person is pointed at. Two sheets wording a word differently
+                    // is usually two ways of saying the same thing, but sometimes it is
+                    // two different words - "leg" on a bearings sheet is a stretch of a
+                    // journey and on a trigonometry sheet is a side of a triangle, and
+                    // one shared definition cannot be right for both.
+                    if (!String.Equals(seen.Definition, term.Definition, StringComparison.Ordinal))
+                    {
+                        _logger.LogWarning(
+                            "'{Word}' is defined differently on {First} and {Second}; the "
+                            + "dictionary will take the wording from {Winner}",
+                            headword, seen.Root, rootName,
+                            String.CompareOrdinal(seen.Root, rootName) <= 0 ? seen.Root : rootName);
+                    }
+
+                    if (String.CompareOrdinal(seen.Root, rootName) <= 0) { continue; }
                 }
 
                 _newWords[headword] = new NewWord(term.Definition, rootName);
             }
+        }
+
+        // An English vocabulary key that is no longer in step with the repository around
+        // it - because the shared dictionary now words one of its terms differently, or
+        // because the colours or the layout have changed since.
+        //
+        // Neither is a reason to throw it away. The key carries the words it is made of
+        // inside itself, so it can be rendered again from its own data with the
+        // dictionary applied afresh, which costs nothing and is exactly what asking a
+        // model again would have to produce. Rebuilding it instead would pay for the same
+        // sheet's vocabulary a second time and get a different answer, because a model
+        // asked twice picks a different set of words - and those new words would go into
+        // the shared dictionary, put the next set of keys out of step, and start the
+        // whole thing again. That is a loop, not a settling.
+        //
+        // A key with no data block is the one that cannot be restated - there is nothing
+        // to restate it from - so that one is rebuilt, as anything unreadable is.
+        private void JudgeGlossary(
+            SheetState sheet,
+            ContentFile file,
+            String contents,
+            DictionaryState dictionary,
+            HashSet<ContentKey> outdated)
+        {
+            String? why = null;
+
+            if (!L2VocabData.MatchesDictionary(contents, dictionary.Definitions))
+            {
+                why = "no longer agrees with the shared dictionary";
+            }
+            else if (!L2Macros.MatchesSettings(
+                         contents, L2Settings.Colours, isKey: true, fallbackFont: null))
+            {
+                why = "was built from different settings";
+            }
+
+            if (why is null) { return; }
+
+            if (L2VocabData.ReadBlock(contents) is null)
+            {
+                _logger.LogInformation(
+                    "{File} {Why}, and carries no vocabulary data to rebuild it from",
+                    file.FullPath, why);
+
+                outdated.Add(file.Key);
+
+                return;
+            }
+
+            _logger.LogInformation(
+                "{File} {Why}, so it will be stated again from the words it already has",
+                file.FullPath, why);
+
+            _restating.Add((sheet.RootName, file.Key));
         }
 
         // Files that exist and are correctly ordered but were built from something that
@@ -199,18 +271,15 @@ namespace SyntheticPDFs.Logic
                     continue;
                 }
 
+                // An English key is judged and settled here rather than falling through to
+                // the settings check below, because it is the one derived file that never
+                // has to be thrown away: everything it was made of is written inside it.
                 if (form == SheetForm.Glossary)
                 {
                     NoteWordsTheDictionaryHasNot(contents, dictionary, sheet.RootName);
-                }
 
-                if (form == SheetForm.Glossary
-                    && !L2VocabData.MatchesDictionary(contents, dictionary.Definitions))
-                {
-                    _logger.LogInformation(
-                        "{File} no longer agrees with the shared dictionary", file.FullPath);
+                    JudgeGlossary(sheet, file, contents, dictionary, outdated);
 
-                    outdated.Add(file.Key);
                     continue;
                 }
 
@@ -226,7 +295,9 @@ namespace SyntheticPDFs.Logic
                     continue;
                 }
 
-                bool isKey = form is SheetForm.Glossary or SheetForm.TranslatedGlossary;
+                // the English key is settled above, so the only key left here is a
+                // translated one
+                bool isKey = form == SheetForm.TranslatedGlossary;
 
                 // an English glossary borrows from nowhere, so it records no fallback and
                 // is not judged against one

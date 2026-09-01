@@ -156,6 +156,27 @@ Stale files are removed, and the pass ends there. The next pass rebuilds what wa
 eager and leaves the rest — a file made on request is maintained only while it
 lasts.
 
+### Except the English vocabulary key
+
+One derived file is never thrown away. An English key carries the words it is
+made of inside itself, in its data block, so a key that has fallen out of step —
+the shared dictionary now words one of its terms differently, or the colours or
+the layout have changed — is **stated again** rather than removed: the dictionary
+is applied afresh and the file rendered again, by the same method that would have
+written it from scratch.
+
+That is not merely a saving. Rebuilding a key means asking a model for the
+sheet's vocabulary a second time, and a model asked twice picks a different set of
+words. Those new words go into the shared dictionary, which puts the next set of
+keys out of step, which rebuilds those, which adds more words. It is a loop rather
+than a settling, and it was one: the content repository churned through rounds of
+`Update/Add …_vocab.tex` and `removed stale files: …_vocab.tex`, paying for each
+one. Restating fixes the word list, so the same repository settles in four passes
+and no model is called at all.
+
+A key with no readable data block is the exception to the exception — there is
+nothing to state it again from, so that one is rebuilt like anything else.
+
 ## Immutability
 
 `ContentModel`, `SheetState`, `SourceMetadata`, `ContentFile` and `PlannedFile`

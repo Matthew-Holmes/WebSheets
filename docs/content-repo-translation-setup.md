@@ -227,14 +227,31 @@ time, so a commit stays small enough to read.
 
 Those entries are the ones most worth your attention, because nobody has read
 them yet. Reword one and it changes everywhere: every key that uses the word is
-rebuilt to match, in English and in every language. Move it up into the topic it
+brought into line, in English and in every language. Move it up into the topic it
 belongs to whenever you like — the generator only reads the word and the
 definition, and does not care where in the file they sit.
+
+**Bringing a key into line is free.** An English key carries the words it is made
+of inside itself, so a key that disagrees with a reworded definition is rendered
+again from its own data with the new wording applied — nothing is thrown away and
+no model is asked. That matters more than it sounds: rebuilding the key instead
+would ask a model for the sheet's vocabulary a second time, get a slightly
+different set of words back, and feed those new words into this file, which would
+put the next batch of keys out of step and start the whole thing over. Editing a
+definition here is a re-render, not a re-write, however many sheets use the word.
 
 Two sheets sometimes arrive with two wordings for the same word. The one from
 the sheet whose path comes first alphabetically is the one taken, so the file
 does not depend on the order the repository happened to be walked in; the keys
-that said something different are then rebuilt to agree with it.
+that said something different are then brought into line with it.
+
+Where the two wordings actually differ, the generator says so in its log, naming
+both sheets and which one won. Those are worth looking at, because most of the
+time they are two ways of saying the same thing but sometimes they are two
+different words — *leg* on a bearings sheet is a stretch of a journey and on a
+trigonometry sheet is a side of a triangle, and one shared definition cannot be
+right for both. The fix is the same as for any other entry: reword it here, or
+take it out and let each sheet keep its own.
 
 ## 4. The dictionary in each language
 

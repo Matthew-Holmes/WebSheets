@@ -70,6 +70,23 @@ namespace SyntheticPDFs.Logic
 
             long order = 0;
 
+            // a key that has fallen out of step with the dictionary or the settings is
+            // put back into step rather than made again - it is at the same priority as
+            // writing one, since it is the same file at the same stage of the pipeline
+            foreach ((String root, ContentKey key) in _restating)
+            {
+                if (root != sheet.RootName) { continue; }
+
+                ret.Add(new Candidate
+                {
+                    Request   = Request(
+                        sheet.RootName, key, sheet.Archetype, GenerationJob.RestateGlossary),
+                    Priority  = GenerationPriority.EnglishGlossary,
+                    RootOrder = rootOrder,
+                    Sequence  = order++,
+                });
+            }
+
             foreach (PlannedFile planned in sheet.Creatable())
             {
                 if (!ImplementedForms.Contains(planned.Key.Form)) { continue; }

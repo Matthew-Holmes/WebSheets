@@ -5,6 +5,7 @@ using SyntheticPDFs.Logic;
 using SyntheticPDFs.Models.Content;
 using SyntheticPDFs.Rendering;
 using SyntheticPDFs.Tests.Fakes;
+using System.Text.RegularExpressions;
 
 namespace SyntheticPDFs.Tests
 {
@@ -287,18 +288,136 @@ namespace SyntheticPDFs.Tests
         }
 
         [TestMethod]
-        public async Task RewordingADefinitionRebuildsOnlyTheKeysThatUseThatWord()
+        public async Task RewordingADefinitionRestatesOnlyTheKeysThatUseThatWord()
         {
             // the whole point of comparing content rather than commit age: an edit to the
             // dictionary must not invalidate every key in the repository
             Repo(@"\dictentry{numerator}{a NEW wording}", "the old wording");
 
-            Assert.AreEqual(Orchestrator.PassOutcome.RemovedStaleFiles, await Build().DoOnePassAsync());
+            Assert.AreEqual(Orchestrator.PassOutcome.Generated, await Build().DoOnePassAsync());
 
-            var removed = _git.RemoveFilesCalls.Single();
+            Assert.AreEqual(0, _git.RemoveFilesCalls.Count, "nothing is thrown away to do it");
 
-            CollectionAssert.AreEqual(new[] { "latex/worksheets/a_vocab.tex" }, removed.ToArray(),
-                "only the key using the reworded word goes");
+            StringAssert.Contains(_git.Contents["latex/worksheets/a_vocab.tex"], "a NEW wording",
+                "the key using the reworded word says what the dictionary now says");
+
+            StringAssert.Contains(_git.Contents["latex/worksheets/b_vocab.tex"], "the long side",
+                "and the key that does not use it is untouched");
+        }
+
+        [TestMethod]
+        public async Task RewordingADefinitionCostsNothing()
+        {
+            // A key carries the words it is made of, so putting it back in step with the
+            // dictionary is rendering, not writing. Asking a model again would pay for
+            // the same sheet twice and get a different set of words back - and those new
+            // words would go into the dictionary, put the next keys out of step, and
+            // start the whole thing over.
+            Repo(@"\dictentry{numerator}{a NEW wording}", "the old wording");
+
+            Orchestrator orchestrator = Build();
+
+            await orchestrator.DoOnePassAsync();
+
+            Assert.AreEqual(0, _llm.StructuredPromptsSeen.Count,
+                "no vocabulary was asked for");
+
+            Assert.AreEqual(0, _llm.CallCount, "and nothing else was either");
+        }
+
+        [TestMethod]
+        public async Task AKeyPutBackInStepWithTheDictionaryStaysThere()
+        {
+            // the loop this is here to stop: restate, disagree again, restate again
+            Repo(@"\dictentry{numerator}{a NEW wording}", "the old wording");
+
+            Orchestrator orchestrator = Build();
+
+            Assert.AreEqual(
+                Orchestrator.PassOutcome.Generated, await orchestrator.DoOnePassAsync(),
+                "the key is stated again, and b's new word goes into the dictionary");
+
+            Assert.AreEqual(
+                Orchestrator.PassOutcome.NothingToDo, await Settle(orchestrator, 4),
+                "and then the repository is finished");
+
+            Assert.AreEqual(0, _git.RemoveFilesCalls.Count, "having thrown nothing away");
+        }
+
+        [TestMethod]
+        public async Task AKeyStatedAgainIsWhatWritingItFreshWouldHaveProduced()
+        {
+            // the cheap path is only safe if it lands on the same bytes as the dear one
+            Repo(@"\dictentry{numerator}{a NEW wording}", "the old wording");
+
+            await Build().DoOnePassAsync();
+
+            String restated = _git.Contents["latex/worksheets/a_vocab.tex"];
+
+            String fresh = TexFixtures.VocabularyKey(
+                "latex/worksheets/a",
+                new[] { new VocabTerm { English = "numerator", Definition = "a NEW wording" } });
+
+            Assert.AreEqual(fresh, restated);
+        }
+
+        [TestMethod]
+        public async Task AKeyWithNoVocabularyDataIsWrittenAgainRatherThanStated()
+        {
+            // there is nothing to state it again from, so this is the one that has to be
+            // paid for
+            Repo(@"\dictentry{numerator}{a NEW wording}", "the old wording");
+
+            _git.Contents["latex/worksheets/a_vocab.tex"] = @"\documentclass{article}";
+
+            Assert.AreEqual(
+                Orchestrator.PassOutcome.RemovedStaleFiles, await Build().DoOnePassAsync());
+
+            CollectionAssert.Contains(
+                _git.RemoveFilesCalls.Single().ToArray(), "latex/worksheets/a_vocab.tex");
+        }
+
+        [TestMethod]
+        public async Task ChangingTheLayoutStatesTheKeysAgainRatherThanBuyingThemAgain()
+        {
+            // the other half of the same argument: a key that disagrees with the settings
+            // it was built from has not lost its words either, so a colour change or a
+            // layout change is a re-render across the whole repository and costs nothing
+            Repo(@"\dictentry{numerator}{the settled wording}", "the settled wording");
+
+            _git.Contents["latex/worksheets/a_vocab.tex"] = Regex.Replace(
+                _git.Contents["latex/worksheets/a_vocab.tex"], @"(key layout\s+version )\d+", "${1}1");
+
+            Orchestrator orchestrator = Build();
+
+            await orchestrator.DoOnePassAsync();
+
+            Assert.AreEqual(0, _git.RemoveFilesCalls.Count, "nothing was thrown away");
+
+            Assert.AreEqual(0, _llm.StructuredPromptsSeen.Count, "and nothing was paid for");
+
+            Assert.IsTrue(
+                L2Macros.MatchesSettings(
+                    _git.Contents["latex/worksheets/a_vocab.tex"],
+                    new L2ColourOptions(), isKey: true),
+                "the key is now built to the current layout");
+        }
+
+        // passes until there is nothing left to do, so a test can say what the repository
+        // settles on rather than counting the steps it takes to get there
+        private static async Task<Orchestrator.PassOutcome> Settle(
+            Orchestrator orchestrator, int passes)
+        {
+            Orchestrator.PassOutcome outcome = Orchestrator.PassOutcome.Generated;
+
+            for (int i = 0; i < passes; i++)
+            {
+                outcome = await orchestrator.DoOnePassAsync();
+
+                if (outcome == Orchestrator.PassOutcome.NothingToDo) { return outcome; }
+            }
+
+            return outcome;
         }
 
         [TestMethod]
@@ -501,7 +620,7 @@ namespace SyntheticPDFs.Tests
         }
 
         [TestMethod]
-        public async Task AKeyUsingAVariantOfARewordedWordIsAlsoRebuilt()
+        public async Task AKeyUsingAVariantOfARewordedWordIsAlsoPutBackInStep()
         {
             // the key says "Numerators", the dictionary says "numerator" - the same word
             _git = new FakeGitRepoManager();
@@ -515,16 +634,20 @@ namespace SyntheticPDFs.Tests
                 "latex/worksheets/a",
                 new[] { new VocabTerm { English = "Numerators", Definition = "the old wording" } }));
 
-            Assert.AreEqual(Orchestrator.PassOutcome.RemovedStaleFiles, await Build().DoOnePassAsync());
+            Assert.AreEqual(Orchestrator.PassOutcome.Generated, await Build().DoOnePassAsync());
 
-            CollectionAssert.Contains(_git.RemoveFilesCalls.Single(), "latex/worksheets/a_vocab.tex");
+            Assert.AreEqual(0, _git.RemoveFilesCalls.Count);
+
+            StringAssert.Contains(_git.Contents["latex/worksheets/a_vocab.tex"], "a NEW wording");
         }
 
         [TestMethod]
         public async Task ARewordingCarriesThroughToTheTranslationsOfThatKey()
         {
-            // staleness is transitive, so a translated key built from a reworded English
-            // one goes with it
+            // The English key is put back in step where it stands rather than thrown
+            // away, but a translated key is a translation of what that key said, so it
+            // still has to go - staleness is transitive, and the English key is now the
+            // younger of the two.
             Repo(@"\dictentry{numerator}{a NEW wording}", "the old wording");
 
             _git.AddFile("latex/worksheets/a/L2/pol/a_polishKey.tex", 0, TexFixtures.VocabularyKey(
@@ -532,12 +655,20 @@ namespace SyntheticPDFs.Tests
                 new[] { new VocabTerm { English = "numerator", Definition = "the old wording" } },
                 TexFixtures.Polish));
 
-            await Build().DoOnePassAsync();
+            Orchestrator orchestrator = Build();
 
-            var removed = _git.RemoveFilesCalls.Single();
+            Assert.AreEqual(
+                Orchestrator.PassOutcome.Generated, await orchestrator.DoOnePassAsync(),
+                "the English key is stated again");
 
-            CollectionAssert.Contains(removed, "latex/worksheets/a_vocab.tex");
-            CollectionAssert.Contains(removed, "latex/worksheets/a/L2/pol/a_polishKey.tex");
+            Assert.AreEqual(0, _git.RemoveFilesCalls.Count);
+
+            Assert.AreEqual(
+                Orchestrator.PassOutcome.RemovedStaleFiles, await orchestrator.DoOnePassAsync(),
+                "and the translation of what it used to say goes on the next pass");
+
+            CollectionAssert.Contains(
+                _git.RemoveFilesCalls.Single(), "latex/worksheets/a/L2/pol/a_polishKey.tex");
         }
     }
 }
