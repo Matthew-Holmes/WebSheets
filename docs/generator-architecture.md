@@ -156,14 +156,13 @@ Stale files are removed, and the pass ends there. The next pass rebuilds what wa
 eager and leaves the rest — a file made on request is maintained only while it
 lasts.
 
-### Except the English vocabulary key
+### Except a vocabulary key
 
-One derived file is never thrown away. An English key carries the words it is
-made of inside itself, in its data block, so a key that has fallen out of step —
-the shared dictionary now words one of its terms differently, or the colours or
-the layout have changed — is **stated again** rather than removed: the dictionary
-is applied afresh and the file rendered again, by the same method that would have
-written it from scratch.
+A vocabulary key is not thrown away. A key carries the words it is made of inside
+itself, in its data block, so one that has fallen out of step — a dictionary now
+words one of its terms differently, or the colours or the layout have changed — is
+**stated again** rather than removed: the dictionary is applied afresh and the file
+rendered again, by the same method that would have written it from scratch.
 
 That is not merely a saving. Rebuilding a key means asking a model for the
 sheet's vocabulary a second time, and a model asked twice picks a different set of
@@ -176,6 +175,23 @@ and no model is called at all.
 
 A key with no readable data block is the exception to the exception — there is
 nothing to state it again from, so that one is rebuilt like anything else.
+
+The same holds in every language. A translated key carries the English word, the
+English definition, the word a teacher in that language would use and the
+definition translated, so it is stated again from the dictionary in its own
+language, and a word that dictionary does not cover keeps the translation the file
+already had. Correcting a translation, or changing a colour, no longer throws away
+every translated key in the repository and buys the uncovered words back.
+
+**One case stays a rebuild**: a translated key older than the English key it was
+made from. Then the words themselves may have changed, so there is a genuine
+translation to buy, and a translation of wording the sheet no longer shows would
+be wrong to keep. It also has to stay a rebuild for a duller reason. Both of the
+reasons that *are* restated guarantee the file comes out different; being merely
+older does not, and a restatement that landed on the bytes already there would be
+a commit git had nothing to record — leaving the file exactly as stale as it was
+and asking again every pass, for ever. Staleness that only age can see is left to
+the walk over the plan, which removes and rebuilds, and which resets the age.
 
 ## Immutability
 

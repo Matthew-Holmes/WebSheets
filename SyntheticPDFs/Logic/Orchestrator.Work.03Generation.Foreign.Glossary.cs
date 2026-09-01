@@ -39,12 +39,13 @@ namespace SyntheticPDFs.Logic
 
         // The same key again, from the words it already picked out.
         //
-        // Nothing is asked of a model. A key that has fallen out of step - because the
-        // shared dictionary now words one of its terms differently, or because the
-        // colours or the layout have changed - has everything needed to bring it back
+        // Nothing is asked of a model, in either language. A key that has fallen out of
+        // step - because a dictionary now words one of its terms differently, or because
+        // the colours or the layout have changed - has everything needed to bring it back
         // inside it, so this is the dictionary applied afresh and the file rendered
         // again. That is what makes editing a definition free across the whole
-        // repository, however many sheets use the word.
+        // repository, however many sheets use the word and however many languages they
+        // are printed in.
         private List<TexSourceModel> RestateGlossary(SourceMetadata sm, ContentModel model)
         {
             String contents = RepoManager.GetContent(sm.FilePath).TexSource;
@@ -61,7 +62,32 @@ namespace SyntheticPDFs.Logic
             _logger.LogInformation(
                 "stating {File} again from its own {Count} word(s)", sm.FilePath, terms.Count);
 
-            return new List<TexSourceModel> { RenderGlossary(sm, terms, model) };
+            if (sm.Form == SheetForm.Glossary)
+            {
+                return new List<TexSourceModel> { RenderGlossary(sm, terms, model) };
+            }
+
+            LanguageProfile language = Profile(sm.Language);
+
+            DictionaryState dictionary = model.DictionaryAt(ContentRepository.DictionaryPath);
+
+            // The dictionary in this language answers what it can. A word it does not
+            // cover keeps the translation the file already carries - a translation of the
+            // same English wording, since the English key this was made from has not
+            // moved. Buying it again would pay for a translation we already have.
+            List<VocabTerm> restated = terms
+                .Select(t =>
+                    dictionary.Lookup(language.Code, t.English, t.Definition)
+                        is L2DictionaryEntry entry
+                        ? t with
+                          {
+                              Translation          = entry.Word,
+                              TranslatedDefinition = entry.Definition,
+                          }
+                        : t)
+                .ToList();
+
+            return new List<TexSourceModel> { RenderTranslatedGlossary(sm, language, restated) };
         }
 
         // Written once and used by both, so that a key stated again is byte for byte the
@@ -128,19 +154,32 @@ namespace SyntheticPDFs.Logic
             List<VocabTerm> translated = await TranslateUsingDictionary(
                 terms, model.DictionaryAt(ContentRepository.DictionaryPath), language);
 
+            return new List<TexSourceModel>
+            {
+                RenderTranslatedGlossary(sm, language, translated),
+            };
+        }
+
+        // As with the English pair, written once and used by both, so that a key stated
+        // again is byte for byte the key that would have been written from scratch.
+        private TexSourceModel RenderTranslatedGlossary(
+            SourceMetadata sm, LanguageProfile language, IReadOnlyList<VocabTerm> terms)
+        {
             String tex = L2VocabKeyRenderer.Render(
-                translated,
+                terms,
                 new L2Macros.SourceMetadataTitle(sm.RootName, sm.Part, sm.Form),
                 L2Settings.Colours,
                 language,
                 builtFrom: (sm with { Language = ISO639_3Code.eng, Form = SheetForm.Original }).FilePath,
-                vocabularyKey: glossaryFilename,
+                vocabularyKey: (sm with
+                {
+                    Language = ISO639_3Code.eng,
+                    Part     = SheetPart.Root,
+                    Form     = SheetForm.Glossary,
+                }).FilePath,
                 fallbackFont: L2Settings.FallbackFont);
 
-            return new List<TexSourceModel>
-            {
-                new TexSourceModel { FileNameFullPath = sm.FilePath, TexSource = tex },
-            };
+            return new TexSourceModel { FileNameFullPath = sm.FilePath, TexSource = tex };
         }
 
         // The dictionary answers what it can, and the model is asked only about the rest.

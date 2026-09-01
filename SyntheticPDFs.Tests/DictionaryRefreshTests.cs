@@ -5,6 +5,7 @@ using SyntheticPDFs.Logic;
 using SyntheticPDFs.Models.Content;
 using SyntheticPDFs.Rendering;
 using SyntheticPDFs.Tests.Fakes;
+using System.Text.RegularExpressions;
 
 namespace SyntheticPDFs.Tests
 {
@@ -344,7 +345,7 @@ namespace SyntheticPDFs.Tests
         }
 
         [TestMethod]
-        public async Task CorrectingATranslationRebuildsTheGlossariesThatUseThatWord()
+        public async Task CorrectingATranslationPutsTheGlossariesThatUseThatWordBackInStep()
         {
             GiveTheRepoADictionary(OneWord);
             GiveTheRepoASettledSheet();
@@ -372,20 +373,149 @@ namespace SyntheticPDFs.Tests
             var orchestrator = Build();
 
             Assert.AreEqual(
-                Orchestrator.PassOutcome.RemovedStaleFiles, await orchestrator.DoOnePassAsync(),
-                "the glossary disagrees with the dictionary, so it goes");
+                Orchestrator.PassOutcome.Generated, await orchestrator.DoOnePassAsync(),
+                "the glossary disagrees with the dictionary, so it is stated again");
 
-            CollectionAssert.Contains(_git.RemoveFilesCalls.Single().ToArray(), PolishKey);
+            Assert.AreEqual(0, _git.RemoveFilesCalls.Count, "without being thrown away first");
 
-            Assert.AreEqual(
-                Orchestrator.PassOutcome.Generated, await orchestrator.DoOnePassAsync());
+            String? restated = Committed(PolishKey);
 
-            String? rebuilt = Committed(PolishKey);
+            Assert.IsNotNull(restated);
+            StringAssert.Contains(restated, "licznik");
+            Assert.IsFalse(restated.Contains("licznikk", StringComparison.Ordinal),
+                "and the wording somebody corrected is gone");
 
-            Assert.IsNotNull(rebuilt);
-            StringAssert.Contains(rebuilt, "licznik");
             Assert.AreEqual(0, _llm.StructuredPromptsSeen.Count,
                 "the correction is read out of the dictionary, never asked for again");
+        }
+
+        [TestMethod]
+        public async Task AWordThePolishDictionaryHasNotKeepsTheTranslationItAlreadyHad()
+        {
+            // the English key has not moved, so a translation already in the file is a
+            // translation of the same English wording - buying it again would pay twice
+            GiveTheRepoADictionary(OneWord);
+            GiveTheRepoASettledSheet();
+            GiveTheRepoAnEnglishGlossary(("numerator", "the number above the line in a fraction"));
+
+            GiveTheRepoAPolishDictionary(
+                Entry("numerator", "the number above the line in a fraction",
+                    "licznik", "liczba nad kreska ulamka"));
+
+            _git.AddFile(PolishKey, ageCommits: 1, contents: TexFixtures.VocabularyKey(
+                Root,
+                new[]
+                {
+                    new VocabTerm
+                    {
+                        English              = "numerator",
+                        Definition           = "the number above the line in a fraction",
+                        Translation          = "licznikk",
+                        TranslatedDefinition = "liczba nad kreska ulamka",
+                    },
+                    new VocabTerm
+                    {
+                        English              = "hypotenuse",
+                        Definition           = "the long side",
+                        Translation          = "przeciwprostokatna",
+                        TranslatedDefinition = "najdluzszy bok",
+                    },
+                },
+                TexFixtures.Polish));
+
+            await Build().DoOnePassAsync();
+
+            String? restated = Committed(PolishKey);
+
+            Assert.IsNotNull(restated);
+            StringAssert.Contains(restated, "przeciwprostokatna",
+                "the word the dictionary says nothing about keeps what it had");
+
+            Assert.AreEqual(0, _llm.StructuredPromptsSeen.Count, "and nothing was asked for");
+        }
+
+        [TestMethod]
+        public async Task ChangingTheLayoutStatesThePolishKeyAgainRatherThanBuyingItAgain()
+        {
+            GiveTheRepoADictionary(OneWord);
+            GiveTheRepoASettledSheet();
+            GiveTheRepoAnEnglishGlossary(("numerator", "the number above the line in a fraction"));
+
+            GiveTheRepoAPolishDictionary(
+                Entry("numerator", "the number above the line in a fraction",
+                    "licznik", "liczba nad kreska ulamka"));
+
+            _git.AddFile(PolishKey, ageCommits: 1, contents: Regex.Replace(
+                TexFixtures.VocabularyKey(
+                    Root,
+                    new[]
+                    {
+                        new VocabTerm
+                        {
+                            English              = "numerator",
+                            Definition           = "the number above the line in a fraction",
+                            Translation          = "licznik",
+                            TranslatedDefinition = "liczba nad kreska ulamka",
+                        },
+                    },
+                    TexFixtures.Polish),
+                @"(key layout\s+version )\d+", "${1}1"));
+
+            await Build().DoOnePassAsync();
+
+            Assert.AreEqual(0, _git.RemoveFilesCalls.Count, "nothing was thrown away");
+
+            Assert.AreEqual(0, _llm.StructuredPromptsSeen.Count, "and nothing was paid for");
+
+            String? restated = Committed(PolishKey);
+
+            Assert.IsNotNull(restated);
+            Assert.IsTrue(
+                L2Macros.MatchesSettings(
+                    restated, new L2ColourOptions(),
+                    isKey: true, fallbackFont: TexFixtures.FallbackFont),
+                "the key is now built to the current layout");
+        }
+
+        [TestMethod]
+        public async Task APolishKeyOlderThanTheEnglishOneIsRebuiltRatherThanStatedAgain()
+        {
+            // The one case that must stay a rebuild. The English key has moved, so the
+            // words themselves may have changed and there is a genuine translation to
+            // buy - and stating it again could land on the bytes already there, which is
+            // a commit git has nothing to record, leaving the file exactly as stale as it
+            // was and asking again every pass for ever.
+            GiveTheRepoADictionary(OneWord);
+            GiveTheRepoASettledSheet();
+
+            GiveTheRepoAPolishDictionary(
+                Entry("numerator", "the number above the line in a fraction",
+                    "licznik", "liczba nad kreska ulamka"));
+
+            var terms = new[]
+            {
+                new VocabTerm
+                {
+                    English              = "numerator",
+                    Definition           = "the number above the line in a fraction",
+                    Translation          = "licznik",
+                    TranslatedDefinition = "liczba nad kreska ulamka",
+                },
+            };
+
+            // the English key is younger than the Polish one made from it
+            _git.AddFile(Vocab, ageCommits: 0, contents: TexFixtures.VocabularyKey(
+                Root,
+                terms.Select(t => new VocabTerm { English = t.English, Definition = t.Definition })
+                     .ToList()));
+
+            _git.AddFile(PolishKey, ageCommits: 3,
+                contents: TexFixtures.VocabularyKey(Root, terms, TexFixtures.Polish));
+
+            Assert.AreEqual(
+                Orchestrator.PassOutcome.RemovedStaleFiles, await Build().DoOnePassAsync());
+
+            CollectionAssert.Contains(_git.RemoveFilesCalls.Single().ToArray(), PolishKey);
         }
 
         #endregion

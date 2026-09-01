@@ -231,10 +231,13 @@ brought into line, in English and in every language. Move it up into the topic i
 belongs to whenever you like — the generator only reads the word and the
 definition, and does not care where in the file they sit.
 
-**Bringing a key into line is free.** An English key carries the words it is made
-of inside itself, so a key that disagrees with a reworded definition is rendered
-again from its own data with the new wording applied — nothing is thrown away and
-no model is asked. That matters more than it sounds: rebuilding the key instead
+**Bringing a key into line is free**, in English and in every language. A key
+carries the words it is made of inside itself, so a key that disagrees with a
+reworded definition is rendered again from its own data with the new wording
+applied — nothing is thrown away and no model is asked. The same is true when you
+correct a translation in one of the language dictionaries below: the keys in that
+language are stated again from it rather than rebuilt. That matters more than it
+sounds: rebuilding the key instead
 would ask a model for the sheet's vocabulary a second time, get a slightly
 different set of words back, and feed those new words into this file, which would
 put the next batch of keys out of step and start the whole thing over. Editing a

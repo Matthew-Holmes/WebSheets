@@ -237,6 +237,65 @@ namespace SyntheticPDFs.Logic
             _restating.Add((sheet.RootName, file.Key));
         }
 
+        // The same argument in another language, with one thing added.
+        //
+        // A translated key carries the English word, the English definition, the word a
+        // teacher in that language would use and the definition translated - so it too
+        // can be rendered again from itself, with the dictionary in its language applied
+        // afresh. A word that dictionary does not cover keeps the translation the file
+        // already carries, which is honest because it is a translation of the same
+        // English wording: the English key has not moved, or this would not be here.
+        //
+        // That is the thing added. Only what the file says of its own accord is judged
+        // here - the dictionary in its language, and the settings. Being older than the
+        // English key it was made from is a different matter, settled by the walk over
+        // the plan, and it has to be, because then the words themselves have changed and
+        // there is a genuine translation to buy. It matters for a second reason too: both
+        // reasons judged here guarantee the file comes out different, and one that came
+        // out identical would be a commit git had nothing to record, leaving the file
+        // exactly as stale as it was and asking again every pass.
+        private void JudgeTranslatedGlossary(
+            SheetState sheet,
+            ContentFile file,
+            String contents,
+            DictionaryState dictionary,
+            HashSet<ContentKey> outdated)
+        {
+            ISO639_3Code language = file.SourceMetadata.Language;
+
+            String? why = null;
+
+            if (!L2VocabData.MatchesTranslations(contents, dictionary, language))
+            {
+                why = "no longer agrees with the dictionary in its own language";
+            }
+            else if (!L2Macros.MatchesSettings(
+                         contents, L2Settings.Colours,
+                         isKey: true, fallbackFont: L2Settings.FallbackFont))
+            {
+                why = "was built from different settings";
+            }
+
+            if (why is null) { return; }
+
+            if (L2VocabData.ReadBlock(contents) is null)
+            {
+                _logger.LogInformation(
+                    "{File} {Why}, and carries no vocabulary data to rebuild it from",
+                    file.FullPath, why);
+
+                outdated.Add(file.Key);
+
+                return;
+            }
+
+            _logger.LogInformation(
+                "{File} {Why}, so it will be stated again from the words it already has",
+                file.FullPath, why);
+
+            _restating.Add((sheet.RootName, file.Key));
+        }
+
         // Files that exist and are correctly ordered but were built from something that
         // has since changed. Only the derived ones are worth opening: an original is not
         // built from anything the generator records.
@@ -283,29 +342,23 @@ namespace SyntheticPDFs.Logic
                     continue;
                 }
 
-                if (form == SheetForm.TranslatedGlossary
-                    && !L2VocabData.MatchesTranslations(
-                        contents, dictionary, file.SourceMetadata.Language))
+                // A translated key can be stated again for the same reasons and by the
+                // same argument, so long as the English key it was made from has not
+                // moved. Age is left to the walk over the plan: if the English key has
+                // moved this one has to be made from what it now says, and that is a
+                // rebuild rather than a restatement.
+                if (form == SheetForm.TranslatedGlossary)
                 {
-                    _logger.LogInformation(
-                        "{File} no longer agrees with the dictionary in its own language",
-                        file.FullPath);
+                    JudgeTranslatedGlossary(sheet, file, contents, dictionary, outdated);
 
-                    outdated.Add(file.Key);
                     continue;
                 }
 
-                // the English key is settled above, so the only key left here is a
-                // translated one
-                bool isKey = form == SheetForm.TranslatedGlossary;
-
-                // an English glossary borrows from nowhere, so it records no fallback and
-                // is not judged against one
-                String? fallback = file.SourceMetadata.Language == ISO639_3Code.eng
-                    ? null
-                    : L2Settings.FallbackFont;
-
-                if (!L2Macros.MatchesSettings(contents, L2Settings.Colours, isKey, fallback))
+                // both kinds of key are settled above, so what is left here is a
+                // translated sheet, which borrows a font and records the one it borrowed
+                if (!L2Macros.MatchesSettings(
+                        contents, L2Settings.Colours,
+                        isKey: false, fallbackFont: L2Settings.FallbackFont))
                 {
                     _logger.LogInformation(
                         "{File} was built from different settings", file.FullPath);

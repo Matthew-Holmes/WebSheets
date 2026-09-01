@@ -70,9 +70,11 @@ namespace SyntheticPDFs.Logic
 
             long order = 0;
 
-            // a key that has fallen out of step with the dictionary or the settings is
-            // put back into step rather than made again - it is at the same priority as
-            // writing one, since it is the same file at the same stage of the pipeline
+            // a key that has fallen out of step with a dictionary or with the settings is
+            // put back into step rather than made again - at the same priority as writing
+            // one, since it is the same file at the same stage of the pipeline. that is
+            // what keeps a translated key waiting for the dictionary in its own language
+            // to settle first, exactly as it would if it were being written
             foreach ((String root, ContentKey key) in _restating)
             {
                 if (root != sheet.RootName) { continue; }
@@ -81,7 +83,7 @@ namespace SyntheticPDFs.Logic
                 {
                     Request   = Request(
                         sheet.RootName, key, sheet.Archetype, GenerationJob.RestateGlossary),
-                    Priority  = GenerationPriority.EnglishGlossary,
+                    Priority  = PriorityOf(key),
                     RootOrder = rootOrder,
                     Sequence  = order++,
                 });
