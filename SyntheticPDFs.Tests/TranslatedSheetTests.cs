@@ -274,6 +274,154 @@ namespace SyntheticPDFs.Tests
             Assert.IsNull(L2Document.WhatIsWrongWith(GoodBody));
         }
 
+        // ---- the preamble the original wrote for itself ----
+
+        // a slide deck as the answer macro review leaves one: packages, a colour, a tikz
+        // style and the three helpers that reveal its answers
+        private const String DeckWithItsOwnPreamble =
+            "% !TeX program = lualatex\n"
+            + "\\documentclass{beamer}\n"
+            + "\\usepackage{amsmath}\n"
+            + "\\usepackage{xcolor}\n"
+            + "\\usepackage{tikz}\n"
+            + "\\usetikzlibrary{overlay-beamer-styles}\n"
+            + "\\definecolor{MainBlue}{HTML}{1A6FA8}\n"
+            + "\\tikzset{ans/.style={text=red}}\n"
+            + "\\newcommand{\\ablank}[1]{%\n"
+            + "  \\uncover<2->{\\textcolor{red}{#1}}%\n"
+            + "}\n"
+            + "\\newcommand{\\ashow}[1]{\\uncover<2->{\\textcolor{red}{\\small #1}}}\n"
+            + "\\begin{document}\n"
+            + "\\begin{frame}{Starter 1}$3+4=\\ablank{7}$\\end{frame}\n"
+            + "\\end{document}\n";
+
+        [TestMethod]
+        [DataRow(@"\newcommand{\ablank}", "the answer overlay helpers a deck defines for itself")]
+        [DataRow(@"\tikzset{ans/.style", "a tikz style it set up")]
+        [DataRow(@"\definecolor{MainBlue}", "a colour it defined")]
+        [DataRow(@"\usepackage{tikz}", "a package it loaded")]
+        [DataRow(@"\usetikzlibrary{overlay-beamer-styles}", "a tikz library it loaded")]
+        public void TheOriginalsPreambleIsCarriedIntoTheTranslation(String expected, String what)
+        {
+            String preamble = L2Document.PreambleOf(DeckWithItsOwnPreamble);
+
+            StringAssert.Contains(preamble, expected, what + " has to come across");
+        }
+
+        [TestMethod]
+        public void AMacroDefinedOverSeveralLinesComesAcrossWhole()
+        {
+            // the reason this reads a region rather than picking out lines it likes: a
+            // definition that spans lines would be cut in half by anything line by line
+            String preamble = L2Document.PreambleOf(DeckWithItsOwnPreamble);
+
+            StringAssert.Contains(preamble, "\\newcommand{\\ablank}[1]{%\n  \\uncover<2->");
+        }
+
+        [TestMethod]
+        [DataRow(@"\documentclass", "the class is written out separately")]
+        [DataRow(@"\usepackage{xcolor}", "xcolor comes from our own block, and loading it twice clashes")]
+        [DataRow(@"\begin{document}", "the preamble stops there")]
+        [DataRow("Starter 1", "and the body is the model's, not the original's")]
+        public void WhatWeProvideOurselvesIsNotCarriedTwice(String unwanted, String why)
+        {
+            String preamble = L2Document.PreambleOf(DeckWithItsOwnPreamble);
+
+            Assert.IsFalse(preamble.Contains(unwanted, StringComparison.Ordinal), why);
+        }
+
+        [TestMethod]
+        public void APreambleThatRedefinesAnEalHelperIsNotCarried()
+        {
+            String source = "\\documentclass{article}\n"
+                + "\\newcommand{\\ealkey}[1]{#1}\n"
+                + "\\newcommand{\\mine}[1]{#1}\n"
+                + "\\begin{document}\\end{document}";
+
+            String preamble = L2Document.PreambleOf(source);
+
+            Assert.IsFalse(preamble.Contains(@"\ealkey", StringComparison.Ordinal),
+                "it would clash with the block that defines the helpers");
+
+            StringAssert.Contains(preamble, @"\mine", "but its own macros still come across");
+        }
+
+        [TestMethod]
+        public void ATranslationMissingAMacroTheOriginalDefinedIsDescribed()
+        {
+            // what nine of the ten parallel texts in the repository did: kept using
+            // \ablank and \ashow, and no longer defined either
+            String assembled = "\\documentclass{beamer}\n"
+                + "\\begin{document}\\ealpara{a}{$3+4=\\ablank{7}$}\\end{document}";
+
+            String? missing = L2Document.WhatIsMissingFrom(assembled, DeckWithItsOwnPreamble);
+
+            Assert.IsNotNull(missing);
+            StringAssert.Contains(missing, @"\ablank");
+        }
+
+        [TestMethod]
+        public void ATranslationThatCarriedThePreambleIsNotReportedAsMissingAnything()
+        {
+            String assembled = L2Document.Assemble(
+                "\\begin{document}\\ealpara{a}{$3+4=\\ablank{7}$}\\end{document}",
+                L2Document.DocumentClassOf(DeckWithItsOwnPreamble),
+                L2Document.PreambleOf(DeckWithItsOwnPreamble),
+                "Polish Parallel Text Version of Starters",
+                new L2ColourOptions(),
+                TexFixtures.Polish,
+                builtFrom: "latex/starters/a.tex",
+                vocabularyKey: "latex/starters/a/L2/pol/a_polishKey.tex",
+                fallbackFont: TexFixtures.FallbackFont);
+
+            Assert.IsNull(L2Document.WhatIsMissingFrom(assembled, DeckWithItsOwnPreamble));
+        }
+
+        // ---- line breaks with no line to break ----
+
+        [TestMethod]
+        [DataRow("\\ealpara{a}{b}\n\\newline\nmore", "straight after a block level helper")]
+        [DataRow("\\ealpara{a}{b}\n\\\\\nmore", "the same with a double backslash")]
+        [DataRow("text\n\n\\newline\nmore", "after a blank line")]
+        [DataRow("text \\par \\newline more", "after \\par")]
+        [DataRow("\\begin{itemize}\n\\newline\n\\item x\n\\end{itemize}", "at the top of an environment")]
+        // the shape the repository actually had: two arguments, each with maths and
+        // braces of its own, and the break on the line after the closing brace
+        [DataRow("\\ealpara{Oblicz: \\[ \\dfrac{1}{2} \\]}{Calculate: \\[ \\dfrac{1}{2} \\]}\n  \\newline\nmore",
+                 "after a helper whose arguments contain maths")]
+        public void ALineBreakWithNothingToBreakIsRejected(String fragment, String where)
+        {
+            String body = "\\begin{document}\\ealkey{x}\n" + fragment + "\n\\end{document}";
+
+            String? wrong = L2Document.WhatIsWrongWith(body);
+
+            Assert.IsNotNull(wrong, "a line break " + where + " does not compile");
+            StringAssert.Contains(wrong, "no line has been started");
+        }
+
+        [TestMethod]
+        public void ALineBreakAtTheVeryTopOfTheBodyIsRejected()
+        {
+            String? wrong = L2Document.WhatIsWrongWith(
+                "\\begin{document}\n\\\\[0.3em]\n\\ealkey{x}\n\\end{document}");
+
+            Assert.IsNotNull(wrong);
+            StringAssert.Contains(wrong, "no line has been started");
+        }
+
+        [TestMethod]
+        [DataRow("some words\\\\[0.3em]\nand more", "in the middle of a paragraph")]
+        [DataRow("a line\n\\newline\nthe next", "on its own line but inside a paragraph")]
+        [DataRow("\\ealkey{word}\\\\\nnext", "after an inline helper, which does not end a paragraph")]
+        [DataRow("$x = 1$ \\newline $y = 2$", "after maths")]
+        public void AnOrdinaryLineBreakIsLeftAlone(String fragment, String where)
+        {
+            String body = "\\begin{document}\\ealkey{x} " + fragment + "\n\\end{document}";
+
+            Assert.IsNull(L2Document.WhatIsWrongWith(body),
+                "a line break " + where + " is how anybody would write one");
+        }
+
         [TestMethod]
         public async Task AModelThatKeepsReturningAnUnusableBodyFailsThatFileOnly()
         {

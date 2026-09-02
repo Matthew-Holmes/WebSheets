@@ -17,7 +17,7 @@ namespace SyntheticPDFs.Rendering
         internal static String Assemble(
             String body,
             String documentClass,
-            IReadOnlyList<String> packages,
+            String originalPreamble,
             String title,
             L2ColourOptions colours,
             LanguageProfile language,
@@ -35,9 +35,11 @@ namespace SyntheticPDFs.Rendering
 
             sb.AppendLine(documentClass);
 
-            foreach (String package in packages)
+            if (originalPreamble.Length > 0)
             {
-                sb.AppendLine(package);
+                sb.AppendLine(OriginalPreambleHeader);
+                sb.AppendLine(originalPreamble);
+                sb.AppendLine();
             }
 
             sb.AppendLine(L2Macros.LanguagePreamble(language, fallbackFont));
@@ -48,19 +50,22 @@ namespace SyntheticPDFs.Rendering
             return sb.ToString();
         }
 
+        // Plain words, for a teacher who opens the file to fix something rather than for
+        // anybody who knows how the generator is put together.
+        private const String OriginalPreambleHeader =
+            "% ================================================================\n"
+            + "% Copied from the English sheet this was translated from, so that\n"
+            + "% anything it sets up for itself still works here\n"
+            + "% ================================================================";
+
         #region Reading the original's preamble
 
         private static readonly Regex DocumentClassLine =
             new(@"^[ \t]*\\documentclass.*$", RegexOptions.Multiline | RegexOptions.Compiled);
 
-        private static readonly Regex PackageLine =
-            new(@"^[ \t]*\\(usepackage|usetikzlibrary|definecolor|newtheorem)\b.*$",
-                RegexOptions.Multiline | RegexOptions.Compiled);
-
-        // The translated sheet keeps the original's class and packages, so a deck stays a
-        // deck and a sheet that draws diagrams can still draw them. Read from the English
-        // source rather than asked of the model, for the same reason as the rest of the
-        // preamble.
+        // The translated sheet keeps the original's class, so a deck stays a deck. Read
+        // from the English source rather than asked of the model, for the same reason as
+        // the rest of the preamble.
         internal static String DocumentClassOf(String source)
         {
             Match match = DocumentClassLine.Match(StripComments(source));
@@ -75,16 +80,54 @@ namespace SyntheticPDFs.Rendering
         // hard error
         private static readonly String[] OursAlready = { "xcolor", "babel", "fontspec", "polyglossia" };
 
-        internal static IReadOnlyList<String> PackagesOf(String source)
+        // Everything the original set up for itself, carried across whole.
+        //
+        // This used to be a list of the four kinds of line that seemed to matter -
+        // packages, tikz libraries, colours, theorems. That was wrong in the way an
+        // allowlist usually is: a sheet defines macros of its own too, and a slide deck
+        // now always does, because the answer overlay helpers that reveal its answers are
+        // written into its preamble. The translation kept using them and no longer
+        // defined them, so nine of the ten parallel texts in the repository stopped
+        // compiling with "Undefined control sequence".
+        //
+        // So the rule is the other way round now: keep the preamble, and drop only what
+        // we are certain to say again ourselves. A line we have not thought of is carried
+        // rather than lost, which is the failure worth having.
+        internal static String PreambleOf(String source)
         {
-            return PackageLine.Matches(StripComments(source))
-                .Select(m => m.Value.Trim())
-                .Where(line => !OursAlready.Any(p =>
-                    line.Contains("{" + p + "}", StringComparison.Ordinal)
-                    || line.Contains("{" + p + ",", StringComparison.Ordinal)
-                    || line.Contains("," + p + "}", StringComparison.Ordinal)))
-                .Distinct(StringComparer.Ordinal)
-                .ToList();
+            List<String> lines = source.Replace("\r\n", "\n").Split('\n').ToList();
+
+            int start = lines.FindIndex(l => DocumentClassLine.IsMatch(StripComments(l)));
+
+            int end = lines.FindIndex(l =>
+                StripComments(l).Contains(@"\begin{document}", StringComparison.Ordinal));
+
+            if (end < 0) { end = lines.Count; }
+
+            // a source with no class of its own is odd but not a reason to lose its
+            // macros, so everything before the document begins is its preamble
+            IEnumerable<String> preamble = lines.Take(end).Skip(start + 1);
+
+            return String.Join('\n', preamble.Where(Keep)).Trim('\n');
+        }
+
+        // Whether this line is the original's to give us. Anything we provide ourselves is
+        // dropped: loading a package twice with different options is a hard error, and
+        // redefining one of the eal helpers would clash with the block that defines them.
+        private static bool Keep(String line)
+        {
+            String bare = StripComments(line);
+
+            if (bare.Contains(@"\usepackage", StringComparison.Ordinal)
+                && OursAlready.Any(p =>
+                    bare.Contains("{" + p + "}", StringComparison.Ordinal)
+                    || bare.Contains("{" + p + ",", StringComparison.Ordinal)
+                    || bare.Contains("," + p + "}", StringComparison.Ordinal)))
+            {
+                return false;
+            }
+
+            return !DefinesOurMacro.IsMatch(bare);
         }
 
         private static String StripComments(String source)
@@ -146,7 +189,109 @@ namespace SyntheticPDFs.Rendering
                 return "it uses none of the eal helpers, so nothing has been translated";
             }
 
+            if (LineBreakWithNoLine(body) is String stray)
+            {
+                return $"it breaks a line at {stray}, where no line has been started";
+            }
+
             return null;
+        }
+
+        // \\ with an optional length, or \newline
+        private static readonly Regex LineBreak =
+            new(@"\\\\(\s*\[[^\]]*\])?|\\newline\b", RegexOptions.Compiled);
+
+        // the block level helpers, which finish with \par and so leave the sheet between
+        // paragraphs rather than in one
+        private static readonly String[] EndsAParagraph = { "ealpara", "ealtextblock" };
+
+        // A line break needs a line to break. One written where a paragraph has not
+        // started yet - after a blank line, after \par, at the top of an environment, or
+        // straight after a helper that ends a paragraph of its own - is
+        // "There's no line here to end", and the sheet does not compile.
+        //
+        // A model reaches for one whenever it wants a gap, and the sheet it is copying
+        // gives it the habit, so this is worth catching before the file is committed
+        // rather than when somebody tries to print it.
+        private static String? LineBreakWithNoLine(String body)
+        {
+            String bare = StripComments(body);
+
+            foreach (Match match in LineBreak.Matches(bare))
+            {
+                int at = match.Index - 1;
+                int newlines = 0;
+
+                while (at >= 0 && Char.IsWhiteSpace(bare[at]))
+                {
+                    if (bare[at] == '\n') { newlines++; }
+                    at--;
+                }
+
+                // nothing before it at all, or a blank line, so no paragraph is open
+                if (at < 0 || newlines > 1) { return Quote(bare, match.Index); }
+
+                String before = bare[..(at + 1)];
+
+                if (before.EndsWith(@"\par", StringComparison.Ordinal)
+                    || EndsAnEnvironmentOpener(before))
+                {
+                    return Quote(bare, match.Index);
+                }
+
+                if (bare[at] == '}' && ClosesOneOf(before, EndsAParagraph))
+                {
+                    return Quote(bare, match.Index);
+                }
+            }
+
+            return null;
+        }
+
+        private static bool EndsAnEnvironmentOpener(String before) =>
+            Regex.IsMatch(before, @"\\begin\s*\{[^}]*\}$");
+
+        // Walks back from a closing brace over as many argument groups as it finds, to
+        // the name of the macro they belong to. That is what tells a break after
+        // \ealpara{..}{..} - which is an error - from one after \ealkey{..}, which is an
+        // ordinary word in the middle of a line and perfectly fine.
+        private static bool ClosesOneOf(String before, IReadOnlyList<String> macros)
+        {
+            int at = before.Length - 1;
+
+            while (at >= 0 && before[at] == '}')
+            {
+                int depth = 0;
+
+                for (; at >= 0; at--)
+                {
+                    if (at > 0 && before[at - 1] == '\\') { continue; }
+
+                    if (before[at] == '}') { depth++; }
+                    else if (before[at] == '{' && --depth == 0) { break; }
+                }
+
+                if (at < 0) { return false; }
+
+                at--;
+
+                while (at >= 0 && Char.IsWhiteSpace(before[at])) { at--; }
+            }
+
+            int end = at + 1;
+
+            while (at >= 0 && Char.IsLetter(before[at])) { at--; }
+
+            return at >= 0 && before[at] == '\\'
+                && macros.Contains(before[(at + 1)..end], StringComparer.Ordinal);
+        }
+
+        // enough of the surrounding text to find it in the file by eye
+        private static String Quote(String bare, int at)
+        {
+            int from = Math.Max(0, at - 40);
+
+            return "\"..." + bare[from..Math.Min(bare.Length, at + 10)].Replace("\n", " ").Trim() + "...\"";
         }
 
         private static bool UsesAnyHelper(String body)
@@ -154,6 +299,58 @@ namespace SyntheticPDFs.Rendering
             String[] helpers = { @"\ealpara", @"\ealgloss", @"\ealkey", @"\ealkeytr" };
 
             return helpers.Any(h => body.Contains(h, StringComparison.Ordinal));
+        }
+
+        private static readonly Regex Defines = new(
+            @"\\(?:new|renew|provide)command\s*\*?\s*\{?\s*\\([A-Za-z]+)"
+            + @"|\\def\s*\\([A-Za-z]+)"
+            + @"|\\DeclareMathOperator\s*\*?\s*\{?\s*\\([A-Za-z]+)",
+            RegexOptions.Compiled);
+
+        private static readonly Regex Uses = new(@"\\([A-Za-z]+)", RegexOptions.Compiled);
+
+        private static IEnumerable<String> MacrosDefinedIn(String tex) =>
+            Defines.Matches(StripComments(tex))
+                .Select(m => m.Groups.Cast<Group>().Skip(1).First(g => g.Success).Value);
+
+        // A macro the sheet defines for itself, which the translation uses and does not
+        // define, is an undefined control sequence - the file commits, and then fails to
+        // compile in front of whoever tried to print it.
+        //
+        // Checked against the sheet it came from rather than against LaTeX at large,
+        // because that is the question actually worth asking and the only one that can be
+        // answered without a TeX engine: nothing here knows whether \frac exists, but it
+        // knows perfectly well whether the deck defined \ablank and this file did not.
+        internal static String? WhatIsMissingFrom(String assembled, String original)
+        {
+            HashSet<String> itsOwn = MacrosDefinedIn(PreambleUpToDocument(original)).ToHashSet(StringComparer.Ordinal);
+
+            if (itsOwn.Count == 0) { return null; }
+
+            itsOwn.ExceptWith(MacrosDefinedIn(assembled));
+
+            if (itsOwn.Count == 0) { return null; }
+
+            List<String> used = Uses.Matches(StripComments(assembled))
+                .Select(m => m.Groups[1].Value)
+                .Where(itsOwn.Contains)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(m => m, StringComparer.Ordinal)
+                .ToList();
+
+            if (used.Count == 0) { return null; }
+
+            return "it uses " + String.Join(", ", used.Select(m => "\\" + m))
+                + ", which the sheet it was translated from defines and this one does not";
+        }
+
+        private static String PreambleUpToDocument(String source)
+        {
+            String s = source.Replace("\r\n", "\n");
+
+            int at = s.IndexOf(@"\begin{document}", StringComparison.Ordinal);
+
+            return at < 0 ? s : s[..at];
         }
 
         #endregion

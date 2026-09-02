@@ -50,7 +50,7 @@ namespace SyntheticPDFs.Logic
             String tex = L2Document.Assemble(
                 body,
                 L2Document.DocumentClassOf(english),
-                L2Document.PackagesOf(english),
+                L2Document.PreambleOf(english),
                 L2Macros.TitleFor(
                     new L2Macros.SourceMetadataTitle(sm.RootName, sm.Part, sm.Form), language),
                 L2Settings.Colours,
@@ -58,6 +58,13 @@ namespace SyntheticPDFs.Logic
                 builtFrom: englishFilename,
                 vocabularyKey: keyFilename,
                 fallbackFont: L2Settings.FallbackFont);
+
+            // last thing before it is committed, since a file that will not compile is
+            // worse than one that is missing - the missing one comes back next pass
+            if (L2Document.WhatIsMissingFrom(tex, english) is String missing)
+            {
+                throw new Exception($"the {sm.Form} of {sm.RootName} was not committed: {missing}");
+            }
 
             return new List<TexSourceModel>
             {

@@ -18,7 +18,10 @@ namespace SyntheticPDFs.Rendering
         // 2 added the Latin fallback, without which a sheet in one of the fonts that
         // carries no Latin loses its full stops, its digits and the em dash the glossary
         // sets between a word and its meaning.
-        internal const int MacroVersion = 2;
+        // 3 carries the English sheet's own preamble across instead of four chosen kinds
+        // of line, so a sheet that defines macros for itself - as every slide deck now
+        // does, for the helpers that reveal its answers - still has them in translation.
+        internal const int MacroVersion = 3;
 
         // The same idea for the layout of a vocabulary key, kept separate because it is
         // only the keys that use it. Restyling the key would otherwise rebuild every

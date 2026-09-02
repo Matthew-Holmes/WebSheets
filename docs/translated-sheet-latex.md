@@ -37,6 +37,27 @@ LuaLaTeX rather than XeLaTeX because:
 
 ## The preamble the generator writes
 
+A translated sheet's preamble is in two halves: everything the English sheet set
+up for itself, copied across whole, and then the language block below.
+
+**The English sheet's half is copied, not chosen from.** It used to be four kinds
+of line — packages, tikz libraries, colours, theorems — which was wrong in the way
+an allowlist usually is. A sheet defines macros of its own too, and a slide deck
+now always does, because the helpers that reveal its answers (`\ablank`, `\ashow`,
+`\ashowq`) are written into its preamble, along with the `\tikzset` styles that
+put answers on a diagram. The translation went on using them and no longer defined
+them, and nine of the ten parallel texts in the content repository stopped
+compiling — 101 errors between them, every one an undefined control sequence or an
+unknown tikz key. So the rule is the other way round now: keep the preamble, and
+drop only what the generator is certain to write again itself — the document class,
+the packages it provides (`xcolor`, `babel`, `fontspec`, `polyglossia`), and
+anything redefining an `eal` helper. A line nobody thought of is carried rather
+than lost, which is the failure worth having.
+
+That is also why the preamble is read as a region rather than line by line: a
+`\newcommand` that spans lines would be cut in half by anything that filtered
+lines.
+
 The language-specific half is built from the language profile in configuration
 and is never written by the model:
 
@@ -154,6 +175,30 @@ translation pushes its neighbours aside instead of overlapping them, and it
 claims its **full height**, so a table row or a TikZ node makes room for it.
 Inside `ealglossed` the leading is fixed at 2.1× — about 30pt against the ~21pt
 a gloss needs — so claiming that height costs nothing in running text.
+
+### What is checked before a translated sheet is committed
+
+A generated file that will not compile is worse than one that is missing: the
+missing one comes back on the next pass, and the broken one is found by whoever
+tried to print it. So a body is rejected and asked for again when:
+
+- it has no `\begin{document}` or `\end{document}`, or carries a document class,
+  when only the body was asked for;
+- it redefines one of the `eal` helpers, which would clash with the block that
+  defines them;
+- it uses none of them, which means nothing was translated;
+- its `\begin` and `\end` do not balance;
+- **it breaks a line where no line has started** — `\\` or `\newline` after a
+  blank line, after `\par`, at the top of an environment, or straight after
+  `\ealpara`, which ends a paragraph of its own. That is *"There's no line here
+  to end"*, and a model reaches for a line break whenever it wants a gap.
+
+And the assembled file is rejected when it **uses a macro the sheet it was
+translated from defines and it does not**. That is checked against the original
+rather than against LaTeX at large because it is the question that can actually
+be answered without a TeX engine: nothing here knows whether `\frac` exists, but
+it knows perfectly well whether the deck defined `\ablank` and the translation
+did not.
 
 ## The vocabulary key
 
