@@ -30,7 +30,7 @@ namespace Agents.DeepSeek
 
             StringParameters.Add("system", "You are a helpful assistant");
 
-            StringParameters.Add("model", "deepseek-v4-pro");
+            StringParameters.Add("model", "deepseek-flash"); // outperforms pro, cheaper, faster!
 
             // Thinking-mode toggle: "enabled" or "disabled".
             // Effort (only meaningful while thinking is enabled): low | medium | high | xhigh | max

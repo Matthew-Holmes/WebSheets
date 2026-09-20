@@ -35,16 +35,16 @@ namespace SyntheticPDFs.Services
         {
             _options = options.Value;
 
-            Agent = AgentFactory.GenerateDeepSeekProcessingAgent(_systemMessage, LLM.DeepSeek_chat, false, _options.DeepSeekAPIKey);
+            Agent = AgentFactory.GenerateDeepSeekProcessingAgent(_systemMessage, LLM.DeepSeek_flash, false, _options.DeepSeekAPIKey);
 
             // temperature zero, since the same deck should get the same verdict twice running
-            ReviewAgent = AgentFactory.GenerateDeepSeekProcessingAgent(_reviewSystemMessage, LLM.DeepSeek_chat, true, _options.DeepSeekAPIKey);
+            ReviewAgent = AgentFactory.GenerateDeepSeekProcessingAgent(_reviewSystemMessage, LLM.DeepSeek_flash, true, _options.DeepSeekAPIKey);
 
-            SummaryAgent = AgentFactory.GenerateDeepSeekProcessingAgent(_summarySystemMessage, LLM.DeepSeek_chat, true, _options.DeepSeekAPIKey);
+            SummaryAgent = AgentFactory.GenerateDeepSeekProcessingAgent(_summarySystemMessage, LLM.DeepSeek_flash, true, _options.DeepSeekAPIKey);
 
             // temperature zero, since the same sheet should yield the same vocabulary
             // twice running - a key that changed on every pass would churn the repository
-            StructuredAgent = AgentFactory.GenerateDeepSeekProcessingAgent(_structuredSystemMessage, LLM.DeepSeek_chat, true, _options.DeepSeekAPIKey);
+            StructuredAgent = AgentFactory.GenerateDeepSeekProcessingAgent(_structuredSystemMessage, LLM.DeepSeek_flash, true, _options.DeepSeekAPIKey);
 
             _logger = logger;
         }

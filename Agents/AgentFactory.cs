@@ -52,6 +52,12 @@ namespace Agents
                 ret.DiscreteParameter("ContextTokens").Value = 500_000; // TODO - what are these
                 ret.DiscreteParameter("ResponseTokens").Value = 250_000; // TODO - ""
 
+            } else if (model == LLM.DeepSeek_flash)
+            {
+                ret.StringParameters["model"] = "deepseek-flash";
+
+                ret.DiscreteParameter("ContextTokens").Value = 500_000; // TODO - what are these
+                ret.DiscreteParameter("ResponseTokens").Value = 250_000; // TODO - ""
             }
             else
             {
