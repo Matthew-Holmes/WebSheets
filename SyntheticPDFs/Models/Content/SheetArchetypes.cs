@@ -20,6 +20,8 @@ namespace SyntheticPDFs.Models.Content
 
         internal static SheetArchetype QuestionSlides { get; } = Of<Archetypes.QuestionSlides>();
 
+        internal static SheetArchetype TeachingSlides { get; } = Of<Archetypes.TeachingSlides>();
+
         internal static SheetArchetype Poster { get; } = Of<Archetypes.Poster>();
 
         internal static SheetArchetype SharedDictionary { get; } = Of<MathematicalDictionary>();

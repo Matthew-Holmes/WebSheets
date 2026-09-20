@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging.Abstractions;
+﻿using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
@@ -43,6 +43,8 @@ namespace SyntheticPDFs.Tests
         [DataRow("latex/starters/circlesArea", "QuestionSlides")]
         [DataRow("latex/starters/targeted/KS3/circles/circlesAreaIdeasStarters", "QuestionSlides")]
         [DataRow("latex/cheatSheets/trigIdentities", "Poster")]
+        [DataRow("latex/slides/latticeMethod", "TeachingSlides")]
+        [DataRow("latex/slides/KS3/number/latticeMethod", "TeachingSlides")]
         public void ArchetypeComesFromTheFolder(String path, String expected)
         {
             var parsed = SheetArchetypes.Parse(path);
@@ -125,21 +127,26 @@ namespace SyntheticPDFs.Tests
             _git.AddFile("latex/starters/KS3/circlesArea.tex", ageCommits: 1,
                 contents: TexFixtures.SlideDeckDefiningAnswerMacros());
 
-            // the deck's retitled variant is written in the same pass, since it is made
-            // from the deck rather than from anything that has still to be generated
+            // the deck's variants are written in the same pass, since they are made from
+            // the deck rather than from anything that has still to be generated
             Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
             CollectionAssert.AreEquivalent(
                 new[]
                 {
                     "latex/starters/KS3/circlesArea_workedSolutions.tex",
                     "latex/starters/KS3/circlesArea_retrieveAndConnect.tex",
+                    "latex/starters/KS3/circlesArea_forPrinting.tex",
                 },
                 _git.LastCommit.Select(NameOf).ToArray());
 
-            // and the variant of the worked solutions once those exist
+            // and the variants of what that pass wrote, once those exist
             Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
-            CollectionAssert.AreEqual(
-                new[] { "latex/starters/KS3/circlesArea_workedSolutions_retrieveAndConnect.tex" },
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    "latex/starters/KS3/circlesArea_workedSolutions_retrieveAndConnect.tex",
+                    "latex/starters/KS3/circlesArea_retrieveAndConnect_forPrinting.tex",
+                },
                 _git.LastCommit.Select(NameOf).ToArray());
 
             Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
@@ -175,6 +182,35 @@ namespace SyntheticPDFs.Tests
         }
 
         [TestMethod]
+        public async Task TeachingSlidesGetNothingGeneratedAtAll()
+        {
+            // a deck under latex/slides/ explains rather than asks, so it owes neither
+            // workings nor an answer key - being a deck is not what decides that
+            _git.AddFile("latex/slides/latticeMethod.tex", ageCommits: 1);
+
+            Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
+            Assert.AreEqual(0, _llm.CallCount, "a deck that asks nothing needs no derived source");
+            Assert.AreEqual(0, _git.CommitCalls.Count);
+        }
+
+        [TestMethod]
+        public async Task StaleTeachingSlideDerivativesAreRemovedAndNotRebuilt()
+        {
+            // left over from before latex/slides/ had an archetype of its own, when a
+            // file there fell back to being a worksheet and was given both
+            _git.AddFile("latex/slides/latticeMethod.tex", ageCommits: 1);
+            _git.AddFile("latex/slides/latticeMethod_workedSolutions.tex", ageCommits: 5);
+            _git.AddFile("latex/slides/latticeMethod_solutions.tex", ageCommits: 5);
+
+            Assert.AreEqual(Orchestrator.PassOutcome.RemovedStaleFiles, await _orchestrator.DoOnePassAsync());
+            Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
+
+            CollectionAssert.AreEqual(
+                new[] { "latex/slides/latticeMethod.tex" },
+                _git.Files.Keys.ToArray());
+        }
+
+        [TestMethod]
         public async Task EachArchetypeFollowsItsOwnRulesInOnePass()
         {
             _git.AddFile("latex/worksheets/quadratics.tex", ageCommits: 1);
@@ -190,20 +226,22 @@ namespace SyntheticPDFs.Tests
                     "latex/worksheets/quadratics_workedSolutions.tex",
                     "latex/starters/circlesArea_workedSolutions.tex",
 
-                    // only a deck has a variant, and only a deck's folder is checked for
-                    // one - the worksheet and the poster get none
+                    // only a deck has variants, and only a deck's folder is checked for
+                    // them - the worksheet and the poster get none
                     "latex/starters/circlesArea_retrieveAndConnect.tex",
+                    "latex/starters/circlesArea_forPrinting.tex",
                 },
                 _git.LastCommit.Select(NameOf).ToArray());
 
-            // the worksheet still owes an answer key, and the deck the variant of the
-            // worked solutions it has just been given
+            // the worksheet still owes an answer key, and the deck the variants of the
+            // files it has just been given
             Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
             CollectionAssert.AreEquivalent(
                 new[]
                 {
                     "latex/worksheets/quadratics_solutions.tex",
                     "latex/starters/circlesArea_workedSolutions_retrieveAndConnect.tex",
+                    "latex/starters/circlesArea_retrieveAndConnect_forPrinting.tex",
                 },
                 _git.LastCommit.Select(NameOf).ToArray());
 

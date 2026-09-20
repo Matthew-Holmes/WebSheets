@@ -45,7 +45,7 @@ namespace SyntheticPDFs.Logic
             }
 
             String body = await SourceGenerator.GenerateTranslatedBody(
-                english, terms, language, L2Settings.Colours, sm.Form, LLMService);
+                english, terms, language, L2Settings.Colours, sm.Form, sm.Archetype, LLMService);
 
             String tex = L2Document.Assemble(
                 body,
@@ -57,7 +57,8 @@ namespace SyntheticPDFs.Logic
                 language,
                 builtFrom: englishFilename,
                 vocabularyKey: keyFilename,
-                fallbackFont: L2Settings.FallbackFont);
+                fallbackFont: L2Settings.FallbackFont,
+                sheetLayout: sm.Archetype.HasTranslatedSheetInstructions);
 
             // last thing before it is committed, since a file that will not compile is
             // worse than one that is missing - the missing one comes back next pass

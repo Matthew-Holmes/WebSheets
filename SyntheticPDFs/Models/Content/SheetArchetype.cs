@@ -52,13 +52,31 @@ namespace SyntheticPDFs.Models.Content
         // Empty for everything but a deck of starters, and named here so that adding a
         // variant is a form, a rewriter and one line on the archetype that wants it -
         // nothing has to learn that a variant exists in order to plan, judge or name it.
-        internal virtual IReadOnlyList<SheetForm> Variants { get; } =
-            Array.Empty<SheetForm>();
+        //
+        // Order matters: one variant may be made from another, and the plan is walked in
+        // the order it is built, so a variant has to come after the one it is made from.
+        internal virtual IReadOnlyList<SheetVariant> Variants { get; } =
+            Array.Empty<SheetVariant>();
+
+        internal SheetVariant? VariantFor(SheetForm form) =>
+            Variants.FirstOrDefault(v => v.Form == form);
 
         // Extra instructions the worked-solutions prompt needs for this kind of source.
         // Named here rather than chosen by a switch elsewhere, so that adding an
         // archetype is one file; the wording itself lives with the other prompts.
         internal virtual String? WorkedSolutionsInstructions => null;
+
+        // The same for the two translated versions of it, the parallel text and the tier
+        // 3 only one. Both put more on the page than the English did, and what to do
+        // about that depends on the kind of source: a worksheet takes another page, where
+        // a deck of slides has to be split across more slides because a slide cannot run
+        // on. Null for anything that translates as it stands, which is most things.
+        internal virtual String? TranslatedSheetInstructions => null;
+
+        // Whether it says anything of its own about how it is translated. Read where a
+        // translated file records what it was made from, so that changing what one
+        // archetype asks for does not make every other archetype's translations stale.
+        internal bool HasTranslatedSheetInstructions => TranslatedSheetInstructions is not null;
 
         #region Its naming convention in the repository
 
@@ -115,21 +133,23 @@ namespace SyntheticPDFs.Models.Content
         {
             List<PlannedFile> plan = new(EnglishChain());
 
-            // Each variant is made from the part it is a variant of and from nothing
-            // else, so it can be written the moment that part exists and it goes stale
-            // the moment that part is edited. There are no translated variants: a
-            // translation is printed for a handful of pupils, where the wording on the
-            // board is not what is being read.
-            foreach (SheetForm variant in Variants)
+            // Each variant is made from one file and from nothing else, so it can be
+            // written the moment that file exists and it goes stale the moment that file
+            // is edited. That file is usually the part it is a variant of, but a variant
+            // made from another variant says so and is planned against that instead.
+            //
+            // There are no translated variants: a translation is printed for a handful of
+            // pupils, where the wording on the board is not what is being read.
+            foreach (SheetVariant variant in Variants)
             {
-                foreach (SheetPart part in Parts)
+                foreach (SheetPart part in variant.PartsOf(this))
                 {
-                    ContentKey original = new(ISO639_3Code.eng, part, SheetForm.Original);
+                    ContentKey madeFrom = new(ISO639_3Code.eng, part, variant.MadeFrom);
 
                     plan.Add(new PlannedFile
                     {
-                        Key       = new ContentKey(ISO639_3Code.eng, part, variant),
-                        DependsOn = new[] { original },
+                        Key       = new ContentKey(ISO639_3Code.eng, part, variant.Form),
+                        DependsOn = new[] { madeFrom },
                         Eager     = true,
                     });
                 }

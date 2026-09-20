@@ -26,6 +26,14 @@ namespace SyntheticPDFs.Tests
         private const String WorkedVariant =
             "latex/starters/KS3/circlesArea_workedSolutions_retrieveAndConnect.tex";
 
+        // the retitled deck laid out for printing, which is made from the retitled deck
+        // and so lands a pass behind it
+        private const String VariantPrintable =
+            "latex/starters/KS3/circlesArea_retrieveAndConnect_forPrinting.tex";
+
+        private const String DeckPrintable =
+            "latex/starters/KS3/circlesArea_forPrinting.tex";
+
         #region One title at a time
 
         // The slide's own title, so the number goes: on the board it says what the
@@ -233,13 +241,20 @@ namespace SyntheticPDFs.Tests
                 Orchestrator.PassOutcome.Generated, await orchestrator.DoOnePassAsync());
 
             CollectionAssert.AreEquivalent(
-                new[] { DeckVariant, WorkedVariant },
+                new[] { DeckVariant, WorkedVariant, DeckPrintable },
                 _git.LastCommit.Select(NameOf).ToArray());
 
             Assert.AreEqual(0, _llm.CallCount,
                 "retitling is string work, so a repository full of decks costs nothing");
 
             StringAssert.Contains(_git.Contents[DeckVariant], "{Retrieve and Connect}");
+
+            // the printable version of the retitled deck follows it, being made from it
+            Assert.AreEqual(
+                Orchestrator.PassOutcome.Generated, await orchestrator.DoOnePassAsync());
+            CollectionAssert.AreEqual(
+                new[] { VariantPrintable },
+                _git.LastCommit.Select(NameOf).ToArray());
 
             Assert.AreEqual(
                 Orchestrator.PassOutcome.NothingToDo, await orchestrator.DoOnePassAsync());

@@ -31,6 +31,14 @@ namespace SyntheticPDFs.Rendering
         // and stopped one being hyphenated in the match-up
         internal const int KeyLayoutVersion = 4;
 
+        // And the same again for whatever an archetype asks for on top of the rules every
+        // translated sheet follows. Only a file whose archetype asks for something records
+        // this line, so changing what a deck of slides needs leaves every translated
+        // worksheet alone rather than rebuilding it to come back identical.
+        // 1 splits each starter across three slides, since a translated slide holds far
+        // more than the English one did and a slide cannot run on to another page.
+        internal const int SheetLayoutVersion = 1;
+
         // Always lualatex, never inherited from the English source. The CI classifier
         // reads this before anything else, so a sheet pinned to pdflatex would take its
         // translation down with it - pdflatex cannot typeset any of these scripts.
@@ -220,7 +228,8 @@ namespace SyntheticPDFs.Rendering
             String builtFrom,
             String? vocabularyKey,
             bool isKey = false,
-            String? fallbackFont = null)
+            String? fallbackFont = null,
+            bool sheetLayout = false)
         {
             List<String> lines = new()
             {
@@ -259,6 +268,11 @@ namespace SyntheticPDFs.Rendering
             if (isKey)
             {
                 lines.Add(Setting("key layout", $"version {KeyLayoutVersion}"));
+            }
+
+            if (sheetLayout)
+            {
+                lines.Add(Setting("sheet layout", $"version {SheetLayoutVersion}"));
             }
 
             lines.AddRange(new[]
@@ -332,6 +346,10 @@ namespace SyntheticPDFs.Rendering
             // null in anything that is not a vocabulary key, and in a key written
             // before the layout was versioned
             internal int? KeyLayoutVersion { get; init; }
+
+            // null in a file whose archetype asks nothing of its own, and in one written
+            // before it started asking
+            internal int? SheetLayoutVersion { get; init; }
         }
 
         private static readonly Regex RgbLine =
@@ -342,6 +360,9 @@ namespace SyntheticPDFs.Rendering
 
         private static readonly Regex KeyLayoutLine =
             new(@"key layout\s+version\s+(\d+)", RegexOptions.Compiled);
+
+        private static readonly Regex SheetLayoutLine =
+            new(@"sheet layout\s+version\s+(\d+)", RegexOptions.Compiled);
 
         private static readonly Regex FallbackLine =
             new(@"fallback font\s+(.+)", RegexOptions.Compiled);
@@ -367,6 +388,8 @@ namespace SyntheticPDFs.Rendering
 
             var keyLayout = KeyLayoutLine.Match(normalised);
 
+            var sheetLayout = SheetLayoutLine.Match(normalised);
+
             var fallback = FallbackLine.Match(normalised);
 
             return new Provenance
@@ -375,6 +398,9 @@ namespace SyntheticPDFs.Rendering
                 MacroVersion     = int.Parse(version.Groups[1].Value),
                 KeyLayoutVersion = keyLayout.Success
                     ? int.Parse(keyLayout.Groups[1].Value)
+                    : null,
+                SheetLayoutVersion = sheetLayout.Success
+                    ? int.Parse(sheetLayout.Groups[1].Value)
                     : null,
                 FallbackFont     = fallback.Success ? fallback.Groups[1].Value.Trim() : null,
             };
@@ -386,7 +412,8 @@ namespace SyntheticPDFs.Rendering
             String texSource,
             L2ColourOptions colours,
             bool isKey = false,
-            String? fallbackFont = null)
+            String? fallbackFont = null,
+            bool sheetLayout = false)
         {
             Provenance? provenance = ParseProvenance(texSource);
 
@@ -405,6 +432,14 @@ namespace SyntheticPDFs.Rendering
             // a key written before the layout was versioned records nothing, which
             // cannot be shown to be current and so is not
             if (isKey && provenance.KeyLayoutVersion != KeyLayoutVersion) { return false; }
+
+            // the same for a sheet whose archetype asks for something of its own - a deck
+            // translated before it started asking records nothing, so it is out of date
+            // and is made again the way the deck now wants
+            if (sheetLayout && provenance.SheetLayoutVersion != SheetLayoutVersion)
+            {
+                return false;
+            }
 
             var wanted = new[]
             {

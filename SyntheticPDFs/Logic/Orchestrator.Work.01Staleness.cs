@@ -330,6 +330,19 @@ namespace SyntheticPDFs.Logic
                     continue;
                 }
 
+                if (form is SheetForm.ForPrinting or SheetForm.RetrieveAndConnectForPrinting)
+                {
+                    if (!ForPrinting.MatchesCurrentRules(contents))
+                    {
+                        _logger.LogInformation(
+                            "{File} was laid out for printing by older rules", file.FullPath);
+
+                        outdated.Add(file.Key);
+                    }
+
+                    continue;
+                }
+
                 // An English key is judged and settled here rather than falling through to
                 // the settings check below, because it is the one derived file that never
                 // has to be thrown away: everything it was made of is written inside it.
@@ -355,10 +368,12 @@ namespace SyntheticPDFs.Logic
                 }
 
                 // both kinds of key are settled above, so what is left here is a
-                // translated sheet, which borrows a font and records the one it borrowed
+                // translated sheet, which borrows a font and records the one it borrowed,
+                // and which records the rules its own kind of source asked for on top
                 if (!L2Macros.MatchesSettings(
                         contents, L2Settings.Colours,
-                        isKey: false, fallbackFont: L2Settings.FallbackFont))
+                        isKey: false, fallbackFont: L2Settings.FallbackFont,
+                        sheetLayout: file.SourceMetadata.Archetype.HasTranslatedSheetInstructions))
                 {
                     _logger.LogInformation(
                         "{File} was built from different settings", file.FullPath);

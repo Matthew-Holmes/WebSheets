@@ -200,6 +200,38 @@ be answered without a TeX engine: nothing here knows whether `\frac` exists, but
 it knows perfectly well whether the deck defined `\ablank` and the translation
 did not.
 
+## A deck of slides is split as it is translated
+
+Everything above assumes a page that can grow. Room is the one thing both forms
+need more of — the parallel text carries a second language, and the tier 3 only
+version raises a translation above every subject word — and a worksheet answers
+that by running on to another page.
+
+A slide cannot. Whatever will not fit on it is off the board rather than below
+it, and nothing in the compiled pdf says so: the deck builds, and the last
+question is simply missing when it goes up in a lesson. So the prompt for a deck
+carries `SplitStartersAcrossSlides` on top of the shared rules, which asks for
+each starter to become **three slides**, sharing its questions between them as
+evenly as their number allows and keeping the number each question already had.
+A slide asking a single question stays as it is, and a title page, a contents
+slide or a slide whose whole job is to list the answers is left alone.
+
+Two things travel with the questions. A **diagram** goes on the slide holding the
+question that refers to it, copied onto both where two questions on different
+slides need it — a question whose diagram is elsewhere cannot be answered. And
+the **answers** stay with their own questions, revealed the way they already
+were, so each of the three still shows its questions first and their answers on
+its second overlay. Whatever the original slide carried for the deck to link to,
+such as a `\hypertarget`, goes on the first of the three, so a contents link
+still lands on the starter it names.
+
+Which archetypes ask for this is settled by `TranslatedSheetInstructions` rather
+than by a switch in the prompts — see
+[generator-architecture.md](generator-architecture.md). A file whose archetype
+asks for anything records a `sheet layout version` in its provenance block, which
+is what makes a deck translated before the split out of date, and what stops a
+change to it rebuilding every translated worksheet as well.
+
 ## The vocabulary key
 
 The key is the one generated file whose LaTeX is written entirely by

@@ -39,13 +39,20 @@ namespace WebSheets.Models
             WorkedSolutions is not null || Solutions is not null
             || Glossary is not null || Translations.Count > 0 || Variants.Count > 0;
 
-        // Which variants to offer and in what order: each kind in turn, and within a
-        // kind the sheet before the files derived from it, so the menu reads the same
-        // way down as the one above it.
+        // Which variants to offer a section of the menu to, and in what order: each kind
+        // in turn, and within a kind the sheet before the files derived from it, so the
+        // menu reads the same way down as the one above it.
+        //
+        // A printable version is not one of them. It is a version of one particular file
+        // rather than a variant standing beside it, so it hangs off that file's own
+        // branch of the menu - listing it here as well would offer the same pdf twice
+        // under two names.
         public IEnumerable<(SheetPart Part, SheetForm Form, WorksheetFile File)> VariantsInOrder()
         {
             foreach (SheetForm form in WorksheetNaming.VariantForms)
             {
+                if (WorksheetNaming.IsPrintable(form)) { continue; }
+
                 foreach (SheetPart part in new[]
                     { SheetPart.Sheet, SheetPart.WorkedSolutions, SheetPart.Solutions })
                 {
@@ -55,6 +62,19 @@ namespace WebSheets.Models
                     }
                 }
             }
+        }
+
+        // The version of one file laid out to be printed and handed out, when there is
+        // one. Asked for by the file it prints - the sheet itself, or the sheet as one
+        // school words it - so that each printable version is offered where whoever wants
+        // it would look for it.
+        public WorksheetFile? PrintableVersionOf(SheetPart part, SheetForm form)
+        {
+            SheetForm? printable = WorksheetNaming.PrintableVersionOf(form);
+
+            if (printable is null) { return null; }
+
+            return Variants.GetValueOrDefault((part, (SheetForm)printable));
         }
 
         // Builds the groups for one directory. Translations live in a folder below the

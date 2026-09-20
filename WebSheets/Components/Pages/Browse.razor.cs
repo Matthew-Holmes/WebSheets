@@ -43,100 +43,22 @@ public partial class Browse : ComponentBase
 
     // Splits this folder into the sub-folders worth showing and the sheets in it.
     //
-    // A sheet's translations live in a folder named after the sheet, so that folder is
-    // not somewhere to browse to - its contents belong to the sheet beside it and are
-    // reached through the sheet's own menu.
+    // What counts as which is WorksheetFolder's to say, since the coverage page has to
+    // read the same folders the same way. All that is left here is the order they are
+    // listed in, which is this page's business and nobody else's.
     private void Regroup()
     {
-        Groups = new List<WorksheetGroup>();
-        Folders = new List<FileNode>();
-        Dictionaries = new List<WorksheetFile>();
+        WorksheetFolder folder = WorksheetFolder.Read(Node, CurrentPath, KnownLanguages);
 
-        if (Node is null) { return; }
-
-        List<WorksheetFile> here = new();
-        List<WorksheetFile> translations = new();
-
-        foreach (FileNode child in Node.Children.Values)
-        {
-            if (child.IsDirectory)
-            {
-                if (child.Name == WorksheetNaming.TranslationFolder)
-                {
-                    // an L2 folder sitting here rather than inside a sheet's own folder
-                    // holds translations of what is in this folder, which is how the
-                    // shared dictionary is laid out
-                    translations.AddRange(TranslationsIn(child, CurrentPath));
-                }
-                else if (IsTranslationFolder(child))
-                {
-                    translations.AddRange(TranslationsUnder(child));
-                }
-                else
-                {
-                    Folders.Add(child);
-                }
-
-                continue;
-            }
-
-            WorksheetFile? file = WorksheetNaming.Parse(child.Name, CurrentPath, KnownLanguages);
-
-            if (file is not null) { here.Add(file); }
-        }
-
-        Folders = Folders.OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        Groups = folder.Groups.ToList();
+        Folders = folder.Folders.ToList();
 
         // a dictionary is not derived from a sheet, so it gets a line of its own rather
         // than hiding inside one sheet's menu of translations
-        Dictionaries = translations
-            .Where(f => f.Form == SheetForm.Dictionary)
+        Dictionaries = folder.Dictionaries
             .OrderBy(DictionaryTitle, StringComparer.OrdinalIgnoreCase)
             .ToList();
-
-        Groups = WorksheetGroup.Build(
-            here, translations.Where(f => f.Form != SheetForm.Dictionary));
     }
-
-    // "<sheetName>/L2/<code>/..." - a folder holding nothing but translations
-    private static bool IsTranslationFolder(FileNode folder) =>
-        folder.Children.Count > 0
-        && folder.Children.Keys.All(name => name == WorksheetNaming.TranslationFolder);
-
-    private IEnumerable<WorksheetFile> TranslationsUnder(FileNode sheetFolder)
-    {
-        string parent = Join(CurrentPath, sheetFolder.Name);
-
-        foreach (FileNode l2 in sheetFolder.Children.Values)
-        {
-            foreach (WorksheetFile file in TranslationsIn(l2, parent))
-            {
-                yield return file;
-            }
-        }
-    }
-
-    // everything below one L2 folder, whatever that folder happens to hang off
-    private IEnumerable<WorksheetFile> TranslationsIn(FileNode l2, string parentPath)
-    {
-        foreach (FileNode languageFolder in l2.Children.Values)
-        {
-            string directory = Join(parentPath, l2.Name, languageFolder.Name);
-
-            foreach (FileNode file in languageFolder.Children.Values)
-            {
-                if (file.IsDirectory) { continue; }
-
-                WorksheetFile? parsed =
-                    WorksheetNaming.Parse(file.Name, directory, KnownLanguages);
-
-                if (parsed is not null) { yield return parsed; }
-            }
-        }
-    }
-
-    private static string Join(params string[] parts) =>
-        string.Join('/', parts.Where(p => p.Length > 0));
 
     // "Polish Dictionary" - the language list is what turns "pol" into a word, so a
     // dictionary in a language the generator no longer offers is not listed at all

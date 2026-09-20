@@ -49,6 +49,8 @@ namespace SyntheticPDFs.Logic
                     return await GenerateTranslatedGlossary(sm, model);
 
                 case SheetForm.RetrieveAndConnect:
+                case SheetForm.ForPrinting:
+                case SheetForm.RetrieveAndConnectForPrinting:
                     return await GenerateVariant(sm);
 
                 default:

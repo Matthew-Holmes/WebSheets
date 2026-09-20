@@ -278,6 +278,8 @@ namespace SyntheticPDFs.Logic
                 // purge of the translations has nothing to do with it, and clearing it
                 // out would only mean writing the same bytes again next pass
                 case SheetForm.RetrieveAndConnect:
+                case SheetForm.ForPrinting:
+                case SheetForm.RetrieveAndConnectForPrinting:
                     return false;
 
                 case SheetForm.Glossary:

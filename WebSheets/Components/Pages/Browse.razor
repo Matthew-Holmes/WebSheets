@@ -42,6 +42,13 @@ else
 
         @foreach (var group in Groups)
         {
+            // the sheet itself laid out to be printed and handed out. it is a version of
+            // the sheet on this line rather than something derived from it, so it branches
+            // off the menu the sheet's own row opens
+            var printable = group.PrintableVersionOf(SheetPart.Sheet, SheetForm.Original);
+
+            var variants = group.VariantsInOrder().ToList();
+
             <li class="sheet">
                 <div class="sheet-row">
                     @if (group.Sheet is not null)
@@ -61,6 +68,19 @@ else
                         <span class="menu-hint" aria-hidden="true">▾</span>
 
                         <ul class="menu">
+                            @if (printable is not null)
+                            {
+                                <li class="has-submenu">
+                                    <a href="@FileLink(printable)" target="_blank">
+                                        🖨️ @WorksheetNaming.PrintableName
+                                    </a>
+                                    <span class="submenu-hint" aria-hidden="true">›</span>
+                                    <ul class="submenu">
+                                        <li><a href="@SourceLink(printable)" target="_blank">source</a></li>
+                                    </ul>
+                                </li>
+                            }
+
                             @foreach (var part in new[] { SheetPart.WorkedSolutions, SheetPart.Solutions })
                             {
                                 var file = group.Parts.GetValueOrDefault(part);
@@ -92,7 +112,7 @@ else
 
                             @* only when there is something above it to separate from *@
                             @if (group.WorkedSolutions is not null || group.Solutions is not null
-                                 || group.Glossary is not null)
+                                 || group.Glossary is not null || printable is not null)
                             {
                                 <li class="menu-separator"></li>
                             }
@@ -110,19 +130,36 @@ else
                             @* the same sheet worded differently, for a school that asks
                                for it that way. its own section, since it is neither a
                                part of the sheet nor a translation of it *@
-                            @if (group.Variants.Count > 0)
+                            @if (variants.Count > 0)
                             {
                                 <li class="menu-separator"></li>
                                 <li class="menu-heading">variants</li>
 
-                                @foreach (var (part, form, file) in group.VariantsInOrder())
+                                @foreach (var (part, form, file) in variants)
                                 {
+                                    var variantPrintable = group.PrintableVersionOf(part, form);
+
                                     <li class="has-submenu">
                                         <a href="@FileLink(file)" target="_blank">
                                             @WorksheetNaming.VariantName(part, form)
                                         </a>
                                         <span class="submenu-hint" aria-hidden="true">›</span>
                                         <ul class="submenu">
+                                            @* the printable version of this variant hangs
+                                               off the variant, for the same reason the
+                                               sheet's hangs off the sheet *@
+                                            @if (variantPrintable is not null)
+                                            {
+                                                <li class="has-submenu">
+                                                    <a href="@FileLink(variantPrintable)" target="_blank">
+                                                        🖨️ @WorksheetNaming.PrintableName
+                                                    </a>
+                                                    <span class="submenu-hint" aria-hidden="true">›</span>
+                                                    <ul class="submenu">
+                                                        <li><a href="@SourceLink(variantPrintable)" target="_blank">source</a></li>
+                                                    </ul>
+                                                </li>
+                                            }
                                             <li><a href="@SourceLink(file)" target="_blank">source</a></li>
                                         </ul>
                                     </li>

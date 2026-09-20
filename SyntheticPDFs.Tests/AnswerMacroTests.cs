@@ -195,7 +195,10 @@ namespace SyntheticPDFs.Tests
             Assert.IsTrue(AnswerMacros.IsMarkedVerified(_git.Contents[DeckWorked]));
             StringAssert.Contains(_git.Contents[DeckWorked], "a person wrote these", "the content must survive");
 
-            // the retitled versions follow, once the files they are made from are settled
+            // the retitled and printable versions follow, once the files they are made
+            // from are settled - and the printable version of the retitled deck after
+            // that, since it is made from a file this pass has only just written
+            Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
             Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
             Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
         }
@@ -206,7 +209,8 @@ namespace SyntheticPDFs.Tests
             _git.AddFile(Deck, ageCommits: 2, contents: TexFixtures.SlideDeckDefiningAnswerMacros());
             _git.AddFile(DeckWorked, ageCommits: 1, contents: TexFixtures.VerifiedSlideWorkedSolutions());
 
-            // the retitled versions are still owed, and cost nothing to make
+            // the retitled and printable versions are still owed, and cost nothing to make
+            Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
             Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
             Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
 

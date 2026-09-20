@@ -23,14 +23,18 @@ namespace SyntheticPDFs.Rendering
             LanguageProfile language,
             String builtFrom,
             String vocabularyKey,
-            String? fallbackFont = null)
+            String? fallbackFont = null,
+
+            // whether the archetype this came from asked for anything of its own, which
+            // the block records so that a change to what it asks for is a rebuild
+            bool sheetLayout = false)
         {
             StringBuilder sb = new();
 
             sb.AppendLine(L2Macros.CompilerDirective);
             sb.AppendLine(L2Macros.ProvenanceBlock(
                 title, colours, language, builtFrom, vocabularyKey,
-                isKey: false, fallbackFont: fallbackFont));
+                isKey: false, fallbackFont: fallbackFont, sheetLayout: sheetLayout));
             sb.AppendLine();
 
             sb.AppendLine(documentClass);

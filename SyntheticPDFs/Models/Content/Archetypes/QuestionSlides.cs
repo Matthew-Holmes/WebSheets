@@ -24,10 +24,37 @@ namespace SyntheticPDFs.Models.Content.Archetypes
         // Some schools have their own name for a starter and expect to see it on the
         // board, so the deck and its worked solutions each get a version titled the way
         // they say it. Nothing but the titles differs - see RetrieveAndConnect.
-        internal override IReadOnlyList<SheetForm> Variants { get; } = new[]
+        //
+        // A deck is also worth having on paper, for a pupil who was away or who cannot
+        // see the board, so each deck of questions gets a version laid out four copies of
+        // a slide to a page - see ForPrinting. Only the questions: the worked solutions
+        // are a deck to talk through, not a sheet to hand out. The retitled deck gets one
+        // too, since a school that renames its starters prints them under that name.
+        internal override IReadOnlyList<SheetVariant> Variants { get; } = new[]
         {
-            SheetForm.RetrieveAndConnect,
+            new SheetVariant { Form = SheetForm.RetrieveAndConnect },
+
+            new SheetVariant
+            {
+                Form  = SheetForm.ForPrinting,
+                Parts = new[] { SheetPart.Root },
+            },
+
+            new SheetVariant
+            {
+                Form     = SheetForm.RetrieveAndConnectForPrinting,
+                MadeFrom = SheetForm.RetrieveAndConnect,
+                Parts    = new[] { SheetPart.Root },
+            },
         };
+
+        // A translated slide holds both languages, and a glossed one lifts a translation
+        // above every tier 3 word, so a starter that filled the board in English will not
+        // fit on one slide once either has been added to it. A slide cannot run on the way
+        // a worksheet can, so both translated versions of a deck split each starter across
+        // three slides instead - see SplitStartersAcrossSlides.
+        internal override String? TranslatedSheetInstructions =>
+            SourceGenerator.SplitStartersAcrossSlides;
 
         // a deck's worked solutions are laid out quite differently to a worksheet's -
         // interleaved with the questions, one solution to a slide - so the prompt that

@@ -243,6 +243,12 @@ uses, with definitions — and from that, translations of the sheet itself into
 any configured language, either as parallel text or with only the tier 3 words
 glossed. These are configured under `L2` in `SyntheticPDFs/appsettings.json`.
 
+A deck of starters is **split as it is translated** — three slides where there
+was one, sharing the starter's questions between them and keeping each diagram
+with the question that uses it. Both forms put far more on a slide than the
+English put there, and a slide cannot run on to another page the way a worksheet
+can: whatever does not fit is off the board.
+
 | Setting | Purpose |
 | --- | --- |
 | `L2:GenerateVocabularyKeys` | Whether to build vocabulary keys at all. Off unless set, since each one costs an API call. |
@@ -283,6 +289,14 @@ way. A deck of starters has one for a school that calls them Retrieve and Connec
 the slides are identical and only the titles differ. They sit in their own section at
 the foot of the menu, so there is somewhere obvious to put the next one.
 
+A deck of starters also has a **printable** version — the questions as they stand
+before any answer is revealed, four copies of each slide on a page of A4, so that a
+printed page cuts into four to hand out. One page is one slide, title page included,
+so printing page 5 gets you the fifth starter and nothing else. It is a version of a
+deck rather than a thing standing beside it, so it branches off the menu belonging to
+the deck it prints: the deck's own is the first entry in its menu, and the retitled
+deck's is inside that variant's own branch.
+
 The menus are CSS only. This is a Blazor Server app, so a hover handled in C#
 would be a round trip to the server for every mouse movement. They open on focus
 as well as hover, so they can be reached by keyboard.
@@ -304,6 +318,20 @@ confirmation and then queues it, along with anything it is derived from.
 That request is unauthenticated by design: the generator listens on loopback, so
 the site is the only way in, and the worst a flood can do is spend tokens. If that
 becomes a problem the fix is a login on the site, not a key in the browser.
+
+`/coverage` counts the same thing across the whole store instead of listing it for
+one sheet: a row per language, and for each of the three translated forms the share
+of the files that could exist which do — *70% of the Arabic key words only sheets*.
+What could exist is not a rule written twice: it is the same set of entries the EAL
+page offers for a sheet, so a deck of starters is never counted as missing the
+answer key it does not have.
+
+Only the sheets themselves are made unasked, so the page asks which part to count —
+the sheets, the worked solutions, the answers, or everything — and defaults to the
+sheets. Languages nothing has been made in yet are folded behind a line saying how
+many there are: there are more than fifty on offer and a handful generated
+automatically, so listing them all would bury the ones being worked on, and leaving
+them out would hide that they can be asked for at all.
 
 The site keeps no language list of its own. It reads `GET /languages` from the
 generator, so it can only ever offer a language that would actually work. If the

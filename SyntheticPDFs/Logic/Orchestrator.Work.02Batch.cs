@@ -16,6 +16,8 @@ namespace SyntheticPDFs.Logic
             SheetForm.ParallelText,
             SheetForm.Tier3Only,
             SheetForm.RetrieveAndConnect,
+            SheetForm.ForPrinting,
+            SheetForm.RetrieveAndConnectForPrinting,
         };
 
         // Gathers everything the whole repository could generate now, then lets the

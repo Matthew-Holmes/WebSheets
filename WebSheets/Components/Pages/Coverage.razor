@@ -1,0 +1,143 @@
+@page "/coverage"
+@rendermode InteractiveServer
+
+@using WebSheets.Models
+
+<PageTitle>Translation coverage</PageTitle>
+
+<h1 class="eal-title">Translation coverage</h1>
+<p class="eal-subtitle">How much of what could be translated, has been</p>
+
+@if (!Loaded)
+{
+    <p>Loading...</p>
+}
+else if (Counted is null || Counted.Languages.Count == 0)
+{
+    <p>No languages are available at the moment. Please try again later.</p>
+}
+else
+{
+    var total = Counted.Total(Scope);
+
+    <div class="coverage-headline">
+        <p class="coverage-figure">@total.Percent<span class="coverage-figure-unit">%</span></p>
+
+        <div>
+            <p class="coverage-figure-what">
+                of the translations of @DescriptionOf(Scope) that could exist, do
+            </p>
+            <p class="coverage-figure-detail">
+                @total.Made.ToString("N0") of @total.Possible.ToString("N0") files &middot;
+                @Counted.Sheets.ToString("N0") sheets &middot;
+                @Counted.Languages.Count languages offered
+            </p>
+        </div>
+    </div>
+
+    <div class="coverage-filter" role="group" aria-label="Which part of each sheet to count">
+        @foreach (var scope in Scopes)
+        {
+            <button type="button"
+                    class="coverage-scope @(scope == Scope ? "chosen" : "")"
+                    aria-pressed="@(scope == Scope ? "true" : "false")"
+                    @onclick="() => Show(scope)">@NameOf(scope)</button>
+        }
+    </div>
+
+    <table class="coverage-table">
+        <caption class="visually-hidden">
+            Translations of @DescriptionOf(Scope) that exist, as a share of those that could
+        </caption>
+
+        <thead>
+            <tr>
+                <th scope="col">Language</th>
+                @foreach (var form in TranslationCoverage.Forms)
+                {
+                    <th scope="col">@HeadingFor(form)</th>
+                }
+                <th scope="col">Dictionary</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @foreach (var row in Shown())
+            {
+                <tr>
+                    <th scope="row" class="coverage-language">
+                        @row.Language.Name
+                        @if (row.Language.Eager)
+                        {
+                            @* razor drops plain whitespace around a block, and without a
+                               space the name and the badge are read aloud as one word *@
+                            <text>&nbsp;</text>
+                            <span class="badge-automatic" title="made for every sheet without being asked">automatic</span>
+                        }
+                    </th>
+
+                    @foreach (var form in TranslationCoverage.Forms)
+                    {
+                        var count = row.In(Scope, form);
+
+                        <td>
+                            @if (!count.Applies)
+                            {
+                                <span class="coverage-none" title="@Describe(count)">&mdash;</span>
+                            }
+                            else
+                            {
+                                <span class="meter-value">@count.Percent%</span>
+                                <span class="meter-count">@count.Made / @count.Possible</span>
+
+                                <span class="meter-track" aria-hidden="true">
+                                    <span class="meter-fill" style="width: @(count.Percent)%"></span>
+                                </span>
+                            }
+                        </td>
+                    }
+
+                    <td class="coverage-dictionary">
+                        @(row.HasDictionary ? "yes" : "not yet")
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (Empty > 0)
+    {
+        <button type="button" class="coverage-more" @onclick="ToggleEmpty">
+            @if (ShowingEmpty)
+            {
+                <text>hide the @Empty languages nothing has been made in yet</text>
+            }
+            else
+            {
+                <text>and @Empty languages nothing has been made in yet - show them</text>
+            }
+        </button>
+    }
+
+    <div class="eal-note">
+        <p>
+            <strong>What can exist.</strong> A sheet can have a glossary, and each part of
+            it that exists in English can have both translated forms. So a deck of
+            starters, which has no answer key, is never counted as missing its
+            translation. These are the same entries a sheet's own EAL page offers,
+            reached from <a href="/browse">Browse</a> - counted here rather than listed
+            there.
+        </p>
+        <p>
+            <strong>Why most of it is empty.</strong> Only the sheets themselves are
+            translated without being asked, and only into the languages marked
+            <em>automatic</em>. Everything else - the worked solutions, the answers, and
+            every other language - is made when somebody asks for it, which is why those
+            columns sit near zero rather than being behind.
+        </p>
+        <p>
+            Counted from the same listing the site browses, so a file appears here as soon
+            as it appears there.
+        </p>
+    </div>
+}

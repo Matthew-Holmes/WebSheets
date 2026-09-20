@@ -147,6 +147,13 @@ h1:focus {
     position: relative;
 }
 
+/* Each item is what the menu hanging off it is positioned against. Without this a
+   third level would open at the top right of the whole submenu rather than beside
+   the item it belongs to. */
+.sheet-row .submenu > li {
+    position: relative;
+}
+
 .sheet-row .menu a {
     display: block;
     padding: 0.3rem 0.75rem;
@@ -185,7 +192,11 @@ h1:focus {
     border-radius: 0.6rem;
 }
 
-/* the second level, holding the link to the source of that one file */
+/* The second level, holding what can be done with that one file - its source, and
+   for a deck of starters the version of it laid out to be printed. That printable
+   version has a source of its own, so the menu goes one level deeper again; the
+   rules below are written as descendants rather than as children so that the third
+   level is styled and opened by exactly the same rules as the second. */
 
 .has-submenu > .submenu-hint {
     position: absolute;
@@ -193,6 +204,12 @@ h1:focus {
     top: 0.35rem;
     color: #adadad;
     pointer-events: none;
+}
+
+/* The chevron is positioned over the item rather than laid out in it, so the name
+   has to leave room for it - without this a long one runs underneath it. */
+.sheet-row .has-submenu > a {
+    padding-right: 1.75rem;
 }
 
 .sheet-row .submenu {
@@ -401,4 +418,178 @@ h1:focus {
 
 .source-after {
     color: #6c757d;
+}
+
+/* ============================================================
+   Translation coverage
+   ============================================================ */
+
+/* The one number the page leads with. Big, in the same face as everything
+   else, and with proportional figures - equal width digits make a number
+   like 11% look loose at this size. */
+.coverage-headline {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.2rem 1rem;
+    margin-bottom: 1.2rem;
+}
+
+.coverage-figure {
+    font-size: 3.5rem;
+    line-height: 1;
+    font-weight: 600;
+    margin: 0;
+}
+
+.coverage-figure-unit {
+    font-size: 1.5rem;
+    font-weight: 400;
+    margin-left: 0.1rem;
+}
+
+.coverage-figure-what {
+    margin: 0;
+    max-width: 24rem;
+}
+
+.coverage-figure-detail {
+    margin: 0;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+/* One row of controls above everything they scope, rather than a control per
+   column - every figure on the page moves together. */
+.coverage-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+}
+
+.coverage-scope {
+    border: 1px solid #d4d4d4;
+    background: #fff;
+    border-radius: 0.3rem;
+    padding: 0.25rem 0.7rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.coverage-scope:hover,
+.coverage-scope:focus {
+    background: #f0f4f8;
+}
+
+.coverage-scope.chosen {
+    border-color: #2a78d6;
+    background: #2a78d6;
+    color: #fff;
+}
+
+.coverage-table {
+    width: 100%;
+    max-width: 52rem;
+    border-collapse: collapse;
+    /* a column of percentages only reads as a column if the digits line up */
+    font-variant-numeric: tabular-nums;
+}
+
+.coverage-table th,
+.coverage-table td {
+    text-align: left;
+    padding: 0.5rem 0.75rem 0.5rem 0;
+    vertical-align: top;
+}
+
+/* hairlines, one shade off the page - the numbers are the ink here */
+.coverage-table thead th {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #5c5c5c;
+    border-bottom: 1px solid #d4d4d4;
+    white-space: nowrap;
+}
+
+.coverage-table tbody tr {
+    border-bottom: 1px solid #efefef;
+}
+
+.coverage-language {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* not a state, just a fact about how the language is generated, so it is
+   quieter than the "ready" badge on the EAL page */
+.badge-automatic {
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: #5c5c5c;
+    background: #efefef;
+    border-radius: 0.6rem;
+    padding: 0 0.4rem;
+    margin-left: 0.15rem;
+    white-space: nowrap;
+}
+
+.meter-value {
+    display: inline-block;
+    min-width: 2.6rem;
+}
+
+.meter-count {
+    color: #6c757d;
+    font-size: 0.8rem;
+}
+
+/* The bar is the second reading of a number already written beside it, so it
+   can be thin and quiet. The unfilled track is a pale step of the same blue,
+   so an empty bar still reads as the same measurement as a full one. */
+.meter-track {
+    display: block;
+    width: 100%;
+    min-width: 3rem;
+    height: 4px;
+    margin-top: 0.3rem;
+    background: #cde2fb;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.meter-fill {
+    display: block;
+    height: 100%;
+    background: #2a78d6;
+    border-radius: 2px;
+}
+
+.coverage-none,
+.coverage-dictionary {
+    color: #9a9a9a;
+}
+
+.coverage-more {
+    border: none;
+    background: none;
+    padding: 0.6rem 0 0 0;
+    color: #006bb7;
+    font-size: 0.9rem;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+    .coverage-figure {
+        font-size: 2.6rem;
+    }
+
+    /* a five column table does not fit a phone, and shrinking the type until it
+       does makes it unreadable - so it scrolls sideways on its own */
+    .coverage-table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
 }

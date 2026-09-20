@@ -172,9 +172,69 @@ namespace SyntheticPDFs.Rendering
                 "What must not change is which word you have chosen for it.",
                 $"\n\n{TermsList(terms, language)}\n\n");
 
+        #region What a deck of slides needs as well
+
+        // A translated slide carries two languages where the English one carried one, and
+        // a glossed slide lifts a translation above every tier 3 word on it. Either way
+        // there is far more on the slide than there was, and a slide is the one thing
+        // here that cannot run on: a worksheet that no longer fits takes another page,
+        // but whatever will not fit on a slide is off the board rather than below it.
+        //
+        // So a starter is split across three slides. Three is a rule of thumb rather than
+        // a measurement - roughly what the extra text costs - and a rule the model can
+        // follow the same way every time is worth more here than asking it to judge how
+        // much will fit, which it cannot do without typesetting the slide.
+        internal static String SplitStartersAcrossSlides => String.Join(' ',
+            "This is a deck of slides, and a slide cannot run on to another page: whatever does not fit",
+            "on it is off the board rather than further down. What you are adding takes a good deal more",
+            "room than the English it is added to, so a starter that filled a slide in English will not",
+            "fit on one now.",
+
+            "So split it. Every slide that asks more than one question becomes three slides, sharing its",
+            "questions as evenly between them as their number allows and keeping them in the order they",
+            "are already in: six questions become three slides of two, five become two, two and one, and",
+            "four become two, one and one.",
+            "A slide asking two questions becomes two slides of one, and a slide asking a single question",
+            "stays as it is - an empty slide is worse than a full one.",
+            "A slide that asks nothing at all - a title page, a contents slide, a slide whose whole job is",
+            "to list the answers - is left as the one slide it is.",
+
+            "Moving a question must not change it. Every question appears on exactly one of the new",
+            "slides, in the order it was already in, keeping the number it already had: question 5 is",
+            "still numbered 5 on the slide it lands on, and is never renumbered to 1 for being the first",
+            "question there. Do not drop a question, do not repeat one, and do not write a new one.",
+
+            "A diagram, picture or table goes on the slide holding the question that refers to it. Where",
+            "two questions that have ended up on different slides both refer to it, put a copy on each -",
+            "a question whose diagram is on another slide cannot be answered.",
+            "Anything on the slide that belongs to no particular question - an instruction to the class, a",
+            "formula they are being given, a heading - goes on all of the new slides.",
+
+            "Each new slide keeps the answers to the questions on it, revealed exactly the way they were",
+            "revealed before, so that it still shows its questions first and their answers on its second",
+            "overlay. Never leave an answer on a slide its question is not on.",
+
+            "Title each new slide the way the original was titled, saying which of them it is and how many",
+            "there are: a slide titled Starter 3 that becomes three slides gives Starter 3 (1 of 3),",
+            "Starter 3 (2 of 3) and Starter 3 (3 of 3).",
+            @"Anything the original slide carried for the rest of the deck to link to, such as a",
+            @"\hypertarget, goes on the first of the new slides and is not repeated, so that a link still",
+            "lands on the starter it names.");
+
+        // What this kind of source needs saying beyond the rules every translated sheet
+        // follows. Named on the archetype rather than chosen by a switch here, so that
+        // adding a kind of source stays a matter of writing one file.
+        private static String ArchetypeRules(SheetArchetype archetype) =>
+            archetype.TranslatedSheetInstructions is String instructions
+                ? instructions + " "
+                : String.Empty;
+
+        #endregion
+
         internal static String GenerateParallelTextPrompt(
             String source, IReadOnlyList<VocabTerm> terms,
-            LanguageProfile language, L2ColourOptions colours)
+            LanguageProfile language, L2ColourOptions colours,
+            SheetArchetype archetype)
         {
             return "Below is the body of a mathematics .tex file. Produce a parallel text version of "
                 + $"it for a pupil whose first language is {language.TitleName} and who is learning "
@@ -191,13 +251,15 @@ namespace SyntheticPDFs.Rendering
                 + $"{L2ColourRules(colours)} "
                 + $"{L2MacroRules} "
                 + $"{L2LayoutRules} "
+                + $"{ArchetypeRules(archetype)}"
                 + $"{L2StructureRules}"
                 + "\n\n--- SOURCE ---\n\n" + source;
         }
 
         internal static String GenerateTier3OnlyPrompt(
             String source, IReadOnlyList<VocabTerm> terms,
-            LanguageProfile language, L2ColourOptions colours)
+            LanguageProfile language, L2ColourOptions colours,
+            SheetArchetype archetype)
         {
             return "Below is the body of a mathematics .tex file. Produce a version of it for a pupil "
                 + $"whose first language is {language.TitleName}, whose English is good enough to read "
@@ -214,6 +276,7 @@ namespace SyntheticPDFs.Rendering
                 + $"{L2ColourRules(colours)} "
                 + $"{L2MacroRules} "
                 + $"{L2LayoutRules} "
+                + $"{ArchetypeRules(archetype)}"
                 + $"{L2StructureRules}"
                 + "\n\n--- SOURCE ---\n\n" + source;
         }

@@ -170,12 +170,13 @@ namespace SyntheticPDFs.Rendering
             LanguageProfile language,
             L2ColourOptions colours,
             SheetForm form,
+            SheetArchetype archetype,
             ILLMService LLM,
             int retry = 3)
         {
             String prompt = form == SheetForm.ParallelText
-                ? GenerateParallelTextPrompt(english, terms, language, colours)
-                : GenerateTier3OnlyPrompt(english, terms, language, colours);
+                ? GenerateParallelTextPrompt(english, terms, language, colours, archetype)
+                : GenerateTier3OnlyPrompt(english, terms, language, colours, archetype);
 
             for (int i = 0; i != retry; i++)
             {

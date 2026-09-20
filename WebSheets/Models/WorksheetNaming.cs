@@ -27,6 +27,13 @@ namespace WebSheets.Models
         // a variant: the same English sheet with something about it changed for a
         // school that wants it differently
         RetrieveAndConnect,
+
+        // a deck of starters laid out to be printed and handed out rather than put on
+        // the board: the questions before any answer is revealed, four copies of each
+        // slide to a page. There is one for the deck as written and one for the deck
+        // retitled, since a school that renames its starters prints them under that name
+        ForPrinting,
+        RetrieveAndConnectForPrinting,
     }
 
     public record WorksheetFile
@@ -70,16 +77,60 @@ namespace WebSheets.Models
         private const string SolutionsIndicator = "solutions";
         private const string GlossaryIndicator = "vocab";
         private const string RetrieveAndConnectIndicator = "retrieveAndConnect";
+        private const string ForPrintingIndicator = "forPrinting";
 
         // Forms that are a variant of a sheet rather than a version of it: the same
         // content with something about it changed for a school that wants it that way.
-        // Listed so that adding one is a value in the enum and a line here.
+        // Listed, in the order they read in a menu, so that adding one is a value in the
+        // enum and a line here.
         public static readonly IReadOnlyList<SheetForm> VariantForms = new[]
         {
             SheetForm.RetrieveAndConnect,
+            SheetForm.ForPrinting,
+            SheetForm.RetrieveAndConnectForPrinting,
         };
 
         public static bool IsVariant(SheetForm form) => VariantForms.Contains(form);
+
+        // The suffix each variant carries, mirroring the generator. A variant made from
+        // another variant carries both suffixes, in the order the files were made - so
+        // "algebraStarters_retrieveAndConnect_forPrinting" is the retitled deck laid out
+        // for printing, and reads as exactly that.
+        private static string VariantSuffix(SheetForm form) => form switch
+        {
+            SheetForm.RetrieveAndConnect => '_' + RetrieveAndConnectIndicator,
+            SheetForm.ForPrinting        => '_' + ForPrintingIndicator,
+
+            SheetForm.RetrieveAndConnectForPrinting =>
+                '_' + RetrieveAndConnectIndicator + '_' + ForPrintingIndicator,
+
+            _ => "",
+        };
+
+        // Longest suffix first, so that "..._retrieveAndConnect_forPrinting" is read as
+        // the one variant it is rather than as the other one with an odd root name.
+        private static readonly IReadOnlyList<SheetForm> ByLongestSuffix = VariantForms
+            .OrderByDescending(f => VariantSuffix(f).Length)
+            .ToList();
+
+        // Which variant is the printable version of which file. The printable versions
+        // are not offered beside the others: each one belongs to the deck it prints, and
+        // is reached through that deck rather than listed alongside it.
+        private static readonly Dictionary<SheetForm, SheetForm> Printable = new()
+        {
+            [SheetForm.Original]           = SheetForm.ForPrinting,
+            [SheetForm.RetrieveAndConnect] = SheetForm.RetrieveAndConnectForPrinting,
+        };
+
+        public static bool IsPrintable(SheetForm form) => Printable.ContainsValue(form);
+
+        public static SheetForm? PrintableVersionOf(SheetForm form) =>
+            Printable.TryGetValue(form, out SheetForm printable) ? printable : null;
+
+        // How the printable version reads in a menu. It says what comes out of the
+        // printer as well as what it is for, since "for printing" on its own leaves
+        // somebody wondering what is different about it.
+        public const string PrintableName = "for printing, 4 to a page";
 
         /// <summary>
         /// Removes the trailing git-hash suffix from a name that has already
@@ -143,10 +194,16 @@ namespace WebSheets.Models
 
             // a variant's suffix sits outside the part's, so it comes off first -
             // "algebraStarters_workedSolutions_retrieveAndConnect" is the worked solutions
-            if (bare.EndsWith('_' + RetrieveAndConnectIndicator, StringComparison.Ordinal))
+            foreach (SheetForm variant in ByLongestSuffix)
             {
-                bare = bare[..^(RetrieveAndConnectIndicator.Length + 1)];
-                form = SheetForm.RetrieveAndConnect;
+                string suffix = VariantSuffix(variant);
+
+                if (!bare.EndsWith(suffix, StringComparison.Ordinal)) { continue; }
+
+                bare = bare[..^suffix.Length];
+                form = variant;
+
+                break;
             }
 
             (string root, SheetPart part) = SplitPart(bare);
@@ -259,8 +316,10 @@ namespace WebSheets.Models
         {
             string name = form switch
             {
-                SheetForm.RetrieveAndConnect => "Retrieve and connect",
-                _                            => "variant",
+                SheetForm.RetrieveAndConnect             => "Retrieve and connect",
+                SheetForm.ForPrinting                    => PrintableName,
+                SheetForm.RetrieveAndConnectForPrinting  => "Retrieve and connect, " + PrintableName,
+                _                                        => "variant",
             };
 
             return part == SheetPart.Sheet

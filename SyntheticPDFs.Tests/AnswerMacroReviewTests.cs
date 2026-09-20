@@ -24,6 +24,10 @@ namespace SyntheticPDFs.Tests
         private const String DeckVariant =
             "latex/starters/KS3/circlesArea_retrieveAndConnect.tex";
 
+        // and laid out to be printed, in that same pass and for the same reason
+        private const String DeckPrintable =
+            "latex/starters/KS3/circlesArea_forPrinting.tex";
+
         private const String RewriteAsk = "Rewrite it so that";
 
         // bodies that make each round's deck tell itself apart in a scripted prompt
@@ -70,7 +74,8 @@ namespace SyntheticPDFs.Tests
             Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
 
             Assert.AreEqual(1, _llm.ReviewCallCount);
-            CollectionAssert.AreEquivalent(new[] { DeckWorked, DeckVariant }, Committed());
+            CollectionAssert.AreEquivalent(
+                new[] { DeckWorked, DeckVariant, DeckPrintable }, Committed());
             Assert.IsTrue(AnswerMacros.IsMarkedVerified(_git.Contents[DeckWorked]));
             Assert.IsFalse(_llm.PromptsSeen.Any(p => p.Contains(RewriteAsk)), "nothing to fix");
         }
@@ -86,7 +91,8 @@ namespace SyntheticPDFs.Tests
             Assert.AreEqual(Orchestrator.PassOutcome.Generated, await _orchestrator.DoOnePassAsync());
 
             // the deck and what was derived from it land in the same commit
-            CollectionAssert.AreEquivalent(new[] { Deck, DeckWorked, DeckVariant }, Committed());
+            CollectionAssert.AreEquivalent(
+                new[] { Deck, DeckWorked, DeckVariant, DeckPrintable }, Committed());
             StringAssert.Contains(_git.Contents[Deck], BodyTwo);
             Assert.IsTrue(AnswerMacros.IsMarkedVerified(_git.Contents[DeckWorked]));
             Assert.IsFalse(AnswerMacros.HasReviewNote(_git.Contents[Deck]), "it was settled, so no note");

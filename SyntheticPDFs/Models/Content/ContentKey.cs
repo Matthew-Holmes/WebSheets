@@ -24,6 +24,14 @@ namespace SyntheticPDFs.Models.Content
         // school that wants it differently. Named on the archetype rather than assumed
         // to apply everywhere, so a new one is a form here and a line there.
         RetrieveAndConnect, // starters titled the way some schools insist on
+
+        // A deck of starters laid out to be printed rather than projected: the questions
+        // as they stand before any answer is revealed, four copies of each to a page, so
+        // that one page cuts into four to hand out. There is one for the deck as written
+        // and one for the deck retitled, since a school that renames its starters prints
+        // them under that name too.
+        ForPrinting,
+        RetrieveAndConnectForPrinting,
     }
 
     // Identifies one file belonging to a root, without naming it. The three axes are

@@ -60,6 +60,7 @@ named. Each is a class in `Models/Content/Archetypes/`:
 | --- | --- | --- |
 | `Worksheet` | `worksheets` | root, worked solutions, answers |
 | `QuestionSlides` | `starters` | root, worked solutions — the deck reveals its own answers |
+| `TeachingSlides` | `slides` | root only — a deck that explains rather than asks |
 | `Poster` | `cheatSheets` | root only |
 | `MathematicalDictionary` | `dictionary` | the shared definitions, and a translation of them per language |
 
@@ -99,7 +100,8 @@ the glossary and every translated form. The virtual members worth knowing about:
 | `HasGlossary` | `true` | it *is* a glossary, as the dictionary is |
 | `RevealsItsOwnAnswers` | `false` | its answers live in the file itself, so the file has to be checked for the helpers that reveal them |
 | `WorkedSolutionsInstructions` | `null` | its worked solutions are laid out unusually and the prompt has to say so |
-| `Variants` | none | some school wants this kind of file worded their way |
+| `TranslatedSheetInstructions` | `null` | translating it needs something said that the shared rules do not cover |
+| `Variants` | none | some school wants this kind of file worded their way, or wants it on paper |
 | `FileNameFor` / `Parse` | the shared convention | it is not one-file-per-sheet, as the dictionary is not |
 | `Plan` | the standard chain | its files are not created-and-replaced, as the dictionary's are not |
 
@@ -107,32 +109,91 @@ The last two are why the dictionary is a class rather than a special case: it is
 one file for the whole repository, named `latex/dictionary/L2/pol/…` rather than
 under a sheet, and its translations are **refreshed** rather than rebuilt.
 
+### What a kind of source says about its own translations
+
+Every translated sheet follows the same rules — the helpers, the colours, the
+fixed vocabulary, the body-only structure. `TranslatedSheetInstructions` is where
+an archetype adds what those rules cannot cover, and both translated forms get
+it: the parallel text and the tier 3 only version.
+
+A deck of starters is the one that needs it. Both forms put a great deal more on
+the page than the English did — a whole second language in one, a translation
+raised above every subject word in the other — and the general answer to that is
+to let the sheet run on to another page. A slide cannot: whatever will not fit on
+it is off the board rather than below it. So a deck is told to **split each
+starter across three slides**, sharing its questions between them as evenly as
+their number allows, keeping each question's own number, and putting a diagram on
+whichever of the three holds the question that refers to it. Three is a rule of
+thumb — roughly what the extra text costs — and a rule that is followed the same
+way every time is worth more here than asking a model to judge how much will fit,
+which it cannot do without typesetting the slide.
+
+Those rules live in a prompt, so nothing in the finished file can be read to tell
+whether they were followed. What is recorded instead is which rules the file was
+made under: a translated file whose archetype asks for something of its own
+carries a `sheet layout version` line in its provenance block, and a deck
+translated before the split has none, so it is out of date and is made again. It
+is versioned apart from `layout macros version` for the same reason the key
+layout is — changing what a deck needs should not rebuild every translated
+worksheet to come back identical.
+
 ## Variants
 
 A variant is the same English file with something about it changed, made **from
-the file** rather than written again. There is one so far: some schools have
-their own name for a starter and expect to see it on the board, so a deck and
-its worked solutions each get a version whose slide titles say
-`Retrieve and Connect` instead.
+the file** rather than written again. There are two so far, both on a deck of
+starters.
+
+**Retrieve and Connect.** Some schools have their own name for a starter and
+expect to see it on the board, so a deck and its worked solutions each get a
+version whose slide titles say `Retrieve and Connect` instead.
+
+**For printing.** A deck is written to be projected, which is no use to a pupil
+who was away or who cannot see the board. The printable version shows every slide
+as it stands before any answer is revealed, four copies of each on a page of A4
+in a two by two grid, so a printed page cuts into four question sheets. Only the
+questions get one: the worked solutions are a deck to talk through rather than a
+sheet to hand out. The retitled deck gets its own, since a school that renames
+its starters prints them under that name.
+
+Every slide is repeated, the title page included, so **one page is one slide** —
+page 5 of the pdf is slide 5 of the deck, and printing two starters means asking
+for two pages. That is why nothing is dropped for being furniture rather than a
+question: leaving a slide out would be harmless, but letting one reach the page
+without being repeated puts every page after it half a starter out of step. Both
+ways beamer lets a deck open a slide have to be found for that to hold —
+`\begin{frame}` and the `\frame{...}` command every template uses for its title
+page.
 
 ```
 latex/starters/KS3/circlesArea_retrieveAndConnect.tex
 latex/starters/KS3/circlesArea_workedSolutions_retrieveAndConnect.tex
+latex/starters/KS3/circlesArea_forPrinting.tex
+latex/starters/KS3/circlesArea_retrieveAndConnect_forPrinting.tex
 ```
 
-It is a `SheetForm` like any other, so naming, planning and staleness need no
-special case: it is derived from the part it is a variant of, it is rebuilt when
-that part is edited, and it is not translated. Adding one is a value in the enum,
-a rewriter, and a line on the archetype that wants it.
+Each is a `SheetForm` like any other, so naming, planning and staleness need no
+special case: it is derived from one file, it is rebuilt when that file is edited,
+and it is not translated. What it is derived from, and which parts of a sheet it
+exists for, are stated on a `SheetVariant` beside the form — which is what lets
+the printable version of the retitled deck be made from the retitled deck rather
+than from the deck. Adding a variant is a value in the enum, a rewriter, and a
+line on the archetype that wants it.
 
 **No model is asked.** `RetrieveAndConnect.Rewrite` edits the file's titles in
-place, so every byte outside a title is the byte that was there before. That is
-the whole point: a model handed a beamer deck to reproduce with one word changed
-will also reflow a TikZ picture or lose an overlay specification somewhere in the
-middle of it, and the failure is a slide that comes out wrong in a lesson rather
-than a build that goes red. A model is asked only when no title in the file
-mentions a starter at all, and if it cannot answer safely the variant is a copy —
-never an error to retry forever.
+place and `ForPrinting.Render` adds a step to each `egin{frame}` and repeats it,
+so in both cases every byte outside the change is the byte that was there before.
+That is the whole point: a model handed a beamer deck to reproduce with one word
+changed will also reflow a TikZ picture or lose an overlay specification somewhere
+in the middle of it, and the failure is a slide that comes out wrong in a lesson
+rather than a build that goes red. A model is asked only for the retitling, and
+only when no title in the file mentions a starter at all; the printable version
+has no such route, and if there are no slides it can lay out the result is a copy
+— never an error to retry forever.
+
+The printable version leans on beamer's own `egin{frame}<1>`, which asks for the
+first step of a frame and nothing after it. That is why it does not matter how a
+deck hides its answers: an answer helper, a `\pause` or a picture that draws itself
+in has not happened yet on the first step, whichever it is.
 
 ## Plans, and what stale means
 

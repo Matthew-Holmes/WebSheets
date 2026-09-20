@@ -1,4 +1,4 @@
-using SyntheticPDFs.Configuration;
+﻿using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Logic;
 using SyntheticPDFs.Models;
 using SyntheticPDFs.Models.Content;
@@ -50,6 +50,7 @@ namespace SyntheticPDFs.Tests
         [DataRow("Worksheet", 3)]
         [DataRow("QuestionSlides", 2)]
         [DataRow("Poster", 1)]
+        [DataRow("TeachingSlides", 1)]
         public void EachArchetypeHasItsOwnSetOfTypes(String archetypeName, int expected)
         {
             var parts = SheetArchetypes.ByName(archetypeName)!.Parts;
@@ -100,6 +101,7 @@ namespace SyntheticPDFs.Tests
         [TestMethod]
         [DataRow("Poster", 1)]
         [DataRow("QuestionSlides", 2)]
+        [DataRow("TeachingSlides", 1)]
         public void TheVocabularyKeyOnlyWaitsForFilesThatArchetypeActuallyHas(
             String archetypeName, int expected)
         {

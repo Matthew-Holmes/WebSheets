@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
 using SyntheticPDFs.Configuration;
 using SyntheticPDFs.Models;
@@ -30,7 +30,11 @@ namespace SyntheticPDFs.Tests
             var names = SheetArchetypes.All.Select(a => a.Name).ToList();
 
             CollectionAssert.AreEquivalent(
-                new[] { "MathematicalDictionary", "Poster", "QuestionSlides", "Worksheet" },
+                new[]
+                {
+                    "MathematicalDictionary", "Poster", "QuestionSlides",
+                    "TeachingSlides", "Worksheet",
+                },
                 names.ToArray());
         }
 
@@ -72,6 +76,10 @@ namespace SyntheticPDFs.Tests
             Assert.IsTrue(SheetArchetypes.QuestionSlides.RevealsItsOwnAnswers);
             Assert.IsFalse(SheetArchetypes.Worksheet.RevealsItsOwnAnswers);
             Assert.IsFalse(SheetArchetypes.Poster.RevealsItsOwnAnswers);
+
+            // a deck that explains rather than asks has no answers to reveal, so it
+            // is being a deck that does not owe the check
+            Assert.IsFalse(SheetArchetypes.TeachingSlides.RevealsItsOwnAnswers);
         }
 
         [TestMethod]
@@ -81,6 +89,7 @@ namespace SyntheticPDFs.Tests
             Assert.IsFalse(SheetArchetypes.SharedDictionary.HasGlossary);
             Assert.IsTrue(SheetArchetypes.Worksheet.HasGlossary);
             Assert.IsTrue(SheetArchetypes.Poster.HasGlossary);
+            Assert.IsTrue(SheetArchetypes.TeachingSlides.HasGlossary);
         }
 
         [TestMethod]
@@ -88,6 +97,19 @@ namespace SyntheticPDFs.Tests
         {
             Assert.IsNotNull(SheetArchetypes.QuestionSlides.WorkedSolutionsInstructions);
             Assert.IsNull(SheetArchetypes.Worksheet.WorkedSolutionsInstructions);
+        }
+
+        [TestMethod]
+        public void OnlySlidesCarryExtraInstructionsForTheirTranslations()
+        {
+            // a slide cannot run on to another page, so a starter is split across three
+            // of them once a translation has been added to it. everything else simply
+            // takes the room it needs
+            Assert.IsNotNull(SheetArchetypes.QuestionSlides.TranslatedSheetInstructions);
+            Assert.IsTrue(SheetArchetypes.QuestionSlides.HasTranslatedSheetInstructions);
+
+            Assert.IsNull(SheetArchetypes.Worksheet.TranslatedSheetInstructions);
+            Assert.IsFalse(SheetArchetypes.Poster.HasTranslatedSheetInstructions);
         }
 
         #endregion

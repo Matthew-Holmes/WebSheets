@@ -29,6 +29,38 @@ namespace SyntheticPDFs.Models.Content
         // so that a name still reads left to right as sheet, part, then variant, and so
         // that adding a variant cannot change how an existing name parses.
         internal const String RetrieveAndConnectIndicator = "retrieveAndConnect";
+        internal const String ForPrintingIndicator = "forPrinting";
+
+        // The suffix each variant carries, and the only place one is written or read.
+        // A variant made from another variant carries both suffixes, in the order the
+        // files were made - "algebraStarters_retrieveAndConnect_forPrinting" is the
+        // retitled deck laid out for printing, and reads as exactly that.
+        internal static String VariantSuffix(SheetForm form)
+        {
+            switch (form)
+            {
+                case SheetForm.RetrieveAndConnect:
+                    return '_' + RetrieveAndConnectIndicator;
+
+                case SheetForm.ForPrinting:
+                    return '_' + ForPrintingIndicator;
+
+                case SheetForm.RetrieveAndConnectForPrinting:
+                    return '_' + RetrieveAndConnectIndicator + '_' + ForPrintingIndicator;
+
+                default:
+                    return String.Empty;
+            }
+        }
+
+        // Longest suffix first, so that "..._retrieveAndConnect_forPrinting" is read as
+        // the one variant it is rather than as the other one with an odd root name.
+        private static readonly IReadOnlyList<SheetForm> VariantForms = new[]
+        {
+            SheetForm.RetrieveAndConnectForPrinting,
+            SheetForm.RetrieveAndConnect,
+            SheetForm.ForPrinting,
+        };
 
         // the folder under a root that holds every translation of it
         internal const String L2DirectoryName = "L2";
@@ -54,10 +86,7 @@ namespace SyntheticPDFs.Models.Content
                 sb.Append('_').Append(GlossaryIndicator);
             }
 
-            if (metadata.Form == SheetForm.RetrieveAndConnect)
-            {
-                sb.Append('_').Append(RetrieveAndConnectIndicator);
-            }
+            sb.Append(VariantSuffix(metadata.Form));
 
             return sb.ToString();
         }
@@ -160,17 +189,17 @@ namespace SyntheticPDFs.Models.Content
             // everything below then reads the name as though the variant were not there.
             String name = filenameNoExt;
 
-            String variant = '_' + RetrieveAndConnectIndicator;
-
-            if (name.EndsWith(variant, StringComparison.Ordinal))
+            foreach (SheetForm variant in VariantForms)
             {
-                name = name[..^variant.Length];
+                String suffix = VariantSuffix(variant);
 
-                metadata = metadata with
-                {
-                    Form     = SheetForm.RetrieveAndConnect,
-                    RootName = name,
-                };
+                if (!name.EndsWith(suffix, StringComparison.Ordinal)) { continue; }
+
+                name = name[..^suffix.Length];
+
+                metadata = metadata with { Form = variant, RootName = name };
+
+                break;
             }
 
             String[] parts = name.Split('_');
