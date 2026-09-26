@@ -45,6 +45,7 @@ namespace SyntheticPDFs.Tests
         [DataRow("latex/cheatSheets/trigIdentities", "Poster")]
         [DataRow("latex/slides/latticeMethod", "TeachingSlides")]
         [DataRow("latex/slides/KS3/number/latticeMethod", "TeachingSlides")]
+        [DataRow("latex/quickQuestions/fractionsQuickQuestions", "QuickQuestions")]
         public void ArchetypeComesFromTheFolder(String path, String expected)
         {
             var parsed = SheetArchetypes.Parse(path);
@@ -207,6 +208,36 @@ namespace SyntheticPDFs.Tests
 
             CollectionAssert.AreEqual(
                 new[] { "latex/slides/latticeMethod.tex" },
+                _git.Files.Keys.ToArray());
+        }
+
+        [TestMethod]
+        public async Task QuickQuestionsGetNothingGeneratedAtAll()
+        {
+            // every question's second slide already shows its solution, so the deck is
+            // its own worked solutions and there is nothing left to derive
+            _git.AddFile("latex/quickQuestions/fractionsQuickQuestions.tex", ageCommits: 1);
+
+            Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
+            Assert.AreEqual(0, _llm.CallCount, "a deck that solves itself needs no derived source");
+            Assert.AreEqual(0, _llm.ReviewCallCount, "and is never reviewed for answer helpers it does not use");
+        }
+
+        [TestMethod]
+        public async Task QuickQuestionWorkingsAndAnswersFromBeforeAreRemovedAndNotRebuilt()
+        {
+            // the shape the repository has: made while the folder fell back to being a
+            // worksheet, which is how one of them came to be an article carrying a beamer
+            // command and failing to compile
+            _git.AddFile("latex/quickQuestions/indicesQuickQuestions.tex", ageCommits: 3);
+            _git.AddFile("latex/quickQuestions/indicesQuickQuestions_workedSolutions.tex", ageCommits: 2);
+            _git.AddFile("latex/quickQuestions/indicesQuickQuestions_solutions.tex", ageCommits: 1);
+
+            Assert.AreEqual(Orchestrator.PassOutcome.RemovedStaleFiles, await _orchestrator.DoOnePassAsync());
+            Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
+
+            CollectionAssert.AreEqual(
+                new[] { "latex/quickQuestions/indicesQuickQuestions.tex" },
                 _git.Files.Keys.ToArray());
         }
 

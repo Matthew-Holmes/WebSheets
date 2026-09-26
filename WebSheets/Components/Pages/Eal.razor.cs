@@ -278,7 +278,12 @@ public partial class Eal : ComponentBase
                     SheetPart.Solutions       => "Solutions",
                     _                         => "Root",
                 },
-                Form = form == SheetForm.Tier3Only ? "Tier3Only" : "ParallelText",
+                Form      = form switch
+                {
+                    SheetForm.Tier3Only   => "Tier3Only",
+                    SheetForm.LanguageKey => "TranslatedGlossary",
+                    _                     => "ParallelText",
+                },
             };
 
             var response = await http.PostAsJsonAsync("generate", request);

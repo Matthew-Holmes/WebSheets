@@ -254,7 +254,7 @@ can: whatever does not fit is off the board.
 | `L2:GenerateVocabularyKeys` | Whether to build vocabulary keys at all. Off unless set, since each one costs an API call. |
 | `L2:Colours` | Tier 3, English and translation colours, as RGB with a name. Recorded in every generated file. |
 | `L2:Languages` | Keyed by ISO 639-3 code; each needs a `Font`, a `BabelName` and `RightToLeft`. |
-| `L2:EagerLanguages` | Which of them are generated without being asked. Sheets only — worked solutions and answers are generated on request. |
+| `L2:EagerLanguages` | Which of them are generated without being asked. Worksheets and starters only, and only the sheet and its glossary — worked solutions, answers and every other kind of resource are generated on request. |
 | `ContentRepository:DictionaryPath` | Where the shared definitions live *in the content repository*. |
 
 The shared definitions are deliberately not in settings. They live in the content
@@ -274,7 +274,9 @@ hand — an edit makes the file younger than its parents, so it is left alone.
 Two things to know before turning this on. The content repository needs fonts
 for the scripts involved before any of it will compile — see
 [docs/content-repo-translation-setup.md](docs/content-repo-translation-setup.md).
-And the eager set is large: 36 roots with six languages is around 680 files.
+And the eager set is large: each worksheet or starter gets its glossary, then
+three files in every eager language, so 36 of them with six languages is around
+680 files.
 
 ### Finding them on the site
 

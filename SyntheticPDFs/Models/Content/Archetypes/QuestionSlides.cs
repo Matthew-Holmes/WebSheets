@@ -21,6 +21,8 @@ namespace SyntheticPDFs.Models.Content.Archetypes
 
         internal override bool RevealsItsOwnAnswers => true;
 
+        internal override bool TranslatedEagerly => true;
+
         // Some schools have their own name for a starter and expect to see it on the
         // board, so the deck and its worked solutions each get a version titled the way
         // they say it. Nothing but the titles differs - see RetrieveAndConnect.

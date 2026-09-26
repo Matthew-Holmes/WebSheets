@@ -115,6 +115,36 @@ namespace SyntheticPDFs.Rendering
             return String.Join('\n', preamble.Where(Keep)).Trim('\n');
         }
 
+        // Everything from \begin{document} on, which is all a model is asked to translate.
+        //
+        // It used to be sent the whole file. It was shown the sheet's own macros, copied
+        // them after \begin{document}, and then the preamble was put back around what it
+        // wrote - so four translations defined \ablank and friends twice and did not
+        // compile. It cannot repeat what it was never shown.
+        internal static String BodyOf(String source)
+        {
+            List<String> lines = source.Replace("\r\n", "\n").Split('\n').ToList();
+
+            int start = lines.FindIndex(l =>
+                StripComments(l).Contains(@"\begin{document}", StringComparison.Ordinal));
+
+            // no body to speak of, so it sees what there is rather than nothing
+            if (start < 0) { return source; }
+
+            lines[start] = lines[start][lines[start].IndexOf(@"\begin{document}", StringComparison.Ordinal)..];
+
+            return String.Join('\n', lines.Skip(start));
+        }
+
+        // What the sheet's preamble defines, named the way a prompt can list them. The
+        // model still needs to know these exist - a deck's body is full of \ablank - just
+        // not how they are written.
+        internal static IReadOnlyList<String> MacrosDefinedBy(String preamble) =>
+            DefinitionsIn(preamble)
+                .Select(d => d.Display)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
         // Whether this line is the original's to give us. Anything we provide ourselves is
         // dropped: loading a package twice with different options is a hard error, and
         // redefining one of the eal helpers would clash with the block that defines them.
@@ -164,7 +194,11 @@ namespace SyntheticPDFs.Rendering
         // A body that redefines a helper is a hard LaTeX error, not a stylistic problem,
         // and a body carrying its own preamble would give us two document classes. Both
         // are worth rejecting and retrying rather than committing.
-        internal static String? WhatIsWrongWith(String body)
+        //
+        // Given the English file it was translated from, it is also checked against that:
+        // for a macro the preamble defines being defined again, and for maths that has
+        // lost its dollars where the English had them.
+        internal static String? WhatIsWrongWith(String body, String? original = null)
         {
             if (!body.Contains(@"\begin{document}", StringComparison.Ordinal))
             {
@@ -188,14 +222,132 @@ namespace SyntheticPDFs.Rendering
                 return "it defines one of the eal helpers, which are provided and would clash";
             }
 
+            if (original is not null && DefinedAgain(body, PreambleOf(original)) is String again)
+            {
+                return $"it defines {again}, which the sheet's own preamble already defines - "
+                    + "defining it a second time stops the file compiling";
+            }
+
             if (!UsesAnyHelper(body))
             {
                 return "it uses none of the eal helpers, so nothing has been translated";
             }
 
+            if (HelperThatDoesNotExist(body) is String invented)
+            {
+                return $"it uses {invented}, which is not one of the helpers - the only ones are "
+                    + @"\ealkey, \ealkeytr, \ealgloss, \ealpara, \ealtext, \ealtextblock and the "
+                    + "ealglossed environment";
+            }
+
             if (LineBreakWithNoLine(body) is String stray)
             {
                 return $"it breaks a line at {stray}, where no line has been started";
+            }
+
+            // Only where the English reads cleanly. A sheet with a macro of its own that
+            // opens maths for its arguments - \sqfrac{\sqrt 2}{3} - puts \sqrt outside any
+            // dollars quite legitimately, and nothing short of expanding the macro could
+            // tell. A sheet like that is not checked for this at all, rather than failed
+            // for something its English does too.
+            if ((original is null || MathsOutsideMaths(BodyOf(original)) is null)
+                && MathsOutsideMaths(body) is String loose)
+            {
+                return $"it uses {loose}, where no maths has been opened - it needs $ around it, "
+                    + "as it had in the English";
+            }
+
+            return null;
+        }
+
+        #region What a body defines
+
+        private enum DefinitionKind
+        {
+            // \newcommand and its like, which stop the file if the name is already taken
+            New,
+
+            // \renewcommand, \providecommand and \def, which do not
+            Other,
+        }
+
+        private sealed record MacroDefinition(String Name, bool IsEnvironment, DefinitionKind Kind)
+        {
+            internal String Display => IsEnvironment ? $"the {Name} environment" : "\\" + Name;
+        }
+
+        // Every definition in some tex, in order. .NET lets alternatives share a group
+        // name, so each reads the same way whichever of them matched.
+        private static readonly Regex Definition = new(
+            @"\\(?<kind>(?:new|renew|provide)command|(?:New|Renew|Provide|Declare)DocumentCommand|DeclareMathOperator)\s*\*?\s*\{?\s*\\(?<name>[A-Za-z]+)"
+            + @"|\\(?<kind>(?:new|renew)environment|(?:New|Renew|Provide|Declare)DocumentEnvironment)\s*\*?\s*\{(?<env>[A-Za-z*]+)\}"
+            + @"|\\(?<kind>[gex]?def)\s*\\(?<name>[A-Za-z]+)",
+            RegexOptions.Compiled);
+
+        private static readonly HashSet<String> FailsIfTaken = new(StringComparer.Ordinal)
+        {
+            "newcommand", "NewDocumentCommand", "DeclareMathOperator",
+            "newenvironment", "NewDocumentEnvironment",
+        };
+
+        private static IEnumerable<MacroDefinition> DefinitionsIn(String tex) =>
+            Definition.Matches(StripComments(tex)).Select(m =>
+            {
+                bool isEnvironment = m.Groups["env"].Success;
+
+                return new MacroDefinition(
+                    isEnvironment ? m.Groups["env"].Value : m.Groups["name"].Value,
+                    isEnvironment,
+                    FailsIfTaken.Contains(m.Groups["kind"].Value) ? DefinitionKind.New : DefinitionKind.Other);
+            });
+
+        // the names some tex defines for itself, of whatever kind
+        internal static IReadOnlySet<String> NamesDefinedIn(String tex) =>
+            DefinitionsIn(tex).Select(d => d.Name).ToHashSet(StringComparer.Ordinal);
+
+        // A \newcommand for a name that is already taken is "Command \x already defined",
+        // and the file stops there. Taken means by the preamble the body is about to be
+        // put under, or earlier in the body itself. An environment and a command share
+        // a name - \newenvironment{x} defines \x - so they are checked together.
+        private static String? DefinedAgain(String body, String preamble)
+        {
+            HashSet<String> taken = NamesDefinedIn(preamble).ToHashSet(StringComparer.Ordinal);
+
+            foreach (MacroDefinition definition in DefinitionsIn(body))
+            {
+                if (definition.Kind == DefinitionKind.New && taken.Contains(definition.Name))
+                {
+                    return definition.Display;
+                }
+
+                taken.Add(definition.Name);
+            }
+
+            return null;
+        }
+
+        #endregion
+
+        // Any eal name the helpers do not define. A model that shortens \ealgloss to
+        // \ealgl writes something that reads as right and is an undefined control sequence.
+        private static readonly Regex EalName = new(
+            @"\\(?<cs>eal[A-Za-z]*)|\\(?:begin|end)\s*\{(?<env>eal[A-Za-z]*)\}",
+            RegexOptions.Compiled);
+
+        private static String? HelperThatDoesNotExist(String body)
+        {
+            foreach (Match match in EalName.Matches(StripComments(body)))
+            {
+                bool isEnvironment = match.Groups["env"].Success;
+
+                String name = isEnvironment ? match.Groups["env"].Value : match.Groups["cs"].Value;
+
+                IReadOnlySet<String> defined = isEnvironment ? L2Macros.HelperEnvironments : L2Macros.HelperNames;
+
+                if (!defined.Contains(name))
+                {
+                    return isEnvironment ? $"an environment called {name}" : "\\" + name;
+                }
             }
 
             return null;
@@ -223,7 +375,23 @@ namespace SyntheticPDFs.Rendering
 
             foreach (Match match in LineBreak.Matches(bare))
             {
-                int at = match.Index - 1;
+                if (!ALineIsOpenAt(bare, match.Index)) { return Quote(bare, match.Index); }
+            }
+
+            return null;
+        }
+
+        // Walks back from a line break to whatever settles whether a paragraph is open.
+        //
+        // Vertical space settles nothing either way - "\ealpara{..}{..} \vspace{1em}\\"
+        // is as broken as the same without the \vspace, and "words \vspace{1em}\\" is as
+        // fine - so it is stepped over and the walk carries on behind it.
+        private static bool ALineIsOpenAt(String bare, int index)
+        {
+            int at = index - 1;
+
+            while (true)
+            {
                 int newlines = 0;
 
                 while (at >= 0 && Char.IsWhiteSpace(bare[at]))
@@ -233,27 +401,45 @@ namespace SyntheticPDFs.Rendering
                 }
 
                 // nothing before it at all, or a blank line, so no paragraph is open
-                if (at < 0 || newlines > 1) { return Quote(bare, match.Index); }
+                if (at < 0 || newlines > 1) { return false; }
 
                 String before = bare[..(at + 1)];
 
-                if (before.EndsWith(@"\par", StringComparison.Ordinal)
-                    || EndsAnEnvironmentOpener(before))
+                if (EndsAParagraphCommand.IsMatch(before)
+                    || EndsAnEnvironmentOpener(before)
+                    || ClosesAParagraphEndingEnvironment.IsMatch(before))
                 {
-                    return Quote(bare, match.Index);
+                    return false;
                 }
 
-                if (bare[at] == '}' && ClosesOneOf(before, EndsAParagraph))
-                {
-                    return Quote(bare, match.Index);
-                }
+                if (bare[at] == '}' && ClosesOneOf(before, EndsAParagraph)) { return false; }
+
+                Match space = VerticalSpace.Match(before);
+
+                if (!space.Success) { return true; }
+
+                at = space.Index - 1;
             }
-
-            return null;
         }
 
         private static bool EndsAnEnvironmentOpener(String before) =>
             Regex.IsMatch(before, @"\\begin\s*\{[^}]*\}$");
+
+        // commands that end the paragraph they are in, so nothing is left to break
+        private static readonly Regex EndsAParagraphCommand = new(
+            @"\\(?:par|newpage|clearpage)$", RegexOptions.Compiled | RegexOptions.RightToLeft);
+
+        // Environments that close with \par, and so leave the page between paragraphs -
+        // "\end{ealglossed}\\[0.4em]" is the one that reached the repository. A tabular,
+        // a minipage or a tikzpicture is a box sitting in a line, and is not one of these.
+        private static readonly Regex ClosesAParagraphEndingEnvironment = new(
+            @"\\end\s*\{(?:ealglossed|itemize|enumerate|description|center|flushleft|flushright|quote|quotation|verse)\}$",
+            RegexOptions.Compiled | RegexOptions.RightToLeft);
+
+        // vertical space, which is stepped over rather than read as starting a line
+        private static readonly Regex VerticalSpace = new(
+            @"\\(?:vspace\*?\s*\{[^{}]*\}|(?:small|med|big)skip)$",
+            RegexOptions.Compiled | RegexOptions.RightToLeft);
 
         // Walks back from a closing brace over as many argument groups as it finds, to
         // the name of the macro they belong to. That is what tells a break after
@@ -297,6 +483,127 @@ namespace SyntheticPDFs.Rendering
 
             return "\"..." + bare[from..Math.Min(bare.Length, at + 10)].Replace("\n", " ").Trim() + "...\"";
         }
+
+        #region Maths that has lost its dollars
+
+        // commands that exist only in maths - in running text each is "Missing $ inserted"
+        private static readonly HashSet<String> MathsOnly = new(StringComparer.Ordinal)
+        {
+            "frac", "dfrac", "tfrac", "sqrt", "times", "div", "pm", "cdot", "cdots",
+            "le", "leq", "ge", "geq", "neq", "approx", "infty", "circ", "angle",
+            "displaystyle", "overline", "left", "right", "sum",
+            "alpha", "beta", "gamma", "delta", "theta", "lambda", "mu", "pi", "sigma", "phi", "omega",
+        };
+
+        // environments that are maths from beginning to end
+        private static readonly HashSet<String> MathsEnvironments = new(StringComparer.Ordinal)
+        {
+            "equation", "equation*", "align", "align*", "alignat", "alignat*",
+            "flalign", "flalign*", "gather", "gather*", "multline", "multline*",
+            "eqnarray", "eqnarray*", "displaymath", "math",
+        };
+
+        // The first maths-only command written where no maths is open - a \sqrt or a
+        // \frac that has lost the $ around it, which is what two translations did:
+        // \ablank{$F=10+2\sqrt{13}$} came back as \ablank{F=10+2\sqrt{13}}.
+        //
+        // One pass, reading a backslash together with what follows it so that \$ and \\
+        // are never taken for delimiters, and skipping comments. An inline span cannot
+        // cross a blank line, so one left open by mistake stops there rather than hiding
+        // everything after it.
+        private static String? MathsOutsideMaths(String tex)
+        {
+            bool inline = false;
+            bool display = false;
+            int environments = 0;
+
+            int i = 0;
+
+            while (i < tex.Length)
+            {
+                char c = tex[i];
+
+                if (c == '%')
+                {
+                    // stop on the newline rather than past it, so a blank line after a
+                    // comment is still seen
+                    int newline = tex.IndexOf('\n', i);
+                    i = newline < 0 ? tex.Length : newline;
+                    continue;
+                }
+
+                if (c == '$')
+                {
+                    if (i + 1 < tex.Length && tex[i + 1] == '$') { display = !display; i += 2; }
+                    else { inline = !inline; i++; }
+
+                    continue;
+                }
+
+                if (c == '\n' && StartsABlankLine(tex, i)) { inline = false; }
+
+                if (c != '\\' || i + 1 >= tex.Length) { i++; continue; }
+
+                char next = tex[i + 1];
+
+                if (!Char.IsLetter(next))
+                {
+                    if (next == '(') { inline = true; }
+                    else if (next == ')') { inline = false; }
+                    else if (next == '[') { display = true; }
+                    else if (next == ']') { display = false; }
+
+                    i += 2;
+                    continue;
+                }
+
+                int end = i + 1;
+
+                while (end < tex.Length && Char.IsLetter(tex[end])) { end++; }
+
+                String name = tex[(i + 1)..end];
+
+                if (name is "begin" or "end")
+                {
+                    if (EnvironmentNamedAt(tex, end) is String environment
+                        && MathsEnvironments.Contains(environment))
+                    {
+                        environments += name == "begin" ? 1 : -1;
+                    }
+                }
+                else if (MathsOnly.Contains(name) && !inline && !display && environments <= 0)
+                {
+                    return "\\" + name + " at " + Quote(tex, i);
+                }
+
+                i = end;
+            }
+
+            return null;
+        }
+
+        private static bool StartsABlankLine(String tex, int newline)
+        {
+            int k = newline + 1;
+
+            while (k < tex.Length && (tex[k] == ' ' || tex[k] == '\t' || tex[k] == '\r')) { k++; }
+
+            return k < tex.Length && tex[k] == '\n';
+        }
+
+        // the name in "{name}" just after \begin or \end
+        private static String? EnvironmentNamedAt(String tex, int at)
+        {
+            while (at < tex.Length && Char.IsWhiteSpace(tex[at])) { at++; }
+
+            if (at >= tex.Length || tex[at] != '{') { return null; }
+
+            int close = tex.IndexOf('}', at);
+
+            return close < 0 ? null : tex[(at + 1)..close].Trim();
+        }
+
+        #endregion
 
         private static bool UsesAnyHelper(String body)
         {

@@ -61,6 +61,7 @@ named. Each is a class in `Models/Content/Archetypes/`:
 | `Worksheet` | `worksheets` | root, worked solutions, answers |
 | `QuestionSlides` | `starters` | root, worked solutions — the deck reveals its own answers |
 | `TeachingSlides` | `slides` | root only — a deck that explains rather than asks |
+| `QuickQuestions` | `quickQuestions` | root only — each question's second slide already shows its solution |
 | `Poster` | `cheatSheets` | root only |
 | `MathematicalDictionary` | `dictionary` | the shared definitions, and a translation of them per language |
 
@@ -98,6 +99,7 @@ the glossary and every translated form. The virtual members worth knowing about:
 | Member | Default | Override when |
 | --- | --- | --- |
 | `HasGlossary` | `true` | it *is* a glossary, as the dictionary is |
+| `TranslatedEagerly` | `false` | its glossary and translated sheet are worth paying for before anyone asks — true only of worksheets and starters |
 | `RevealsItsOwnAnswers` | `false` | its answers live in the file itself, so the file has to be checked for the helpers that reveal them |
 | `WorkedSolutionsInstructions` | `null` | its worked solutions are laid out unusually and the prompt has to say so |
 | `TranslatedSheetInstructions` | `null` | translating it needs something said that the shared rules do not cover |

@@ -31,22 +31,57 @@ namespace SyntheticPDFs.Services
 
         private AgentBase StructuredAgent { get; init; }
 
+        // running totals since the service started, so any one log line says what the
+        // whole run has cost so far without adding the lines up by hand
+        private long _promptTokens;
+        private long _completionTokens;
+
         public LLMService(IOptions<LLMOptions> options, ILogger<LLMService> logger)
         {
             _options = options.Value;
 
-            Agent = AgentFactory.GenerateDeepSeekProcessingAgent(_systemMessage, LLM.DeepSeek_flash, false, _options.DeepSeekAPIKey);
+            _logger = logger;
+
+            Agent = Accounted("writer",
+                AgentFactory.GenerateDeepSeekProcessingAgent(_systemMessage, LLM.DeepSeek_flash, false, _options.DeepSeekAPIKey));
 
             // temperature zero, since the same deck should get the same verdict twice running
-            ReviewAgent = AgentFactory.GenerateDeepSeekProcessingAgent(_reviewSystemMessage, LLM.DeepSeek_flash, true, _options.DeepSeekAPIKey);
+            ReviewAgent = Accounted("reviewer",
+                AgentFactory.GenerateDeepSeekProcessingAgent(_reviewSystemMessage, LLM.DeepSeek_flash, true, _options.DeepSeekAPIKey));
 
-            SummaryAgent = AgentFactory.GenerateDeepSeekProcessingAgent(_summarySystemMessage, LLM.DeepSeek_flash, true, _options.DeepSeekAPIKey);
+            SummaryAgent = Accounted("summariser",
+                AgentFactory.GenerateDeepSeekProcessingAgent(_summarySystemMessage, LLM.DeepSeek_flash, true, _options.DeepSeekAPIKey));
 
             // temperature zero, since the same sheet should yield the same vocabulary
             // twice running - a key that changed on every pass would churn the repository
-            StructuredAgent = AgentFactory.GenerateDeepSeekProcessingAgent(_structuredSystemMessage, LLM.DeepSeek_flash, true, _options.DeepSeekAPIKey);
+            StructuredAgent = Accounted("structured",
+                AgentFactory.GenerateDeepSeekProcessingAgent(_structuredSystemMessage, LLM.DeepSeek_flash, true, _options.DeepSeekAPIKey));
+        }
 
-            _logger = logger;
+        // Every call is logged with what it cost, named by which of the four agents made
+        // it - the writer does the sheets and translations, the structured agent the
+        // vocabulary lists - so where the tokens go is read off the log rather than
+        // estimated from how big the files are.
+        private AgentBase Accounted(String role, AgentBase agent)
+        {
+            agent.UsageReported += usage => Account(role, usage);
+
+            return agent;
+        }
+
+        private void Account(String role, TokenUsage usage)
+        {
+            long prompt = Interlocked.Add(ref _promptTokens, usage.PromptTokens);
+            long completion = Interlocked.Add(ref _completionTokens, usage.CompletionTokens);
+
+            _logger.LogInformation(
+                "{Role} call on {Model}: {Prompt} prompt tokens ({Cached} from cache), "
+                + "{Completion} completion tokens ({Reasoning} of them reasoning). "
+                + "Since starting: {TotalPrompt} prompt, {TotalCompletion} completion",
+                role, usage.Model,
+                usage.PromptTokens, usage.CachedPromptTokens?.ToString() ?? "unknown",
+                usage.CompletionTokens, usage.ReasoningTokens?.ToString() ?? "unknown",
+                prompt, completion);
         }
 
         public async Task<String> GetResponse(String prompt)

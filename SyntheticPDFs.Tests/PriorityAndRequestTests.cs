@@ -173,6 +173,56 @@ namespace SyntheticPDFs.Tests
         }
 
         [TestMethod]
+        public void TheGlossaryCanBeAskedForWithoutTheSheetsTranslation()
+        {
+            _git.AddFile("latex/cheatSheets/trig.tex", 1);
+
+            var result = Ask("latex/cheatSheets/trig", "ben", "Root", "TranslatedGlossary");
+
+            Assert.AreEqual(GenerateOutcome.Queued, result.Outcome);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "latex/cheatSheets/trig_vocab.tex",
+                    "latex/cheatSheets/trig/L2/ben/trig_bengaliKey.tex",
+                },
+                result.Queued.ToArray(),
+                "only the key and what it comes from - no parallel text");
+        }
+
+        [TestMethod]
+        public async Task APosterIsNotTranslatedUnlessAskedFor()
+        {
+            // pol is eager, but only worksheets and starters are translated unasked
+            _git.AddFile("latex/cheatSheets/trig.tex", 1);
+
+            Assert.AreEqual(
+                Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
+
+            Ask("latex/cheatSheets/trig", "pol", "Root", "Tier3Only");
+
+            var made = new List<String>();
+
+            for (int pass = 0; pass < 5; pass++)
+            {
+                if (await _orchestrator.DoOnePassAsync() != Orchestrator.PassOutcome.Generated) { break; }
+
+                made.AddRange(Committed());
+            }
+
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    "latex/cheatSheets/trig_vocab.tex",
+                    "latex/cheatSheets/trig/L2/pol/trig_polishKey.tex",
+                    "latex/cheatSheets/trig/L2/pol/trig_polishTier3Only.tex",
+                },
+                made,
+                "what was asked for and what it needs, and not the parallel text beside it");
+        }
+
+        [TestMethod]
         public void TheEnglishRootIsNeverQueuedSinceAPersonWritesIt()
         {
             _git.AddFile(B + ".tex", 1);
@@ -246,6 +296,7 @@ namespace SyntheticPDFs.Tests
         [DataRow(A, "pol", "Nonsense", "ParallelText", "Nonsense")]
         [DataRow(A, "pol", "Root", "Original", "Original")]
         [DataRow(A, "pol", "Root", "Nonsense", "Nonsense")]
+        [DataRow(A, "pol", "Solutions", "TranslatedGlossary", "TranslatedGlossary")]
         public void ARequestWeCannotHonourSaysWhy(
             String root, String language, String type, String form, String mentioned)
         {

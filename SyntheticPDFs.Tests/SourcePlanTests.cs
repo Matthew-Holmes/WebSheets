@@ -51,6 +51,7 @@ namespace SyntheticPDFs.Tests
         [DataRow("QuestionSlides", 2)]
         [DataRow("Poster", 1)]
         [DataRow("TeachingSlides", 1)]
+        [DataRow("QuickQuestions", 1)]
         public void EachArchetypeHasItsOwnSetOfTypes(String archetypeName, int expected)
         {
             var parts = SheetArchetypes.ByName(archetypeName)!.Parts;
@@ -102,6 +103,7 @@ namespace SyntheticPDFs.Tests
         [DataRow("Poster", 1)]
         [DataRow("QuestionSlides", 2)]
         [DataRow("TeachingSlides", 1)]
+        [DataRow("QuickQuestions", 1)]
         public void TheVocabularyKeyOnlyWaitsForFilesThatArchetypeActuallyHas(
             String archetypeName, int expected)
         {
@@ -185,6 +187,31 @@ namespace SyntheticPDFs.Tests
                 Find(plan, Key(SheetPart.WorkedSolutions, SheetForm.ParallelText, Pol)).Eager);
             Assert.IsFalse(
                 Find(plan, Key(SheetPart.Solutions, SheetForm.Tier3Only, Pol)).Eager);
+        }
+
+        [TestMethod]
+        [DataRow("Worksheet", true)]
+        [DataRow("QuestionSlides", true)]
+        [DataRow("Poster", false)]
+        [DataRow("TeachingSlides", false)]
+        [DataRow("QuickQuestions", false)]
+        public void OnlyWorksheetsAndStartersAreTranslatedUnasked(
+            String archetypeName, bool expected)
+        {
+            var plan = SheetArchetypes.ByName(archetypeName)!.Plan(Table());
+
+            Assert.AreEqual(expected, Find(plan, Key(SheetPart.Root, SheetForm.Glossary)).Eager);
+            Assert.AreEqual(expected,
+                Find(plan, Key(SheetPart.Root, SheetForm.TranslatedGlossary, Pol)).Eager);
+            Assert.AreEqual(expected,
+                Find(plan, Key(SheetPart.Root, SheetForm.ParallelText, Pol)).Eager);
+            Assert.AreEqual(expected,
+                Find(plan, Key(SheetPart.Root, SheetForm.Tier3Only, Pol)).Eager);
+
+            // the English itself is never held back
+            Assert.IsTrue(plan
+                .Where(p => p.Key.Form == SheetForm.Original && !p.Written)
+                .All(p => p.Eager));
         }
 
         [TestMethod]

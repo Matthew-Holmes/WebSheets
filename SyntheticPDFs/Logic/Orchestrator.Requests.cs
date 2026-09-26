@@ -114,10 +114,14 @@ namespace SyntheticPDFs.Logic
                 return null;
             }
 
+            // the glossary is asked for on its own too, so that wanting only the key
+            // words does not also pay for a translation of the whole sheet
             if (!Enum.TryParse(request.Form, ignoreCase: true, out SheetForm form)
-                || form is not (SheetForm.ParallelText or SheetForm.Tier3Only))
+                || form is not (SheetForm.ParallelText or SheetForm.Tier3Only
+                    or SheetForm.TranslatedGlossary))
             {
-                why = $"'{request.Form}' is not a translated form - use ParallelText or Tier3Only";
+                why = $"'{request.Form}' is not a translated form - use ParallelText, "
+                    + "Tier3Only or TranslatedGlossary";
                 return null;
             }
 

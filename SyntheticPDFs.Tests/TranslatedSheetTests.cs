@@ -451,6 +451,51 @@ namespace SyntheticPDFs.Tests
             Assert.IsFalse(tex.Contains("```", StringComparison.Ordinal), "the fence must not survive");
         }
 
+        // ---- a folder given an archetype of its own ----
+
+        [TestMethod]
+        public async Task GivingQuickQuestionsTheirOwnArchetypeKeepsTheirVocabularyAndTranslations()
+        {
+            // the switch removes the workings and answers the folder used to get as a
+            // worksheet, and nothing else. the key was built partly from those workings,
+            // but a word list covering a little more than it needs is not worth paying
+            // for again - and asking again would pick different words anyway
+            const String qq = "latex/quickQuestions/fractionsQuickQuestions";
+            const String qqDir = qq + "/L2/pol/fractionsQuickQuestions_polish";
+
+            var terms = new[]
+            {
+                new VocabTerm
+                {
+                    English = "fraction", Definition = "part of a whole",
+                    Translation = "ulamek", TranslatedDefinition = "czesc calosci",
+                },
+            };
+
+            _git.AddFile(qq + ".tex", ageCommits: 5, contents: "\\documentclass{beamer}");
+            _git.AddFile(qq + "_workedSolutions.tex", ageCommits: 4);
+            _git.AddFile(qq + "_solutions.tex", ageCommits: 3);
+            _git.AddFile(qq + "_vocab.tex", ageCommits: 2, contents: TexFixtures.VocabularyKey(qq, terms));
+            _git.AddFile(qqDir + "Key.tex", ageCommits: 1,
+                contents: TexFixtures.VocabularyKey(qq, terms, TexFixtures.Polish));
+
+            Assert.AreEqual(Orchestrator.PassOutcome.RemovedStaleFiles, await _orchestrator.DoOnePassAsync());
+
+            CollectionAssert.AreEquivalent(
+                new[] { qq + "_workedSolutions.tex", qq + "_solutions.tex" },
+                _git.RemoveFilesCalls.Single().ToArray());
+
+            // the key and its translation stay, and nothing more is made - a deck of quick
+            // questions is translated only when somebody asks
+            Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
+
+            CollectionAssert.IsSubsetOf(
+                new[] { qq + "_vocab.tex", qqDir + "Key.tex" },
+                _git.Files.Keys.ToArray());
+
+            Assert.AreEqual(0, _llm.StructuredPromptsSeen.Count, "the vocabulary is never asked for again");
+        }
+
         // ---- staleness reaches the translations ----
 
         [TestMethod]

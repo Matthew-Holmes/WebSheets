@@ -186,6 +186,24 @@ namespace SyntheticPDFs.Rendering
                 @"}");
         }
 
+        // Every eal name the language block and the helpers above define, so a body can be
+        // checked for one that does not exist. A test holds these against the definitions
+        // themselves, so adding a helper without adding it here fails rather than drifts.
+        //
+        // Commands and environments apart, since \begin{ealgloss} is no more defined for
+        // there being an \ealgloss.
+        internal static readonly IReadOnlySet<String> HelperNames = new HashSet<String>(StringComparer.Ordinal)
+        {
+            "ealtext", "ealtextblock",
+            "ealkey", "ealkeytr", "ealgloss", "ealpara",
+            "ealboxen", "ealboxtr", "ealglosswd", "ealglossraise",
+        };
+
+        internal static readonly IReadOnlySet<String> HelperEnvironments = new HashSet<String>(StringComparer.Ordinal)
+        {
+            "ealglossed",
+        };
+
         private static String Colour(String name, RgbColourOptions colour) =>
             $@"\definecolor{{{name}}}{{RGB}}{{{colour.R},{colour.G},{colour.B}}}";
 

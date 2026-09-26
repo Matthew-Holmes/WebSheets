@@ -10,9 +10,11 @@ namespace SyntheticPDFs.Rendering
 
         internal static async Task<String?> TryGetValidTex(ILLMService LLM, String prompt, int retry = 3)
         {
+            List<String> rejected = new();
+
             for (int i = 0; i != retry; i++)
             {
-                String response = await LLM.GetResponse(prompt);
+                String response = await LLM.GetResponse(AfterRejections(prompt, rejected));
 
                 if (IsValidTex(response)) { return response; }
 
@@ -20,16 +22,40 @@ namespace SyntheticPDFs.Rendering
 
                 response = TryFixupTex(response, LLM);
 
-                if (IsValidTex(response)) { return response; }
+                // judged after the fixup, since whatever that could not mend is what the
+                // next attempt needs telling about
+                String? wrong = WhatIsWrongWithTex(response);
 
-                LLM.Log(LogLevel.Warning, "Failed to fixup bad tex source");
+                if (wrong is null) { return response; }
 
-                LLM.Log(LogLevel.Warning, $"attemtp {i + 1} at getting valid Tex failed!");
+                LLM.Log(LogLevel.Warning, $"attempt {i + 1} at getting valid tex failed: {wrong}");
+
+                rejected.Add(wrong);
             }
 
-            LLM.Log(LogLevel.Error, "failed to generate valide Tex!, returning null");
+            LLM.Log(LogLevel.Error, "failed to generate valid tex!, returning null");
 
             return null;
+        }
+
+        // A retry told why the last attempt was turned down has something to go on; one
+        // sent the identical prompt pays again for what is likely the same mistake.
+        //
+        // The note goes after the prompt rather than into it, so every retry begins with
+        // exactly what the first attempt was sent - the part the API can serve from its
+        // cache. Each distinct reason is kept, so a third attempt is not told only about
+        // the second and left to make the first one's mistake again.
+        private static String AfterRejections(String prompt, IReadOnlyList<String> rejected)
+        {
+            if (rejected.Count == 0) { return prompt; }
+
+            IEnumerable<String> reasons = rejected.Distinct(StringComparer.Ordinal);
+
+            return prompt
+                + "\n\n--- EARLIER ATTEMPTS ---\n\n"
+                + "An earlier attempt at this was rejected, because "
+                + String.Join("; and another because ", reasons)
+                + ". Write it again in full, and make sure this attempt does not do the same.";
         }
 
         // same shape as TryGetValidTex - the model gets a few goes at reaching a verdict
@@ -161,9 +187,13 @@ namespace SyntheticPDFs.Rendering
 
         // The body of a translated sheet. Same retry shape as TryGetValidTex, with the
         // extra checks that a body has to pass: it must be a body rather than a whole
-        // document, it must not redefine the helpers it is given, and it must actually
-        // use them - a "translation" that used none of them would be the English sheet
-        // under a different name, which is worse than a failure because it looks fine.
+        // document, it must not redefine the helpers it is given or the sheet's own
+        // macros, and it must actually use the helpers - a "translation" that used none
+        // of them would be the English sheet under a different name, which is worse than
+        // a failure because it looks fine.
+        //
+        // Given the whole English file, since the checks need its preamble; the prompt
+        // shows the model only the body of it.
         internal static async Task<String> GenerateTranslatedBody(
             String english,
             IReadOnlyList<VocabTerm> terms,
@@ -178,19 +208,31 @@ namespace SyntheticPDFs.Rendering
                 ? GenerateParallelTextPrompt(english, terms, language, colours, archetype)
                 : GenerateTier3OnlyPrompt(english, terms, language, colours, archetype);
 
+            List<String> rejected = new();
+
             for (int i = 0; i != retry; i++)
             {
-                String response = await LLM.GetResponse(prompt);
+                String response = await LLM.GetResponse(AfterRejections(prompt, rejected));
 
                 String body = StripFences(response);
 
-                String? wrong = L2Document.WhatIsWrongWith(body);
+                // mended rather than refused, as it is for a whole document - dropping the
+                // inner dollars is what anybody would do by hand, and costs no second call
+                if (HasNestedMathMode(body))
+                {
+                    LLM.Log(LogLevel.Warning, @"found $ inside \( \) in a translated body, removing the inner delimiters");
+                    body = RemoveNestedMathDelimiters(body);
+                }
 
-                if (wrong is null && BeginBalance(body) == 0) { return body; }
+                String? wrong = L2Document.WhatIsWrongWith(body, english)
+                    ?? WhatIsWrongWithTheMaths(body)
+                    ?? (BeginBalance(body) != 0 ? @"its \begin and \end statements do not pair up" : null);
 
-                LLM.Log(LogLevel.Warning,
-                    $"attempt {i + 1} at a {form} body failed: "
-                    + (wrong ?? "its begin and end statements do not balance"));
+                if (wrong is null) { return body; }
+
+                LLM.Log(LogLevel.Warning, $"attempt {i + 1} at a {form} body failed: {wrong}");
+
+                rejected.Add(wrong);
             }
 
             throw new Exception($"failed to generate a usable {form} body!");

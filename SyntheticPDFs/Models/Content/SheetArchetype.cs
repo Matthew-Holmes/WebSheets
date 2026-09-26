@@ -40,6 +40,13 @@ namespace SyntheticPDFs.Models.Content
         // the dictionary, which has no glossary because it is one.
         internal virtual bool HasGlossary => true;
 
+        // Whether its EAL versions are made without being asked: the glossary, and the
+        // sheet itself translated into each eager language. Off unless an archetype says
+        // otherwise, because every one is paid for - only the kinds most often handed to
+        // a pupil are worth translating before anybody wants them. Everything else is
+        // still planned, so it can be asked for from the EAL page.
+        internal virtual bool TranslatedEagerly => false;
+
         // A deck reveals its own answers on its next overlay, which means the deck has to
         // define and use the helpers that do it. That is work owed against a file that
         // already exists, so no plan can express it - it is asked about separately.
@@ -169,12 +176,16 @@ namespace SyntheticPDFs.Models.Content
                 DependsOn = Parts
                     .Select(p => new ContentKey(ISO639_3Code.eng, p, SheetForm.Original))
                     .ToList(),
-                Eager     = true,
+
+                // it is there to seed the translations, so it is made unasked only where
+                // they are - asking for any translation brings it along
+                Eager     = TranslatedEagerly,
             });
 
             foreach (ISO639_3Code language in languages.All)
             {
-                bool eagerLanguage = languages.EagerLanguages.Contains(language);
+                bool eagerLanguage =
+                    TranslatedEagerly && languages.EagerLanguages.Contains(language);
 
                 ContentKey translatedGlossary =
                     new(language, SheetPart.Root, SheetForm.TranslatedGlossary);

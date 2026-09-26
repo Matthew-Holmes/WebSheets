@@ -15,7 +15,7 @@ namespace Shared
         // Root, WorkedSolutions or Solutions - which part of the sheet
         public string Part { get; set; } = "Root";
 
-        // ParallelText or Tier3Only
+        // ParallelText, Tier3Only, or TranslatedGlossary (which is Root only)
         public string Form { get; set; } = "ParallelText";
     }
 
@@ -60,5 +60,5 @@ namespace Shared
         string Code,          // ISO 639-3, "pol"
         string Name,          // as a reader would say it, "Polish"
         bool RightToLeft,
-        bool Eager);          // generated for every sheet without being asked
+        bool Eager);          // generated for every worksheet and starter without being asked
 }

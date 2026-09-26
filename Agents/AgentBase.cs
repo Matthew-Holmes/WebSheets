@@ -81,6 +81,13 @@
             return response;
         }
 
+        // Raised after every call the API answered, with what that call cost. Nothing
+        // here keeps count - whoever owns the agent knows what it is being used for, and
+        // so is the one able to say where the tokens went.
+        public event Action<TokenUsage>? UsageReported;
+
+        protected void ReportUsage(TokenUsage usage) => UsageReported?.Invoke(usage);
+
         public override int GetHashCode()
         {
             return GetType().Name.GetHashCode();

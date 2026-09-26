@@ -58,6 +58,14 @@ That is also why the preamble is read as a region rather than line by line: a
 `\newcommand` that spans lines would be cut in half by anything that filtered
 lines.
 
+**The model is shown the body only.** It used to be sent the whole English file
+under a prompt that called it "the body". It saw the preamble's definitions, wrote
+them out again after `\begin{document}`, and the preamble was then put back around
+what it wrote — so four translations defined `\ablank`, `\qq` or `\piechart` twice
+and stopped with *"Command already defined"*. Now it is sent everything from
+`\begin{document}` on, plus the *names* of what the preamble defines, so it knows
+`\ablank` is there to use without being given anything to copy.
+
 The language-specific half is built from the language profile in configuration
 and is never written by the model:
 
@@ -186,12 +194,36 @@ tried to print it. So a body is rejected and asked for again when:
   when only the body was asked for;
 - it redefines one of the `eal` helpers, which would clash with the block that
   defines them;
-- it uses none of them, which means nothing was translated;
-- its `\begin` and `\end` do not balance;
+- **it `\newcommand`s something the sheet's own preamble already defines** —
+  *"Command already defined"*. `\renewcommand` and `\providecommand` are left
+  alone, since both compile;
+- it uses none of the helpers, which means nothing was translated;
+- **it uses an `eal` name that is not a helper** — `\ealgl` for `\ealgloss`, which
+  reads as right and is an undefined control sequence;
+- its `\begin` and `\end` do not balance, or its `\(` and `\)` or `\[` and `\]` do
+  not pair up;
 - **it breaks a line where no line has started** — `\\` or `\newline` after a
-  blank line, after `\par`, at the top of an environment, or straight after
-  `\ealpara`, which ends a paragraph of its own. That is *"There's no line here
-  to end"*, and a model reaches for a line break whenever it wants a gap.
+  blank line, after `\par` or `\newpage`, at the top of an environment, straight
+  after `\ealpara`, or after the `\end` of an environment that closes its own
+  paragraph (`ealglossed`, the lists, `center`). Vertical space in between is
+  stepped over rather than counted as starting a line. That is *"There's no line
+  here to end"*, and a model reaches for a line break whenever it wants a gap;
+- **it uses a maths-only command where no maths is open** — `\ablank{$\sqrt{13}$}`
+  coming back as `\ablank{\sqrt{13}}`, which is *"Missing $ inserted"*. Only
+  checked when the English itself reads cleanly: a sheet whose own macro opens
+  maths for its arguments puts `\sqrt` outside any dollars legitimately, and is
+  not held to it.
+
+A `$` inside `\( \)` is mended rather than rejected, by dropping the inner
+dollars, as it is for an English document.
+
+When a body is rejected, the next attempt is told why — the reason is added to
+the end of the prompt, so everything before it is exactly what the first attempt
+was sent and can be served from the API's cache.
+
+Run against the content repository as it stood when these were added, the checks
+flag exactly the nine translated bodies that were failing in CI, and none of the
+other 42.
 
 And the assembled file is rejected when it **uses a macro the sheet it was
 translated from defines and it does not**. That is checked against the original

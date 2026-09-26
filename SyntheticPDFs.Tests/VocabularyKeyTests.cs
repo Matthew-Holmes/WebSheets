@@ -628,10 +628,22 @@ namespace SyntheticPDFs.Tests
         [TestMethod]
         public async Task APosterGetsAKeyWithoutWaitingForWorkingsItWillNeverHave()
         {
-            // the caveat in the specification: only the files that archetype actually has
+            // the caveat in the specification: only the files that archetype actually has.
+            // a poster's key is made only when asked for, so ask for it
             _git.AddFile("latex/cheatSheets/trigIdentities.tex", ageCommits: 1);
 
-            var orchestrator = Build(Settings());
+            var orchestrator = Build(Settings(withPolish: true));
+
+            Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await orchestrator.DoOnePassAsync(),
+                "a poster is not given a key unasked");
+
+            orchestrator.RequestGeneration(new Shared.GenerateRequest
+            {
+                RootName = "latex/cheatSheets/trigIdentities",
+                Language = "pol",
+                Part     = "Root",
+                Form     = "TranslatedGlossary",
+            });
 
             Assert.AreEqual(Orchestrator.PassOutcome.Generated, await orchestrator.DoOnePassAsync());
             CollectionAssert.AreEqual(

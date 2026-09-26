@@ -238,19 +238,100 @@ namespace SyntheticPDFs.Rendering
 
 
         // As I see errors I can update these methods, or even find a library that will e.g. identify valid tex
-        internal static bool IsValidTex(String response)
+        internal static bool IsValidTex(String response) => WhatIsWrongWithTex(response) is null;
+
+        // Why a whole document would not do, in words a model can act on - a retry is
+        // told this, so it is phrased as what the last attempt did rather than as a code.
+        internal static String? WhatIsWrongWithTex(String response)
         {
-            bool okFirstLast = OkFirstChar(response) && !LastLineIsTicks(response);
+            if (!OkFirstChar(response) || LastLineIsTicks(response))
+            {
+                return "it has something other than LaTeX before or after it, such as a code fence";
+            }
 
-            bool allBeginsAreClosed = BeginBalance(response) == 0;
+            if (BeginBalance(response) != 0)
+            {
+                return @"its \begin and \end statements do not pair up";
+            }
 
-            bool noBadChars = !HasBadImplicationCharacter(response) && !HasBadEquivEqualCharacter(response);
+            if (HasBadImplicationCharacter(response))
+            {
+                return @"it uses the character ⇒, which cannot be typeset - write \implies inside maths instead";
+            }
 
-            bool noNestedMath = !HasNestedMathMode(response);
+            if (HasBadEquivEqualCharacter(response))
+            {
+                return @"it uses the character ≈, which cannot be typeset - write \approx inside maths instead";
+            }
 
-            bool mathDelimitersBalanced = !HasUnbalancedMathDelimiters(response);
+            return WhatIsWrongWithTheMaths(response) ?? WhatIsNotLoaded(response);
+        }
 
-            return okFirstLast && allBeginsAreClosed && noBadChars && noNestedMath && mathDelimitersBalanced;
+        // the delimiter checks on their own, for a translated body as much as a document
+        internal static String? WhatIsWrongWithTheMaths(String tex)
+        {
+            if (HasNestedMathMode(tex))
+            {
+                return @"it puts a $ inside \( \) or \[ \], which closes the maths early";
+            }
+
+            if (HasUnbalancedMathDelimiters(tex))
+            {
+                return @"its \( and \), or \[ and \], do not pair up";
+            }
+
+            return null;
+        }
+
+        // Commands that only exist once something has loaded them, and what does.
+        //
+        // A model writing a document from a slide deck carries the deck's habits across.
+        // The one that reached the repository put \texorpdfstring - which is hyperref's,
+        // and which beamer loads without being asked - into the \section of an article
+        // that loaded neither.
+        private static readonly (String[] Commands, String[] LoadedBy, String Why)[] NeedsLoading =
+        {
+            (new[] { "texorpdfstring", "hypertarget", "hyperlink", "href" },
+             new[] { "hyperref", "bookmark", "beamer" },
+             "only works once the hyperref package is loaded, which this document does not do"),
+
+            (new[] { "uncover", "onslide", "pause", "visible", "invisible", "alt", "only", "alert" },
+             new[] { "beamer", "beamerarticle" },
+             "only works in a beamer slide deck, which this document is not"),
+        };
+
+        private static readonly Regex ClassOrPackages = new(
+            @"\\(?:documentclass|usepackage|RequirePackage)\s*(?:\[[^\]]*\])?\s*\{([^}]*)\}",
+            RegexOptions.Compiled);
+
+        internal static String? WhatIsNotLoaded(String tex)
+        {
+            String bare = StripComments(tex);
+
+            HashSet<String> loaded = ClassOrPackages.Matches(bare)
+                .SelectMany(m => m.Groups[1].Value.Split(','))
+                .Select(p => p.Trim())
+                .ToHashSet(StringComparer.Ordinal);
+
+            // a document is free to define \alert or \only for itself
+            IReadOnlySet<String> itsOwn = L2Document.NamesDefinedIn(bare);
+
+            foreach (var (commands, loadedBy, why) in NeedsLoading)
+            {
+                if (loadedBy.Any(loaded.Contains)) { continue; }
+
+                foreach (String command in commands)
+                {
+                    if (itsOwn.Contains(command)) { continue; }
+
+                    if (Regex.IsMatch(bare, @"\\" + command + "(?![A-Za-z])"))
+                    {
+                        return $@"it uses \{command}, which {why} - write it without";
+                    }
+                }
+            }
+
+            return null;
         }
 
         internal static String TryFixupTex(String badTex, ILLMService LLM)

@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Agents.DeepSeek
 {
@@ -124,12 +125,34 @@ namespace Agents.DeepSeek
                 // TODO - could request multiple choices for some error prone tasks??
                 string modelResponse = message.content.ToString().Trim();
 
+                if (UsageFrom((JObject)jsonResponse) is TokenUsage usage)
+                {
+                    ReportUsage(usage);
+                }
+
                 return modelResponse;
             }
             else
             {
                 throw new ApiException($"API Error: {responseString}", response.StatusCode);
             }
+        }
+
+        // The usage block DeepSeek puts beside the answer. Beyond the two counts every
+        // provider gives, it says how much of the prompt was a cache hit, and how much of
+        // the completion was reasoning - which is billed as output but never seen in it.
+        public static TokenUsage? UsageFrom(JObject response)
+        {
+            if (response["usage"] is not JObject usage) { return null; }
+
+            return new TokenUsage
+            {
+                Model              = (string?)response["model"] ?? "unknown",
+                PromptTokens       = (int?)usage["prompt_tokens"] ?? 0,
+                CompletionTokens   = (int?)usage["completion_tokens"] ?? 0,
+                CachedPromptTokens = (int?)usage["prompt_cache_hit_tokens"],
+                ReasoningTokens    = (int?)usage.SelectToken("completion_tokens_details.reasoning_tokens"),
+            };
         }
     }
 

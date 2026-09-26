@@ -14,5 +14,7 @@ namespace SyntheticPDFs.Models.Content.Archetypes
             SheetPart.WorkedSolutions,
             SheetPart.Solutions,
         };
+
+        internal override bool TranslatedEagerly => true;
     }
 }

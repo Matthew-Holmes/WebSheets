@@ -146,6 +146,22 @@ namespace SyntheticPDFs.Rendering
             "the translation above or below it, or move the whole thing to a page of its own.",
             "Never place translated text on top of a diagram.");
 
+        // The sheet's own preamble goes back on afterwards along with ours, so the model is
+        // shown only the body - but the body is full of what that preamble defines, so it
+        // still needs telling that those exist. Named rather than shown, leaving it nothing
+        // to copy.
+        private static String SheetMacroRules(String source)
+        {
+            IReadOnlyList<String> itsOwn = L2Document.MacrosDefinedBy(L2Document.PreambleOf(source));
+
+            if (itsOwn.Count == 0) { return String.Empty; }
+
+            return " The sheet's own preamble is added for you as well, and it already defines "
+                + String.Join(", ", itsOwn)
+                + ". Use them just as the English does, and never define any of them again - "
+                + "defining one a second time stops the file compiling.";
+        }
+
         private static String TermsList(IReadOnlyList<VocabTerm> terms, LanguageProfile language) =>
             String.Join('\n', terms.Select(t =>
                 $"- {t.English} = {t.Translation} ({language.TitleName} for: {t.TranslatedDefinition})"));
@@ -253,7 +269,8 @@ namespace SyntheticPDFs.Rendering
                 + $"{L2LayoutRules} "
                 + $"{ArchetypeRules(archetype)}"
                 + $"{L2StructureRules}"
-                + "\n\n--- SOURCE ---\n\n" + source;
+                + $"{SheetMacroRules(source)}"
+                + "\n\n--- SOURCE ---\n\n" + L2Document.BodyOf(source);
         }
 
         internal static String GenerateTier3OnlyPrompt(
@@ -278,7 +295,8 @@ namespace SyntheticPDFs.Rendering
                 + $"{L2LayoutRules} "
                 + $"{ArchetypeRules(archetype)}"
                 + $"{L2StructureRules}"
-                + "\n\n--- SOURCE ---\n\n" + source;
+                + $"{SheetMacroRules(source)}"
+                + "\n\n--- SOURCE ---\n\n" + L2Document.BodyOf(source);
         }
 
         #endregion

@@ -32,9 +32,10 @@ namespace WebSheets.Models
     }
 
     // Which part of a sheet the reader is asking about. Worth asking, because only the
-    // sheets themselves are translated without being asked for: the worked solutions and
-    // the answers are made on request, so counting them all together would show every
-    // language as a third of the way there and say nothing about which.
+    // sheets themselves are translated without being asked for, and only for worksheets
+    // and starters: the worked solutions and the answers are made on request, so
+    // counting them all together would show every language as a third of the way there
+    // and say nothing about which.
     public enum CoverageScope
     {
         Sheet,

@@ -32,7 +32,7 @@ namespace SyntheticPDFs.Tests
             CollectionAssert.AreEquivalent(
                 new[]
                 {
-                    "MathematicalDictionary", "Poster", "QuestionSlides",
+                    "MathematicalDictionary", "Poster", "QuestionSlides", "QuickQuestions",
                     "TeachingSlides", "Worksheet",
                 },
                 names.ToArray());
@@ -80,6 +80,10 @@ namespace SyntheticPDFs.Tests
             // a deck that explains rather than asks has no answers to reveal, so it
             // is being a deck that does not owe the check
             Assert.IsFalse(SheetArchetypes.TeachingSlides.RevealsItsOwnAnswers);
+
+            // a deck of quick questions shows every solution on its second slide through
+            // its own macro - the check would rewrite a hand-written deck that needs nothing
+            Assert.IsFalse(SheetArchetypes.QuickQuestions.RevealsItsOwnAnswers);
         }
 
         [TestMethod]
@@ -90,6 +94,7 @@ namespace SyntheticPDFs.Tests
             Assert.IsTrue(SheetArchetypes.Worksheet.HasGlossary);
             Assert.IsTrue(SheetArchetypes.Poster.HasGlossary);
             Assert.IsTrue(SheetArchetypes.TeachingSlides.HasGlossary);
+            Assert.IsTrue(SheetArchetypes.QuickQuestions.HasGlossary);
         }
 
         [TestMethod]
