@@ -41,7 +41,9 @@ namespace Agents
 
             // processing, so no history and allows concurrency
             ret.DiscreteParameter("PromptDepth").Value = 0;
-            ret.MaxConcurrentResponses = 5; // local concurrency limit
+            // local concurrency limit - every sheet the generator writes goes through one
+            // agent, so this is how many are in flight at once
+            ret.MaxConcurrentResponses = 10;
 
             ret.StringParameters["system"] = systemMessage;
 

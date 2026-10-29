@@ -142,7 +142,7 @@ All committed, all overridable by environment variable using `__` for `:`.
 | `ContentRepository:SourceDirectory` | Folder within the repository holding the `.tex` files. |
 | `ContentRepository:SshKeyPath` | Deploy key, as described above. |
 | `LLM:DeepSeekAPIKeyFile` | Path to the file holding the DeepSeek key. |
-| `Generation:MaxFilesPerRun` | Ceiling on files generated in one pass. Halved on each git conflict, restored on success. Keep it low for a first run against a live repository. |
+| `Generation:MaxFilesPerRun` | Ceiling on files generated in one pass. Halved on each git conflict, restored on success. Keep it low for a first run against a live repository. At most 10 are written at once (the limit in `Agents/AgentFactory.cs`), so 20 means two waves a pass - much more than that and one slow file holds up the rest. |
 | `Api:Port` | Loopback port the service listens on. Must agree with `SyntheticPdfsTrigger:BaseUrl`. |
 
 Every `ContentRepository` value is validated at startup; a blank one stops the

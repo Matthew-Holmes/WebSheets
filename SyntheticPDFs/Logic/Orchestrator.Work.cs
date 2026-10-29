@@ -108,7 +108,7 @@ namespace SyntheticPDFs.Logic
                 return PassOutcome.NothingToDo;
             }
 
-            // generate concurrently - AgentBase already caps this at 5 locally and 20
+            // generate concurrently - AgentBase already caps this at 10 locally and 20
             // across all agents, so there is no need to throttle again here
             List<List<TexSourceModel>> generated = (await Task.WhenAll(
                 batchToCreate.Select(request => TryGenerateSyntheticSource(request, model)))).ToList();
