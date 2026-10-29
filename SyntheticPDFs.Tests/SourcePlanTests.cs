@@ -52,6 +52,7 @@ namespace SyntheticPDFs.Tests
         [DataRow("Poster", 1)]
         [DataRow("TeachingSlides", 1)]
         [DataRow("QuickQuestions", 1)]
+        [DataRow("Flashcards", 1)]
         public void EachArchetypeHasItsOwnSetOfTypes(String archetypeName, int expected)
         {
             var parts = SheetArchetypes.ByName(archetypeName)!.Parts;
@@ -104,6 +105,7 @@ namespace SyntheticPDFs.Tests
         [DataRow("QuestionSlides", 2)]
         [DataRow("TeachingSlides", 1)]
         [DataRow("QuickQuestions", 1)]
+        [DataRow("Flashcards", 1)]
         public void TheVocabularyKeyOnlyWaitsForFilesThatArchetypeActuallyHas(
             String archetypeName, int expected)
         {
@@ -195,6 +197,7 @@ namespace SyntheticPDFs.Tests
         [DataRow("Poster", false)]
         [DataRow("TeachingSlides", false)]
         [DataRow("QuickQuestions", false)]
+        [DataRow("Flashcards", false)]
         public void OnlyWorksheetsAndStartersAreTranslatedUnasked(
             String archetypeName, bool expected)
         {

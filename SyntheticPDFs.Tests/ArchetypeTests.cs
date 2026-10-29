@@ -46,6 +46,7 @@ namespace SyntheticPDFs.Tests
         [DataRow("latex/slides/latticeMethod", "TeachingSlides")]
         [DataRow("latex/slides/KS3/number/latticeMethod", "TeachingSlides")]
         [DataRow("latex/quickQuestions/fractionsQuickQuestions", "QuickQuestions")]
+        [DataRow("latex/flashcards/probabilityFlashcards", "Flashcards")]
         public void ArchetypeComesFromTheFolder(String path, String expected)
         {
             var parsed = SheetArchetypes.Parse(path);
@@ -221,6 +222,19 @@ namespace SyntheticPDFs.Tests
             Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
             Assert.AreEqual(0, _llm.CallCount, "a deck that solves itself needs no derived source");
             Assert.AreEqual(0, _llm.ReviewCallCount, "and is never reviewed for answer helpers it does not use");
+        }
+
+        [TestMethod]
+        public async Task FlashcardsGetNoWorkedSolutionsOrAnswers()
+        {
+            // the answers are on the backs of the cards, so there is nothing to derive.
+            // before the folder had an archetype it fell back to being a worksheet, and
+            // would have been given worked solutions and an answer key
+            _git.AddFile("latex/flashcards/probabilityFlashcards.tex", ageCommits: 1);
+
+            Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
+            Assert.AreEqual(0, _llm.CallCount, "a set of cards that answers itself needs no derived source");
+            Assert.AreEqual(0, _llm.ReviewCallCount);
         }
 
         [TestMethod]

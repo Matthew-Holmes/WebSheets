@@ -32,8 +32,8 @@ namespace SyntheticPDFs.Tests
             CollectionAssert.AreEquivalent(
                 new[]
                 {
-                    "MathematicalDictionary", "Poster", "QuestionSlides", "QuickQuestions",
-                    "TeachingSlides", "Worksheet",
+                    "Flashcards", "MathematicalDictionary", "Poster", "QuestionSlides",
+                    "QuickQuestions", "TeachingSlides", "Worksheet",
                 },
                 names.ToArray());
         }
@@ -91,6 +91,7 @@ namespace SyntheticPDFs.Tests
         {
             // it has none because it is one
             Assert.IsFalse(SheetArchetypes.SharedDictionary.HasGlossary);
+            Assert.IsTrue(SheetArchetypes.Flashcards.HasGlossary);
             Assert.IsTrue(SheetArchetypes.Worksheet.HasGlossary);
             Assert.IsTrue(SheetArchetypes.Poster.HasGlossary);
             Assert.IsTrue(SheetArchetypes.TeachingSlides.HasGlossary);

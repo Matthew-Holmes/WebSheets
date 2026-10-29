@@ -62,6 +62,7 @@ named. Each is a class in `Models/Content/Archetypes/`:
 | `QuestionSlides` | `starters` | root, worked solutions — the deck reveals its own answers |
 | `TeachingSlides` | `slides` | root only — a deck that explains rather than asks |
 | `QuickQuestions` | `quickQuestions` | root only — each question's second slide already shows its solution |
+| `Flashcards` | `flashcards` | root only — the answers are on the backs of the cards |
 | `Poster` | `cheatSheets` | root only |
 | `MathematicalDictionary` | `dictionary` | the shared definitions, and a translation of them per language |
 

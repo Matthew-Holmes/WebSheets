@@ -318,6 +318,30 @@ namespace SyntheticPDFs.Tests
             Assert.AreEqual(GenerateOutcome.NotUnderstood, result.Outcome);
         }
 
+        [TestMethod]
+        public async Task FlashcardsAreTranslatedOnlyWhenAskedFor()
+        {
+            // pol is eager here, and flashcards are not given it unasked - but asking for
+            // one makes it, along with the glossary it is made from
+            _git.AddFile("latex/flashcards/probabilityFlashcards.tex", 1);
+
+            Assert.AreEqual(
+                Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
+
+            var result = Ask("latex/flashcards/probabilityFlashcards", "pol", "Root", "Tier3Only");
+
+            Assert.AreEqual(GenerateOutcome.Queued, result.Outcome);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "latex/flashcards/probabilityFlashcards_vocab.tex",
+                    "latex/flashcards/probabilityFlashcards/L2/pol/probabilityFlashcards_polishKey.tex",
+                    "latex/flashcards/probabilityFlashcards/L2/pol/probabilityFlashcards_polishTier3Only.tex",
+                },
+                result.Queued.ToArray());
+        }
+
         // ---- purging ----
 
         [TestMethod]
