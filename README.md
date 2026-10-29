@@ -274,9 +274,11 @@ hand — an edit makes the file younger than its parents, so it is left alone.
 Two things to know before turning this on. The content repository needs fonts
 for the scripts involved before any of it will compile — see
 [docs/content-repo-translation-setup.md](docs/content-repo-translation-setup.md).
-And the eager set is large: each worksheet or starter gets its glossary, then
-three files in every eager language, so 36 of them with six languages is around
-680 files.
+And the eager set grows quickly: each worksheet or starter gets its glossary, then
+three files in every eager language - so with the 50 there are now and Polish
+alone it is 200 files, and each language added costs another 150. Every edit to
+one of those sheets remakes its share in every eager language, which is why the
+list is kept to one.
 
 ### Finding them on the site
 
