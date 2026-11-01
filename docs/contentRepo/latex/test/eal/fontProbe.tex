@@ -244,6 +244,12 @@
    \babelfont[igbo]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
    \ealfound{igbo}{A}}
   {\ealabsent{Igbo}{Noto Serif}}
+\babelprovide[import]{indonesian}
+\IfFontExistsTF{Noto Serif}
+  {\babelfont[indonesian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \babelfont[indonesian]{sf}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
+   \ealfound{indonesian}{A}}
+  {\ealabsent{Indonesian}{Noto Serif}}
 \babelprovide[import]{italian}
 \IfFontExistsTF{Noto Serif}
   {\babelfont[italian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
@@ -496,6 +502,7 @@ Hebrew (heb), Noto Sans Hebrew: \ealshow{hebrew}{Noto Sans Hebrew}\\
 Hindi (hin), Noto Sans Devanagari: \ealshow{hindi}{Noto Sans Devanagari}\\
 Hungarian (hun), Noto Serif: \ealshow{hungarian}{Noto Serif}\\
 Igbo (ibo), Noto Serif: \ealshow{igbo}{Noto Serif}\\
+Indonesian (ind), Noto Serif: \ealshow{indonesian}{Noto Serif}\\
 Italian (ita), Noto Serif: \ealshow{italian}{Noto Serif}\\
 Japanese (jpn), Noto Sans CJK JP: \ealshow{japanese}{Noto Sans CJK JP}\\
 Kannada (kan), Noto Sans Kannada: \ealshow{kannada}{Noto Sans Kannada}\\

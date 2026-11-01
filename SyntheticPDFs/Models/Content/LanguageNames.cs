@@ -49,6 +49,7 @@ namespace SyntheticPDFs.Models.Content
                 ["hrv"] = "croatian",
                 ["hun"] = "hungarian",
                 ["ibo"] = "igbo",
+                ["ind"] = "indonesian",
                 ["ita"] = "italian",
                 ["kur"] = "kurdish",
                 ["lav"] = "latvian",
