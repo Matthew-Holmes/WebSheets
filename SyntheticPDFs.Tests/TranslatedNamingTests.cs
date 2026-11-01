@@ -34,6 +34,10 @@ namespace SyntheticPDFs.Tests
             "latex/worksheets/algebra/quadratics/L2/ben/quadratics_workedSolutions_bengaliParallelText.tex")]
         [DataRow("ara", "Solutions", "Tier3Only",
             "latex/worksheets/algebra/quadratics/L2/ara/quadratics_solutions_arabicTier3Only.tex")]
+        [DataRow("zho", "Root", "TranslatedGlossary",
+            "latex/worksheets/algebra/quadratics/L2/zho/quadratics_chineseKey.tex")]
+        [DataRow("zht", "Root", "ParallelText",
+            "latex/worksheets/algebra/quadratics/L2/zht/quadratics_chinesetraditionalParallelText.tex")]
         public void TranslatedFilesAreNamedByFolderAndLanguageName(
             String code, String typeName, String formName, String expected)
         {
@@ -48,6 +52,9 @@ namespace SyntheticPDFs.Tests
         [DataRow("ben", "WorkedSolutions", "Tier3Only")]
         [DataRow("ara", "Solutions", "ParallelText")]
         [DataRow("pan", "Solutions", "Tier3Only")]
+        [DataRow("zho", "Root", "TranslatedGlossary")]
+        [DataRow("zht", "Root", "TranslatedGlossary")]
+        [DataRow("zht", "WorkedSolutions", "ParallelText")]
         public void TranslatedNamesRoundTrip(String code, String typeName, String formName)
         {
             var original = Meta(code, typeName, formName);

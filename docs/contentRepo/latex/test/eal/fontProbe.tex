@@ -159,7 +159,13 @@
   {\babelfont[chinese]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans CJK SC}, ItalicFont={Noto Sans CJK SC}, BoldItalicFont={Noto Sans CJK SC}, RawFeature={fallback=eallatinfallback}]{Noto Sans CJK SC}%
    \babelfont[chinese]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans CJK SC}, ItalicFont={Noto Sans CJK SC}, BoldItalicFont={Noto Sans CJK SC}, RawFeature={fallback=eallatinfallback}]{Noto Sans CJK SC}%
    \ealfound{chinese}{中}}
-  {\ealabsent{Chinese}{Noto Sans CJK SC}}
+  {\ealabsent{Chinese (Simplified)}{Noto Sans CJK SC}}
+\babelprovide[import]{chinese-traditional}
+\IfFontExistsTF{Noto Sans CJK TC}
+  {\babelfont[chinese-traditional]{rm}[Renderer=Harfbuzz, BoldFont={Noto Sans CJK TC}, ItalicFont={Noto Sans CJK TC}, BoldItalicFont={Noto Sans CJK TC}, RawFeature={fallback=eallatinfallback}]{Noto Sans CJK TC}%
+   \babelfont[chinese-traditional]{sf}[Renderer=Harfbuzz, BoldFont={Noto Sans CJK TC}, ItalicFont={Noto Sans CJK TC}, BoldItalicFont={Noto Sans CJK TC}, RawFeature={fallback=eallatinfallback}]{Noto Sans CJK TC}%
+   \ealfound{chinese-traditional}{學}}
+  {\ealabsent{Chinese (Traditional)}{Noto Sans CJK TC}}
 \babelprovide[import]{croatian}
 \IfFontExistsTF{Noto Serif}
   {\babelfont[croatian]{rm}[Renderer=Harfbuzz, BoldFont={Noto Serif}, ItalicFont={Noto Serif}, BoldItalicFont={Noto Serif}, RawFeature={fallback=eallatinfallback}]{Noto Serif}%
@@ -487,7 +493,8 @@ Amharic (amh), Noto Sans Ethiopic: \ealshow{amharic}{Noto Sans Ethiopic}\\
 Arabic (ara), Noto Naskh Arabic: \ealshow{arabic}{Noto Naskh Arabic}\\
 Bengali (ben), Noto Sans Bengali: \ealshow{bengali}{Noto Sans Bengali}\\
 Bulgarian (bul), Noto Serif: \ealshow{bulgarian}{Noto Serif}\\
-Chinese (zho), Noto Sans CJK SC: \ealshow{chinese}{Noto Sans CJK SC}\\
+Chinese (Simplified) (zho), Noto Sans CJK SC: \ealshow{chinese}{Noto Sans CJK SC}\\
+Chinese (Traditional) (zht), Noto Sans CJK TC: \ealshow{chinese-traditional}{Noto Sans CJK TC}\\
 Croatian (hrv), Noto Serif: \ealshow{croatian}{Noto Serif}\\
 Czech (ces), Noto Serif: \ealshow{czech}{Noto Serif}\\
 Dutch (nld), Noto Serif: \ealshow{dutch}{Noto Serif}\\

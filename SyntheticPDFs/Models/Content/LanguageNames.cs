@@ -19,6 +19,10 @@ namespace SyntheticPDFs.Models.Content
     // One collision is worth knowing about in a mathematics repository: "sin" is
     // Sinhala. A sheet called something_sin.tex is still treated as an English root,
     // but it logs a warning saying so on every pass.
+    //
+    // One code here is not ISO: "zht". ISO 639-3 has a language code for Chinese and
+    // nothing for how it is written, so "zho" means simplified characters, which is
+    // what every file already under it uses, and "zht" is our own for traditional.
     internal static class LanguageNames
     {
         internal const String English = "english";
@@ -100,7 +104,26 @@ namespace SyntheticPDFs.Models.Content
                 ["tha"] = "thai",
                 ["tir"] = "tigrinya",
                 ["zho"] = "chinese",
+                ["zht"] = "chinesetraditional",
             };
+
+        // the few languages whose filename name does not read properly once capitalised
+        private static readonly Dictionary<String, String> TitleNames =
+            new(StringComparer.Ordinal)
+            {
+                ["zho"] = "Chinese (Simplified)",
+                ["zht"] = "Chinese (Traditional)",
+            };
+
+        // as a reader would say it - on the site, in a title and in a prompt to the model
+        internal static String TitleNameOf(String code, String englishName)
+        {
+            if (TitleNames.TryGetValue(code, out String? name)) { return name; }
+
+            return englishName.Length == 0
+                ? englishName
+                : Char.ToUpperInvariant(englishName[0]) + englishName[1..];
+        }
 
         internal static bool IsKnown(String code) => ByCode.ContainsKey(code);
 

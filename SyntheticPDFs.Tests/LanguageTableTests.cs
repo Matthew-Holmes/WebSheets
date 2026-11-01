@@ -40,6 +40,24 @@ namespace SyntheticPDFs.Tests
         }
 
         [TestMethod]
+        [DataRow("zho", "chinese", "Chinese (Simplified)")]
+        [DataRow("zht", "chinesetraditional", "Chinese (Traditional)")]
+        public void TheChineseScriptsReadApartWithoutMovingAnyFiles(
+            String code, String fileName, String titleName)
+        {
+            // the title is what the site, the sheet and the model all see, so it has to
+            // say which script. the filename is what existing files are found by, so
+            // zho has to stay "chinese"
+            var table = new LanguageTable(ConfiguredLanguagesTests.Shipped());
+
+            var profile = table.Get(new ISO639_3Code(code));
+
+            Assert.IsNotNull(profile);
+            Assert.AreEqual(fileName, profile.EnglishName);
+            Assert.AreEqual(titleName, profile.TitleName);
+        }
+
+        [TestMethod]
         public void ARightToLeftLanguageSaysSo()
         {
             var options = Options(("urd", "Noto Nastaliq Urdu", "urdu"));

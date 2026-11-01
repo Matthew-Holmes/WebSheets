@@ -69,6 +69,11 @@ else
                 <li class="no-match">No language matches "@Search".</li>
             }
         </ul>
+
+        @if (shortlist.Shown.Any(IsChinese))
+        {
+            <ChineseScriptHelp />
+        }
     }
     else
     {
@@ -107,6 +112,11 @@ else
                 </li>
             }
         </ul>
+
+        @if (IsChinese(Chosen))
+        {
+            <ChineseScriptHelp />
+        }
 
         <p class="eal-note">
             Anything greyed out has not been written yet. Asking for one puts it at the

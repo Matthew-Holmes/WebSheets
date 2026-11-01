@@ -229,7 +229,7 @@ namespace WebSheets.Models
         private static WorksheetFile? ParseTranslated(
             string bare, string fileName, string fullPath, LanguageInfo language)
         {
-            string suffix = '_' + language.Name.ToLowerInvariant();
+            string suffix = '_' + language.FileName;
 
             int at = bare.LastIndexOf(suffix, StringComparison.OrdinalIgnoreCase);
 
@@ -300,7 +300,7 @@ namespace WebSheets.Models
                 _                      => "",
             };
 
-            return $"{rootName}{partSuffix}_{language.Name.ToLowerInvariant()}{formSuffix}";
+            return $"{rootName}{partSuffix}_{language.FileName}{formSuffix}";
         }
 
         // What a dictionary is called in a listing. On disk it is named for the pipeline

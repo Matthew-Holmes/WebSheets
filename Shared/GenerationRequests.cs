@@ -59,6 +59,7 @@ namespace Shared
     public sealed record LanguageInfo(
         string Code,          // ISO 639-3, "pol"
         string Name,          // as a reader would say it, "Polish"
+        string FileName,      // as it appears in a filename, "polish"
         bool RightToLeft,
         bool Eager);          // generated for every worksheet and starter without being asked
 }

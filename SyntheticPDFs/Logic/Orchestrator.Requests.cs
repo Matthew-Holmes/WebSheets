@@ -226,6 +226,7 @@ namespace SyntheticPDFs.Logic
                 .Select(profile => new LanguageInfo(
                     profile.Code.Code,
                     profile.TitleName,
+                    profile.EnglishName,
                     profile.RightToLeft,
                     Languages.EagerLanguages.Contains(profile.Code)))
                 .OrderBy(l => l.Name, StringComparer.OrdinalIgnoreCase)

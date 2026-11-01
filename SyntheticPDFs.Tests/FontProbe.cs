@@ -32,6 +32,7 @@ namespace SyntheticPDFs.Tests
             ["Noto Sans CJK JP"]     = "あ", // hiragana a
             ["Noto Sans CJK KR"]     = "가", // hangul ga
             ["Noto Sans CJK SC"]     = "中", // han zhong - not "one", which prints as a dash
+            ["Noto Sans CJK TC"]     = "學", // han xue, the traditional form
             ["Noto Sans Devanagari"] = "अ", // devanagari a
             ["Noto Sans Ethiopic"]   = "ሀ", // ethiopic ha
             ["Noto Sans Gujarati"]   = "અ", // gujarati a
@@ -69,12 +70,10 @@ namespace SyntheticPDFs.Tests
                 })
                 .Where(language => language.Name is not null)
                 .Select(language => new Row(
-                    Capitalised(language.Name!), language.Code, language.Font, language.Babel))
+                    LanguageNames.TitleNameOf(language.Code, language.Name!),
+                    language.Code, language.Font, language.Babel))
                 .OrderBy(row => row.Name, StringComparer.Ordinal)
                 .ToList();
-
-        private static String Capitalised(String name) =>
-            name.Length == 0 ? name : Char.ToUpperInvariant(name[0]) + name[1..];
 
         private static String Faces(String font) =>
             $"Renderer=Harfbuzz, BoldFont={{{font}}}, ItalicFont={{{font}}}, "

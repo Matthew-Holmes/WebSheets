@@ -22,10 +22,7 @@ namespace SyntheticPDFs.Models.Content
         internal String DirectionDescription => RightToLeft ? "right to left" : "left to right";
 
         // capitalised for a title - "Polish Parallel Text Version of ..."
-        internal String TitleName =>
-            EnglishName.Length == 0
-                ? EnglishName
-                : Char.ToUpperInvariant(EnglishName[0]) + EnglishName[1..];
+        internal String TitleName => LanguageNames.TitleNameOf(Code.Code, EnglishName);
     }
 
     // resolves configured languages into profiles, complaining once about any that

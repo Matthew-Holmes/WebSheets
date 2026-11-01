@@ -142,6 +142,9 @@ public partial class Eal : ComponentBase
 
     protected sealed record Shortlist(IReadOnlyList<LanguageInfo> Shown, int Hidden);
 
+    // the two ways of writing Chinese, which is what ChineseScriptHelp helps choose between
+    protected static bool IsChinese(LanguageInfo language) => language.Code is "zho" or "zht";
+
     // Matched on the name as well as the code, since a reader looking for Urdu is far
     // more likely to type "urd" by accident than on purpose. A language already
     // generated sorts first, so what is there to read comes before what has to be asked

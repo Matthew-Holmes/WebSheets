@@ -303,7 +303,7 @@ can: whatever does not fit is off the board.
 | --- | --- |
 | `L2:GenerateVocabularyKeys` | Whether to build vocabulary keys at all. Off unless set, since each one costs an API call. |
 | `L2:Colours` | Tier 3, English and translation colours, as RGB with a name. Recorded in every generated file. |
-| `L2:Languages` | Keyed by ISO 639-3 code; each needs a `Font`, a `BabelName` and `RightToLeft`. |
+| `L2:Languages` | Keyed by ISO 639-3 code; each needs a `Font`, a `BabelName` and `RightToLeft`. The one exception is `zht`: ISO has no code for how Chinese is written, so `zho` means simplified characters and `zht` is our own code for traditional. |
 | `L2:EagerLanguages` | Which of them are generated without being asked. Worksheets and starters only, and only the sheet and its glossary — worked solutions, answers and every other kind of resource are generated on request. |
 | `ContentRepository:DictionaryPath` | Where the shared definitions live *in the content repository*. |
 
