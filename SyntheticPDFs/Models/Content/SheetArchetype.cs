@@ -52,6 +52,10 @@ namespace SyntheticPDFs.Models.Content
         // already exists, so no plan can express it - it is asked about separately.
         internal virtual bool RevealsItsOwnAnswers => false;
 
+        // Whether the pipeline ignores these files entirely: nothing is made from them,
+        // and nothing already there is judged, purged or removed.
+        internal virtual bool LeftAlone => false;
+
         // Extra English versions of this kind of source: the same file with something
         // about it changed for a school that wants it differently, made from the file
         // itself rather than written again.

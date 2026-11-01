@@ -33,7 +33,7 @@ namespace SyntheticPDFs.Tests
                 new[]
                 {
                     "Flashcards", "MathematicalDictionary", "Poster", "QuestionSlides",
-                    "QuickQuestions", "TeachingSlides", "Worksheet",
+                    "QuickQuestions", "TeachingSlides", "TestContent", "Worksheet",
                 },
                 names.ToArray());
         }
@@ -54,6 +54,20 @@ namespace SyntheticPDFs.Tests
                 SheetArchetypes.All.Count,
                 SheetArchetypes.All.Select(a => a.Folder).Distinct().Count(),
                 "two archetypes claiming one folder makes a file's meaning a matter of load order");
+        }
+
+        [TestMethod]
+        public void TestContentIsLeftOutOfTheModel()
+        {
+            // a sheet is what gets judged, generated for and purged, so not being one is
+            // what keeps the pipeline away from all three
+            var model = ContentModel.From(Repo(
+                "latex/test/eal/fractionsBasics.tex",
+                "latex/test/eal/fractionsBasics_workedSolutions.tex",
+                "latex/worksheets/quadratics.tex"));
+
+            CollectionAssert.AreEqual(
+                new[] { "latex/worksheets/quadratics" }, model.Sheets.Keys.ToArray());
         }
 
         [TestMethod]

@@ -47,6 +47,8 @@ namespace SyntheticPDFs.Tests
         [DataRow("latex/slides/KS3/number/latticeMethod", "TeachingSlides")]
         [DataRow("latex/quickQuestions/fractionsQuickQuestions", "QuickQuestions")]
         [DataRow("latex/flashcards/probabilityFlashcards", "Flashcards")]
+        [DataRow("latex/test/eal/fontProbe", "TestContent")]
+        [DataRow("latex/test/generated/test_document_workedSolutions", "TestContent")]
         public void ArchetypeComesFromTheFolder(String path, String expected)
         {
             var parsed = SheetArchetypes.Parse(path);
@@ -235,6 +237,41 @@ namespace SyntheticPDFs.Tests
             Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
             Assert.AreEqual(0, _llm.CallCount, "a set of cards that answers itself needs no derived source");
             Assert.AreEqual(0, _llm.ReviewCallCount);
+        }
+
+        [TestMethod]
+        public async Task TestContentGetsNothingGeneratedAtAll()
+        {
+            _git.AddFile("latex/test/eal/fontProbe.tex", ageCommits: 1);
+
+            Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
+            Assert.AreEqual(0, _llm.CallCount, "the font probe is compiled as it stands");
+            Assert.AreEqual(0, _git.CommitCalls.Count);
+        }
+
+        [TestMethod]
+        public async Task WhatTestContentAlreadyHasIsNotRemoved()
+        {
+            // the samples are committed with their derived files, which no plan names and
+            // which are older than the root here - either would get a sheet's removed
+            String[] samples =
+            {
+                "latex/test/eal/fractionsBasics.tex",
+                "latex/test/eal/fractionsBasics_workedSolutions.tex",
+                "latex/test/eal/fractionsBasics_vocab.tex",
+                "latex/test/eal/fractionsBasics/L2/pol/fractionsBasics_polishParallelText.tex",
+            };
+
+            _git.AddFile(samples[0], ageCommits: 1);
+
+            foreach (String derived in samples.Skip(1))
+            {
+                _git.AddFile(derived, ageCommits: 5);
+            }
+
+            Assert.AreEqual(Orchestrator.PassOutcome.NothingToDo, await _orchestrator.DoOnePassAsync());
+            Assert.AreEqual(0, _git.CommitCalls.Count);
+            CollectionAssert.AreEquivalent(samples, _git.Files.Keys.ToArray());
         }
 
         [TestMethod]

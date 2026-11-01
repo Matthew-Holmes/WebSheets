@@ -65,6 +65,7 @@ named. Each is a class in `Models/Content/Archetypes/`:
 | `Flashcards` | `flashcards` | root only — the answers are on the backs of the cards |
 | `Poster` | `cheatSheets` | root only |
 | `MathematicalDictionary` | `dictionary` | the shared definitions, and a translation of them per language |
+| `TestContent` | `test` | left alone — nothing is made from these files, and nothing there is judged, purged or removed |
 
 They are found by reflection at startup rather than listed in a register, so
 adding one is a matter of adding its file. Two archetypes claiming the same

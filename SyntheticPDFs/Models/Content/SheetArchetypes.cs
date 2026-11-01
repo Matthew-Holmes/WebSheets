@@ -28,6 +28,8 @@ namespace SyntheticPDFs.Models.Content
 
         internal static SheetArchetype Flashcards { get; } = Of<Archetypes.Flashcards>();
 
+        internal static SheetArchetype TestContent { get; } = Of<Archetypes.TestContent>();
+
         internal static SheetArchetype SharedDictionary { get; } = Of<MathematicalDictionary>();
 
         private static IReadOnlyList<SheetArchetype> Discover()

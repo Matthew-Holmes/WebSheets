@@ -35,10 +35,10 @@ between, and Urdu specifically because it is right-to-left — the case most
 likely to look wrong.
 
 **These were produced by the generator's own renderers, not written by hand.**
-That matters: a file whose provenance block does not match the current settings,
-or whose definitions disagree with the shared dictionary, is treated as out of
-date and removed on the next pass. Hand-written samples would have disappeared.
-The definitions are copied from the dictionary for the same reason.
+The generator leaves everything under `latex/test/` alone (see the `TestContent`
+archetype): it makes nothing from these files and never removes them, so they do
+not go stale by themselves. If the settings or the dictionary change, they keep
+showing what they were built from until they are replaced by hand.
 
 All ten compile with no errors and no missing glyphs. The two Noto fonts they
 name are the ones the workflow installs, so they build in CI but not necessarily
@@ -136,10 +136,10 @@ did not, at the end and under a heading of its own, and changes nothing else.
 
 ## What is not here yet
 
-The generator will still fill in what is missing here — the other three eager
-languages, and translations of the worked solutions and answers if anyone asks
-for them. What is absent is deliberate: it leaves the EAL page with greyed-out
-entries to click, which is the part of it worth testing.
+The generator will not fill in what is missing here — the other three eager
+languages, and translations of the worked solutions and answers. Those entries
+still show greyed-out on the EAL page, but clicking one is refused with a
+message. To try requesting a translation, use a sheet from any other folder.
 
 ## Which copy is authoritative
 

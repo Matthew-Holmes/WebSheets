@@ -319,6 +319,20 @@ namespace SyntheticPDFs.Tests
         }
 
         [TestMethod]
+        [DataRow("Root", "ParallelText")]
+        [DataRow("Root", "TranslatedGlossary")]
+        [DataRow("WorkedSolutions", "Tier3Only")]
+        public void AskingForAnythingFromTestContentIsRefused(String type, String form)
+        {
+            _git.AddFile("latex/test/eal/fractionsBasics.tex", 1);
+
+            var result = Ask("latex/test/eal/fractionsBasics", "pol", type, form);
+
+            Assert.AreEqual(GenerateOutcome.NotUnderstood, result.Outcome);
+            Assert.AreEqual(0, result.Queued.Count);
+        }
+
+        [TestMethod]
         public async Task FlashcardsAreTranslatedOnlyWhenAskedFor()
         {
             // pol is eager here, and flashcards are not given it unasked - but asking for

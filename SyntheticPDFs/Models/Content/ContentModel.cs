@@ -82,6 +82,8 @@ namespace SyntheticPDFs.Models.Content
             {
                 SheetArchetype archetype = ArchetypeOf(rootName, files, logger);
 
+                if (archetype.LeftAlone) { continue; }
+
                 if (archetype == SheetArchetypes.SharedDictionary)
                 {
                     dictionaries[rootName] = DictionaryFrom(rootName, files, logger);
