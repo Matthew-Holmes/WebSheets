@@ -31,7 +31,7 @@ configuration and is committed; the *file it points at* is the secret and is not
 
 | Secret | Used by | Purpose |
 | --- | --- | --- |
-| `SyntheticPdfsTrigger:ApiKey` | WebSheets | Shared secret callers must present to trigger a generation run. |
+| `SyntheticPdfsTrigger:ApiKey` | WebSheets | Shared secret callers must present to trigger a generation run. The same value is held as the `WEBSHEETS_TRIGGER_KEY` Actions secret on `Matthews_Mathematics`. |
 | DeepSeek API key file | SyntheticPDFs | Contents are sent as the DeepSeek bearer token. Located by `LLM:DeepSeekAPIKeyFile`. |
 | SSH private key | SyntheticPDFs | Pushes generated source to the content repository. Located by `ContentRepository:SshKeyPath`. |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Content repo Actions | Uploads compiled PDFs to Garage. Set as GitHub Actions secrets on `Matthews_Mathematics`, not here. |
@@ -60,6 +60,10 @@ to the `:` in the configuration key:
 ```bash
 SyntheticPdfsTrigger__ApiKey=...
 ```
+
+On the droplet that line lives in `/etc/mattsmaths/mmWebsite.env`, which is the
+only place the live key is set. To create or change it, see
+[Changing the trigger key](docs/deploy/README.md#changing-the-trigger-key).
 
 **Check** it arrived, whatever the host: the app logs a warning at startup if
 the trigger key is missing —
@@ -195,6 +199,52 @@ curl -X POST https://matthewsmathematics.uk/api/public/syntheticPDFs/ping \
 Without a valid key the endpoint returns `401` and logs the caller's IP. If no
 key is configured server-side it rejects every request, so a missing environment
 variable fails closed rather than leaving the endpoint open.
+
+The request needs both the `Content-Type` header and a JSON body, even though the
+body is empty. The generator itself listens on loopback only, so this address on
+the site is the only way to trigger a run from outside the droplet.
+
+### From GitHub Actions
+
+The workflow in `Matthews_Mathematics` calls the same address, with the key held
+as an Actions secret:
+
+1. On github.com, open `Matthews_Mathematics` → Settings → Secrets and variables
+   → Actions → New repository secret.
+2. Name it `WEBSHEETS_TRIGGER_KEY`, and paste in the value of
+   `SyntheticPdfsTrigger__ApiKey` from the droplet.
+3. Add this step to the workflow, after the steps that have to finish first:
+
+```yaml
+- name: Start a generation run
+  env:
+    TRIGGER_KEY: ${{ secrets.WEBSHEETS_TRIGGER_KEY }}
+  run: |
+    curl --fail-with-body -sS -X POST \
+      https://matthewsmathematics.uk/api/public/syntheticPDFs/ping \
+      -H "Content-Type: application/json" \
+      -H "X-WebSheets-Trigger-Key: $TRIGGER_KEY" \
+      -d "{}"
+```
+
+`--fail-with-body` is what makes the step fail on an error status. Plain `curl`
+exits successfully whatever the server answers, so a rejected key would go
+unnoticed.
+
+| Status | Meaning | What to do |
+| --- | --- | --- |
+| `200` | The run started, was queued, or one was already queued | Nothing |
+| `401` | The key is missing or wrong, or the site has no key set | Check the Actions secret matches the droplet |
+| `500` | The generator could not be reached or failed, or it found a dictionary it cannot read | See below |
+
+A dictionary problem still queues the work, so a `500` does not always mean the
+run failed to start. The site reports only `Internal API failed`, so the workflow
+log will not name the file. The detail is in the generator's log, on the droplet:
+
+```bash
+cd /opt/mattsmaths
+docker compose logs --since 1h syntheticpdfs | grep "dictionary problem"
+```
 
 ### What one trigger does
 

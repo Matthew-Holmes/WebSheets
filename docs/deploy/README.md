@@ -153,6 +153,18 @@ Check it works:
 ssh -i ~/.ssh/mmPrivKey.ossh root@188.166.153.242 "echo connected"
 ```
 
+This key has a passphrase. That command stops and asks for it, but `deploy.sh`
+runs SSH in a mode that never asks, so on its own it fails with
+`Permission denied (publickey)`. Hand the unlocked key to `ssh-agent`, a small
+background program that holds it for you, before you deploy:
+
+```bash
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/mmPrivKey.ossh
+```
+
+Do this once per terminal window, and run `deploy.sh` in that same window.
+
 ---
 
 # Part 2 — one-off setup on THE DROPLET
@@ -203,13 +215,27 @@ it contains `SyntheticPdfsTrigger__ApiKey`:
 sudo cat /etc/mattsmaths/mmWebsite.env
 ```
 
-If it does not, add the line — [mmWebsite.env.example](mmWebsite.env.example)
-shows the shape of the file. Then:
+If it does not, generate a key and add the line —
+[mmWebsite.env.example](mmWebsite.env.example) shows the shape of the file. The
+key can be any long random string, with no quotes or spaces around it:
+
+```bash
+openssl rand -hex 32
+sudo nano /etc/mattsmaths/mmWebsite.env
+```
+
+Then:
 
 ```bash
 sudo chown root:root /etc/mattsmaths/mmWebsite.env
 sudo chmod 600 /etc/mattsmaths/mmWebsite.env
 ```
+
+This file is the source of truth for the live key. It is not in the repository
+or the image, and nothing else sets it in production, so `deploy.sh` leaves it
+alone and every deploy keeps the same key. Anything that triggers a run has to
+hold a copy of it — see
+[From GitHub Actions](../../README.md#from-github-actions).
 
 ### The DeepSeek API key
 
@@ -379,6 +405,40 @@ Worth knowing: restarting the generator makes it delete and re-clone the content
 repository, which takes a moment. It does not generate anything — nothing
 happens until something pings it.
 
+Restarting also does not pick up a change to `mmWebsite.env`. A container is
+given its environment when it is created, and a restart reuses the same
+container — which is why the next section recreates it instead.
+
+## Changing the trigger key
+
+You can do this at any time, with or without a deploy. On the droplet:
+
+```bash
+openssl rand -hex 32
+sudo nano /etc/mattsmaths/mmWebsite.env    # replace the SyntheticPdfsTrigger__ApiKey value
+cd /opt/mattsmaths
+docker compose up -d --force-recreate websheets
+```
+
+The last line replaces the site's container, so the site drops for a few seconds.
+It stays on the version already deployed and leaves the generator running.
+
+The old key stops working at that moment, so update the `WEBSHEETS_TRIGGER_KEY`
+Actions secret on `Matthews_Mathematics` straight away. Until you do, the
+workflow's ping fails with a `401`. Re-run the failed job afterwards.
+
+Running `deploy.sh` also applies a changed key, because it recreates the site's
+container when it brings up a new version.
+
+To check which key the running site has, without starting a generation run:
+
+```bash
+docker inspect --format '{{json .Config.Env}}' "$(docker compose ps -q websheets)" \
+  | grep -o 'SyntheticPdfsTrigger__ApiKey=[^"]*'
+```
+
+Do not test a key by pinging with it. A correct key starts a real run.
+
 ---
 
 # Troubleshooting
@@ -389,7 +449,7 @@ The preflight is written so that each failure names its own fix.
 | --- | --- | --- |
 | `the docker daemon is not answering` | Docker Desktop is not running on your machine | Start it, wait for the whale icon to settle |
 | `no docker on PATH` | WSL cannot see Docker Desktop | Settings → Resources → WSL Integration, enable for Ubuntu |
-| `cannot ssh to root@...` | Key missing, wrong permissions, or wrong path | `chmod 600 ~/.ssh/mmPrivKey.ossh`, and check Part 1.3 |
+| `cannot ssh to root@...` | Usually the key's passphrase has not been given to `ssh-agent` in this terminal. Otherwise the key is missing, has the wrong permissions, or is at the wrong path | Run the `ssh-agent` commands in Part 1.3. If that does not fix it, `chmod 600 ~/.ssh/mmPrivKey.ossh` and work through the rest of Part 1.3 |
 | `docker is not installed on the droplet` | Part 2.1 not done | Do Part 2.1 |
 | `/etc/mattsmaths/... is missing` | One of the three secrets is not there | Do Part 2.3 for that file |
 | `deploy_key must be owned by uid 10001 with mode 600` | Ownership or permissions wrong | `sudo chown 10001:10001` and `sudo chmod 600` on it |
