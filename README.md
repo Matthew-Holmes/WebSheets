@@ -217,9 +217,10 @@ as an Actions secret:
    `.github/workflows/scripts/009_pingSyntheticPdfs.sh` even if a document failed
    to compile.
 
-The script reports every problem as a warning on the run and always exits `0`. The
-pipeline still publishes PDFs without the generator, so a missing key or a server
-error should not turn the build red.
+If the secret is not set, the script fails the run, so that a repository with no
+way of reaching the generator does not look healthy. Any other problem is only a
+warning: the pipeline still publishes PDFs without the generator, so a rejected key
+or a server error should not turn the build red.
 
 | Status | Meaning | What to do |
 | --- | --- | --- |
