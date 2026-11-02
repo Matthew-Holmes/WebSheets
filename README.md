@@ -213,23 +213,13 @@ as an Actions secret:
    → Actions → New repository secret.
 2. Name it `WEBSHEETS_TRIGGER_KEY`, and paste in the value of
    `SyntheticPdfsTrigger__ApiKey` from the droplet.
-3. Add this step to the workflow, after the steps that have to finish first:
+3. Call it from the last step of the workflow, which runs
+   `.github/workflows/scripts/009_pingSyntheticPdfs.sh` even if a document failed
+   to compile.
 
-```yaml
-- name: Start a generation run
-  env:
-    TRIGGER_KEY: ${{ secrets.WEBSHEETS_TRIGGER_KEY }}
-  run: |
-    curl --fail-with-body -sS -X POST \
-      https://matthewsmathematics.uk/api/public/syntheticPDFs/ping \
-      -H "Content-Type: application/json" \
-      -H "X-WebSheets-Trigger-Key: $TRIGGER_KEY" \
-      -d "{}"
-```
-
-`--fail-with-body` is what makes the step fail on an error status. Plain `curl`
-exits successfully whatever the server answers, so a rejected key would go
-unnoticed.
+The script reports every problem as a warning on the run and always exits `0`. The
+pipeline still publishes PDFs without the generator, so a missing key or a server
+error should not turn the build red.
 
 | Status | Meaning | What to do |
 | --- | --- | --- |
