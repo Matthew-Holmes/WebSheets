@@ -18,11 +18,7 @@ namespace Shared
         // has just started - a problem introduced by the push being announced here is
         // surfaced by the next announcement.
         IReadOnlyList<string> Problems
-    )
-    {
-        public PingResult(PingOutcome outcome, bool isRunning, bool isQueued)
-            : this(outcome, isRunning, isQueued, new List<string>())
-        {
-        }
-    }
+    );
+    // One constructor only. The website reads this with System.Text.Json, which will
+    // not choose between two, and threw on every ping that had a second.
 }
