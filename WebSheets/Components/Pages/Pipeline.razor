@@ -1,0 +1,238 @@
+@page "/pipeline"
+@rendermode InteractiveServer
+
+@using Shared
+
+<PageTitle>Generation pipeline</PageTitle>
+
+<h1 class="eal-title">Generation pipeline</h1>
+<p class="eal-subtitle">What the generator is doing, what it has left, and roughly how long that will take</p>
+
+@if (!Loaded)
+{
+    <p>Loading...</p>
+}
+else if (Status is null)
+{
+    <div class="alert alert-warning">
+        <strong>The generator is not answering.</strong> @Unreachable
+        <div class="small mt-1">This page tries again every few seconds.</div>
+    </div>
+}
+else
+{
+    var s = Status;
+
+    @if (Unreachable is not null)
+    {
+        <div class="alert alert-warning py-2 small">
+            The generator did not answer just now, so this is how things stood @Ago(s.At). @Unreachable
+        </div>
+    }
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <p class="mb-2">
+                <span class="badge @BadgeClass(s.State) me-2">@StateName(s.State)</span>
+                @s.Activity
+                @if (s.ActivitySince is { } since)
+                {
+                    <span class="text-muted"> - for @Rough(s.At - since)</span>
+                }
+            </p>
+
+            @if (s.Forecast is { } f)
+            {
+                <p class="fs-4 mb-1">About @Rough(f.Remaining) left</p>
+                <p class="text-muted mb-0">
+                    @Count(f.Files, "file") still to make, over @Count(f.Passes, "pass") &middot; @Basis(f)
+                </p>
+
+                @if (f.Waiting > 0)
+                {
+                    <p class="small text-danger mb-0 mt-1">
+                        @Count(f.Waiting, "more file") will not be made, because something
+                        they are made from is not going to be made either.
+                    </p>
+                }
+            }
+            else if (s.State == PipelineState.Idle)
+            {
+                <p class="text-muted mb-0">
+                    Nothing left to make. A push to the content repository, or a request from
+                    an EAL page, starts it again.
+                </p>
+            }
+
+            @if (s.AnotherPassQueued)
+            {
+                <p class="small text-muted mb-0 mt-2">Another pass is queued to start after this one.</p>
+            }
+        </div>
+    </div>
+
+    @if (s.Problems.Count > 0)
+    {
+        <div class="alert alert-danger">
+            <strong>Files the generator cannot read</strong>
+            <ul class="mb-0">
+                @foreach (var problem in s.Problems)
+                {
+                    <li>@problem</li>
+                }
+            </ul>
+        </div>
+    }
+
+    @if (s.CurrentPass is { } pass)
+    {
+        <h2 class="h5">Pass @pass.Number: @pass.Work</h2>
+        <p class="small text-muted">Started @Ago(pass.Started)</p>
+
+        @if (pass.Items.Count > 0)
+        {
+            int finished = pass.Items.Count(i => i.State != PassItemState.Running);
+
+            <div class="progress mb-2" role="progressbar" aria-label="Files finished in this pass"
+                 aria-valuenow="@finished" aria-valuemin="0" aria-valuemax="@pass.Items.Count">
+                <div class="progress-bar" style="width: @Percent(finished, pass.Items.Count)%">
+                    @finished of @pass.Items.Count
+                </div>
+            </div>
+
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th scope="col">File</th>
+                        <th scope="col">State</th>
+                        <th scope="col" class="text-end">Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in pass.Items)
+                    {
+                        <tr>
+                            <td>
+                                <code>@item.File</code>
+                                @if (item.Error is not null)
+                                {
+                                    <div class="small text-danger">@item.Error</div>
+                                }
+                            </td>
+                            <td><span class="badge @ItemBadge(item.State)">@ItemName(item.State)</span></td>
+                            <td class="text-end">@Rough(item.Elapsed)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
+
+    @if (s.Forecast is { Stages.Count: > 0 } forecast)
+    {
+        <h2 class="h5 mt-4">Still to do</h2>
+        <p class="small text-muted">
+            In the order the pipeline will do it, one kind of work at a time@(s.CurrentPass is null ? "" : ", starting with the pass running now").
+            Rough: it assumes every file comes back first time and nobody pushes meanwhile.
+        </p>
+
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th scope="col">Work</th>
+                    <th scope="col" class="text-end">Files</th>
+                    <th scope="col" class="text-end">Passes</th>
+                    <th scope="col" class="text-end">About</th>
+                    <th scope="col">Timed from</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var stage in forecast.Stages)
+                {
+                    <tr>
+                        <td>
+                            <details>
+                                <summary>@stage.Work</summary>
+                                <ul class="small mb-0">
+                                    @foreach (var job in stage.Jobs)
+                                    {
+                                        <li><code>@job</code></li>
+                                    }
+                                    @if (stage.Jobs.Count < stage.FileCount)
+                                    {
+                                        <li class="text-muted">and @(stage.FileCount - stage.Jobs.Count) more</li>
+                                    }
+                                </ul>
+                            </details>
+                        </td>
+                        <td class="text-end">@stage.FileCount</td>
+                        <td class="text-end">@stage.Passes</td>
+                        <td class="text-end">@Rough(stage.Estimated)</td>
+                        <td class="small text-muted">@TimedFrom(stage)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @if (s.Requests.Count > 0)
+    {
+        <h2 class="h5 mt-4">Asked for on the website</h2>
+        <p class="small text-muted">Made before anything else, in the order they were asked for.</p>
+
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th scope="col">File</th>
+                    <th scope="col" class="text-end">Asked</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var request in s.Requests)
+                {
+                    <tr>
+                        <td><code>@request.File</code></td>
+                        <td class="text-end">@Ago(request.AskedAt)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @if (s.RecentPasses.Count > 0)
+    {
+        <h2 class="h5 mt-4">Recent passes</h2>
+
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th scope="col">Pass</th>
+                    <th scope="col">Work</th>
+                    <th scope="col">What happened</th>
+                    <th scope="col" class="text-end">Took</th>
+                    <th scope="col" class="text-end">Tokens</th>
+                    <th scope="col" class="text-end">Finished</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in s.RecentPasses)
+                {
+                    <tr class="@RowClass(p.Result)">
+                        <td>@p.Number</td>
+                        <td>@p.Work</td>
+                        <td>@Outcome(p)</td>
+                        <td class="text-end">@Rough(p.Took)</td>
+                        <td class="text-end">@((p.PromptTokens + p.CompletionTokens).ToString("N0"))</td>
+                        <td class="text-end">@Ago(p.Started + p.Took)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <p class="small text-muted mt-4">
+        The generator has been running for @Rough(s.At - s.RunningSince), and has used
+        @s.PromptTokens.ToString("N0") prompt and @s.CompletionTokens.ToString("N0")
+        completion tokens since it started. This page refreshes every few seconds.
+    </p>
+}

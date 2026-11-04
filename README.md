@@ -268,14 +268,57 @@ written, and every vocabulary key before any translation.
 | Priority | Work |
 | --- | --- |
 | 1 | Anything asked for explicitly, oldest request first |
-| 2 | English worked solutions and answer keys |
+| 2 | English worked solutions, answer keys and variants |
 | 3 | English tier 3 vocabulary keys |
-| 4 | Translated vocabulary keys |
-| 5 | Translated sheets |
+| 4 | New words added to the shared dictionary |
+| 5 | Translated dictionaries brought into step with it |
+| 6 | Translated vocabulary keys |
+| 7 | Translated sheets |
 
 This is a gate rather than a preference. A vocabulary key is derived from
 finished English source and a translation from a finished key, so doing a little
 of each would mean writing files from parents that are about to change.
+
+### Watching it work
+
+`/pipeline` on the site shows what the generator is doing and what it has left.
+Like `/coverage`, it is not on the menu. It reads `GET /status` from the
+generator every five seconds, the same way the site reads `/languages`, and
+shows:
+
+- the pass running now, file by file, with how long each has taken and any error
+- what is still to do, in the order the pipeline will do it, with a rough time
+- files asked for on an EAL page that have not been made yet
+- the last 30 passes: what each did, how long it took and the tokens it used
+- dictionary files the generator cannot read
+
+**How the estimate works.** At the start of every pass the generator runs its own
+batch rules forward over the plans, pass by pass, as if every file came back
+first time. Counting missing files would not do: a pass does one kind of work
+and a file waits for everything it is made from, so twenty missing files can be
+one pass or six. A pass runs its batch side by side, so it takes about as long as
+its slowest file however many it makes, and the estimate counts passes rather
+than files.
+
+Each pass is timed at the median of the last ten passes of the same kind since
+the generator started. Until one has run, it uses a typical figure: the median
+gap between the generator's own commits from September to November 2026.
+
+| Work | Typical pass |
+| --- | --- |
+| English sheets | 64 s |
+| English vocabulary keys | 85 s |
+| Shared dictionary | 18 s |
+| Translated dictionaries | 54 s |
+| Translated vocabulary keys | 21 s |
+| Translated sheets | 409 s |
+| Removing out-of-date files | 20 s |
+
+It is rough. A failure, or a push meanwhile, changes what is left. Which new
+words a vocabulary key brings cannot be known until it is written, so the
+dictionary passes that usually follow a round of keys are marked *expected*.
+The history is kept in memory, so after a restart, including every deploy, the
+estimate starts from the typical figures again.
 
 ## Translated sheets for EAL learners
 

@@ -36,6 +36,9 @@ namespace SyntheticPDFs.Services
         private long _promptTokens;
         private long _completionTokens;
 
+        public (long Prompt, long Completion) TokensUsed =>
+            (Interlocked.Read(ref _promptTokens), Interlocked.Read(ref _completionTokens));
+
         public LLMService(IOptions<LLMOptions> options, ILogger<LLMService> logger)
         {
             _options = options.Value;

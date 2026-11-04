@@ -46,7 +46,37 @@ namespace SyntheticPDFs.Logic
         // i.e. the repo is seeing high traffic and we need to squeeze our commits in
         private int MaxFilesToGenerate { get; set; }
 
+        // the pass, with what it did recorded for the status page whichever way it ends
         internal async Task<PassOutcome> DoOnePassAsync()
+        {
+            Monitor.PassStarted(LLMService.TokensUsed);
+
+            try
+            {
+                PassOutcome outcome = await RunPassAsync();
+
+                Monitor.PassFinished(ResultOf(outcome), LLMService.TokensUsed);
+
+                return outcome;
+            }
+            catch (Exception e)
+            {
+                Monitor.PassFinished(Shared.PassResult.Crashed, LLMService.TokensUsed, e.Message);
+
+                throw;
+            }
+        }
+
+        private static Shared.PassResult ResultOf(PassOutcome outcome) => outcome switch
+        {
+            PassOutcome.RemovedStaleFiles => Shared.PassResult.RemovedStaleFiles,
+            PassOutcome.Generated         => Shared.PassResult.Generated,
+            PassOutcome.NothingToDo       => Shared.PassResult.NothingToDo,
+            PassOutcome.GitConflict       => Shared.PassResult.RepositoryMoved,
+            _                             => Shared.PassResult.AllFailed,
+        };
+
+        private async Task<PassOutcome> RunPassAsync()
         {
             // early exit after any change to the repository, for maximum granularity of
             // interaction - somebody else may be committing, and the server always backs
@@ -78,6 +108,18 @@ namespace SyntheticPDFs.Logic
             // what stops the file being rebuilt when a later edit makes it stale
             ForgetSatisfiedRequests(model);
 
+            // reporting only, so a mistake in it must never cost the pass its work
+            try
+            {
+                Monitor.Forecasted(ForecastFrom(model, MaxFilesToGenerate));
+            }
+            catch (Exception e)
+            {
+                _logger.LogWarning("could not forecast the work left: {Message}", e.Message);
+
+                Monitor.Forecasted(Forecast.Nothing);
+            }
+
             List<ContentFile> staleFiles = model.Sheets.Values
                 .SelectMany(sheet => sheet.StaleFiles)
                 .ToList();
@@ -85,6 +127,8 @@ namespace SyntheticPDFs.Logic
             if (staleFiles.Count > 0)
             {
                 _logger.LogInformation("found stale files: removing");
+
+                Monitor.Removing(staleFiles.Count);
 
                 bool removed = await RepoManager.RemoveFiles(
                     staleFiles.Select(f => f.FullPath).ToList(), model.LastCommitHash);
@@ -100,7 +144,8 @@ namespace SyntheticPDFs.Logic
                 return PassOutcome.RemovedStaleFiles;
             }
 
-            List<GenerationRequest> batchToCreate = GetCreationBatch(model, MaxFilesToGenerate);
+            List<GenerationRequest> batchToCreate =
+                GetCreationBatch(model, MaxFilesToGenerate, out GenerationPriority work);
 
             if (batchToCreate.Count == 0)
             {
@@ -108,10 +153,13 @@ namespace SyntheticPDFs.Logic
                 return PassOutcome.NothingToDo;
             }
 
+            Monitor.Generating(work, batchToCreate.Select(Describe).ToList());
+
             // generate concurrently - AgentBase already caps this at 10 locally and 20
             // across all agents, so there is no need to throttle again here
             List<List<TexSourceModel>> generated = (await Task.WhenAll(
-                batchToCreate.Select(request => TryGenerateSyntheticSource(request, model)))).ToList();
+                batchToCreate.Select((request, index) =>
+                    TryGenerateSyntheticSource(request, model, index)))).ToList();
 
             List<TexSourceModel> syntheticSource = generated
                 .SelectMany(ts => ts)
@@ -136,6 +184,8 @@ namespace SyntheticPDFs.Logic
 
             _logger.LogInformation("created source, committing and pushing");
 
+            Monitor.Pushing(syntheticSource.Count);
+
             bool pushed = await RepoManager.CommitAndPushTexSource(
                 syntheticSource, model.LastCommitHash);
 
@@ -153,19 +203,25 @@ namespace SyntheticPDFs.Logic
         // one file failing shouldn't cost us the rest of the batch - it stays missing
         // from the model, so the next pass picks it up again
         private async Task<List<TexSourceModel>> TryGenerateSyntheticSource(
-            GenerationRequest request, ContentModel model)
+            GenerationRequest request, ContentModel model, int index)
         {
             _logger.LogInformation($"generating Tex source for {request.Target.RootName}");
 
             try
             {
-                return await GenerateSyntheticSource(request, model);
+                List<TexSourceModel> made = await GenerateSyntheticSource(request, model);
+
+                Monitor.ItemFinished(index, made.Count == 0 ? "came back with nothing to commit" : null);
+
+                return made;
             }
             catch (Exception e)
             {
                 _logger.LogError(
                     "failed to {Job} {Part} for {Root}: {Message}",
                     request.Job, request.Target.Part, request.Target.RootName, e.Message);
+
+                Monitor.ItemFinished(index, e.Message);
 
                 return new List<TexSourceModel>();
             }

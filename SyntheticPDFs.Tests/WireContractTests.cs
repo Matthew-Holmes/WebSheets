@@ -81,5 +81,42 @@ namespace SyntheticPDFs.Tests
 
             CollectionAssert.AreEqual(sent, read);
         }
+
+        [TestMethod]
+        public void TheStatusSurvivesTheTrip()
+        {
+            DateTimeOffset at = new(2026, 11, 4, 9, 0, 0, TimeSpan.Zero);
+
+            var sent = new PipelineStatus(
+                State:             PipelineState.WaitingToRetry,
+                Activity:          "making 2 files: translated sheets",
+                ActivitySince:     at,
+                AnotherPassQueued: true,
+                CurrentPass:       new PassProgress(3, "translated sheets", at, new List<PassItem>
+                {
+                    new("worksheets/a/L2/pol/a_polishParallelText.tex", PassItemState.Failed,
+                        TimeSpan.FromSeconds(42), "did not compile"),
+                }),
+                Forecast:          new PipelineForecast(5, 2, TimeSpan.FromMinutes(7), 1, new List<ForecastStage>
+                {
+                    new("translated sheets", 2, 5, TimeSpan.FromMinutes(7), 1, new List<String> { "a.tex" }),
+                }),
+                RecentPasses:      new List<PassRecord>
+                {
+                    new(2, "English sheets", at, TimeSpan.FromSeconds(64), PassResult.Crashed,
+                        1, 0, 0, 1200, 300, "git fell over"),
+                },
+                Requests:          new List<RequestedFile> { new("worksheets/b.tex", at) },
+                Problems:          new List<String> { "dictionary.tex: line 4" },
+                PromptTokens:      12_000_000_000,
+                CompletionTokens:  34,
+                RunningSince:      at.AddDays(-1),
+                At:                at);
+
+            var read = RoundTrip(sent);
+
+            // records holding lists compare those lists by reference, so compare what was written
+            Assert.AreEqual(JsonSerializer.Serialize(sent, Web), JsonSerializer.Serialize(read, Web));
+        }
     }
 }

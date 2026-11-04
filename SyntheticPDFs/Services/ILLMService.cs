@@ -18,6 +18,9 @@ namespace SyntheticPDFs.Services
         // not a table it may or may not close
         Task<String> GetStructuredResponse(String prompt);
 
+        // tokens used since the service started, read either side of a pass to say what it cost
+        (long Prompt, long Completion) TokensUsed => (0, 0);
+
         void Log(LogLevel lvl, String message);
     }
 }

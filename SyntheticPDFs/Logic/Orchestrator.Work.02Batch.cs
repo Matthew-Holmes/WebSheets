@@ -24,7 +24,8 @@ namespace SyntheticPDFs.Logic
         // priority gate decide which kind of work this pass does. Nothing is ready until
         // everything it derives from is settled, so a sheet advances one step per pass on
         // its own without needing to be told to.
-        private List<GenerationRequest> GetCreationBatch(ContentModel model, int maxBatch)
+        private List<GenerationRequest> GetCreationBatch(
+            ContentModel model, int maxBatch, out GenerationPriority work)
         {
             List<Candidate> candidates = new();
 
@@ -39,7 +40,7 @@ namespace SyntheticPDFs.Logic
 
             candidates.AddRange(DictionaryCandidates(model, rootOrder));
 
-            return Select(candidates, maxBatch);
+            return Select(candidates, maxBatch, out work);
         }
 
         private IEnumerable<Candidate> CandidatesFor(SheetState sheet, int rootOrder)
@@ -93,26 +94,32 @@ namespace SyntheticPDFs.Logic
 
             foreach (PlannedFile planned in sheet.Creatable())
             {
-                if (!ImplementedForms.Contains(planned.Key.Form)) { continue; }
-
                 long? requestedAt = RequestedAt(sheet.RootName, planned.Key);
 
-                // anything not eager is made only when it has been asked for, and once
-                // removed as stale is not rebuilt
-                if (!planned.Eager && requestedAt is null) { continue; }
+                if (Wanted(planned, requestedAt) is not { } priority) { continue; }
 
                 ret.Add(new Candidate
                 {
                     Request   = Request(sheet.RootName, planned.Key, sheet.Archetype),
-                    Priority  = requestedAt is null
-                        ? PriorityOf(planned.Key)
-                        : GenerationPriority.Requested,
+                    Priority  = priority,
                     RootOrder = rootOrder,
                     Sequence  = requestedAt ?? order++,
                 });
             }
 
             return ret;
+        }
+
+        // Whether the pipeline makes a planned file at all, and how urgently. Anything not
+        // eager is made only when it has been asked for, and once removed as stale is not
+        // rebuilt. Shared with the forecast, so the two cannot disagree about what is coming.
+        private static GenerationPriority? Wanted(PlannedFile planned, long? requestedAt)
+        {
+            if (planned.Written || !ImplementedForms.Contains(planned.Key.Form)) { return null; }
+
+            if (!planned.Eager && requestedAt is null) { return null; }
+
+            return requestedAt is null ? PriorityOf(planned.Key) : GenerationPriority.Requested;
         }
 
         // Work owed on a file that already exists, which the plan has nothing to say

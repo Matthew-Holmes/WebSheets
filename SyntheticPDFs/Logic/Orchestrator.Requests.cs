@@ -14,6 +14,10 @@ namespace SyntheticPDFs.Logic
             internal required String Root { get; init; }
             internal required ContentKey Key { get; init; }
             internal required long Sequence { get; init; }
+
+            // the path it will be written to, and when it was asked for - both for the status page
+            internal required String File { get; init; }
+            internal required DateTimeOffset AskedAt { get; init; }
         }
 
         private readonly List<PendingRequest> _requests = new();
@@ -54,10 +58,15 @@ namespace SyntheticPDFs.Logic
 
             List<String> queued = new();
 
+            String PathOf(ContentKey k) =>
+                (target with { Language = k.Language, Part = k.Part, Form = k.Form, }).FilePath;
+
             _requestLock.Wait();
             try
             {
                 long sequence = _nextSequence++;
+
+                DateTimeOffset now = _time.GetUtcNow();
 
                 foreach (ContentKey key in closure)
                 {
@@ -72,12 +81,12 @@ namespace SyntheticPDFs.Logic
                         Root     = target.RootName,
                         Key      = key,
                         Sequence = sequence,
+                        File     = PathOf(key),
+                        AskedAt  = now,
                     });
                 }
 
-                queued = closure
-                    .Select(k => (target with { Language = k.Language, Part = k.Part, Form = k.Form, }).FilePath)
-                    .ToList();
+                queued = closure.Select(PathOf).ToList();
             }
             finally
             {

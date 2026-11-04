@@ -32,15 +32,25 @@ namespace SyntheticPDFs.Logic
         // where the repository is and, within it, where the shared dictionary lives
         internal ContentRepositoryOptions ContentRepository { get; init; }
 
+        // what the status page is built from - the pass running now and the ones before it
+        internal PipelineMonitor Monitor { get; }
+
+        private readonly TimeProvider _time;
+
         public Orchestrator(
             ILogger<Orchestrator> logger,
             IGitRepoManager repoManager,
             ILLMService lLMService,
             IOptions<GenerationOptions> options,
             IOptions<L2Options>? l2Options = null,
-            IOptions<ContentRepositoryOptions>? contentRepository = null)
+            IOptions<ContentRepositoryOptions>? contentRepository = null,
+            TimeProvider? time = null)
         {
             _logger = logger;
+
+            _time = time ?? TimeProvider.System;
+
+            Monitor = new PipelineMonitor(_time);
 
             RepoManager = repoManager;
             LLMService = lLMService;
@@ -121,6 +131,7 @@ namespace SyntheticPDFs.Logic
 
                 case PassOutcome.GitConflict:
                     Backoff();
+                    Monitor.WaitingToRetry(ConflictRetryDelay);
                     _logger.LogInformation(
                         "backing off for {Seconds}s before retrying",
                         ConflictRetryDelay.TotalSeconds);

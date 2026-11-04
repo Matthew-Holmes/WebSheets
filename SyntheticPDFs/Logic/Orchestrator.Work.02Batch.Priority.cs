@@ -68,8 +68,11 @@ namespace SyntheticPDFs.Logic
         // Vocabulary is derived from finished English source, and translations from
         // finished vocabulary, so doing a little of each would mean writing files from
         // parents that are about to change.
-        private List<GenerationRequest> Select(List<Candidate> candidates, int maxBatch)
+        private List<GenerationRequest> Select(
+            List<Candidate> candidates, int maxBatch, out GenerationPriority work)
         {
+            work = GenerationPriority.Requested;
+
             if (candidates.Count == 0) { return new List<GenerationRequest>(); }
 
             GenerationPriority most = candidates.Min(c => c.Priority);
@@ -87,6 +90,8 @@ namespace SyntheticPDFs.Logic
                     "no {Blocked} work outstanding, so this pass is doing {Doing} work",
                     GenerationPriority.English, most);
             }
+
+            work = most;
 
             return chosen.Select(c => c.Request).ToList();
         }

@@ -140,6 +140,11 @@ app.MapPost("/ping", (
 app.MapGet("/languages", (Orchestrator orchestrator) =>
     Results.Ok(orchestrator.SupportedLanguages()));
 
+// What the pipeline is doing, what it has left and roughly how long that will take. The
+// website's pipeline page reads it every few seconds; reading it changes nothing.
+app.MapGet("/status", (Orchestrator orchestrator) =>
+    Results.Ok(orchestrator.Status()));
+
 // Ask for one translated file. Everything it is derived from is queued with it and
 // jumps ahead of the work the pipeline chose for itself, so a caller gets what they
 // asked for without having to know what it depends on, or wait for the whole
